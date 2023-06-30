@@ -10,3 +10,4 @@ homepage = "https://github.com/nvzqz/divan"
 documentation = "https://docs.rs/divan"
 categories = ["development-tools::profiling"]
 keywords = ["benchmark", "criterion", "instrument", "measure", "performance"]
+readme = "README.md"
