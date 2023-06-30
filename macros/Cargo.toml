@@ -16,4 +16,4 @@ readme = "../README.md"
 proc-macro = true
 
 [dev-dependencies]
-divan = { version = "0.0.0", path = ".." }
+divan = { workspace = true }
