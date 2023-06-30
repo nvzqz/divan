@@ -1,19 +1,19 @@
 [package]
-name = "divan"
+name = "divan-macros"
 version = "0.0.0"
 edition = "2021"
 authors = ["Nikolai Vazquez"]
 license = "MIT OR Apache-2.0"
-description = "Statistically-comfy benchmarking library."
+description = "Macros for Divan, a statistically-comfy benchmarking library."
 repository = "https://github.com/nvzqz/divan"
 homepage = "https://github.com/nvzqz/divan"
-documentation = "https://docs.rs/divan"
+documentation = "https://docs.rs/divan-macros"
 categories = ["development-tools::profiling"]
 keywords = ["benchmark", "criterion", "instrument", "measure", "performance"]
-readme = "README.md"
+readme = "../README.md"
 
-[dependencies]
-divan-macros = { version = "0.0.0", path = "macros" }
+[lib]
+proc-macro = true
 
-[workspace]
-members = ["macros"]
+[dev-dependencies]
+divan = { version = "0.0.0", path = ".." }
