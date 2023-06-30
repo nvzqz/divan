@@ -1,0 +1,12 @@
+[package]
+name = "divan"
+version = "0.0.0"
+edition = "2021"
+authors = ["Nikolai Vazquez"]
+license = "MIT OR Apache-2.0"
+description = "Statistically-comfy benchmarking library."
+repository = "https://github.com/nvzqz/divan"
+homepage = "https://github.com/nvzqz/divan"
+documentation = "https://docs.rs/divan"
+categories = ["development-tools::profiling"]
+keywords = ["benchmark", "criterion", "instrument", "measure", "performance"]
