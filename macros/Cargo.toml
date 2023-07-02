@@ -15,5 +15,9 @@ readme = "../README.md"
 [lib]
 proc-macro = true
 
+[dependencies]
+# Versions prior to *.18 fail to parse empty attribute metadata.
+syn = { version = "^2.0.18", default-features = false, features = ["full", "parsing", "printing", "proc-macro"] }
+
 [dev-dependencies]
 divan = { workspace = true }
