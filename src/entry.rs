@@ -5,6 +5,12 @@ pub struct Entry {
     /// The benchmarked function's fully-qualified path.
     pub path: &'static str,
 
+    /// The file where the benchmarked function was defined.
+    pub file: &'static str,
+
+    /// The line where the benchmarked function was defined.
+    pub line: u32,
+
     /// The benchmarking loop.
     pub bench_loop: fn(),
 

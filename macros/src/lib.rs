@@ -88,6 +88,10 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
             static __DIVAN_BENCH_ENTRY: #private_mod::Entry = #private_mod::Entry {
                 path: #bench_path_expr,
 
+                // `Span` location info is nightly-only, so use macros.
+                file: #std_crate::file!(),
+                line: #std_crate::line!(),
+
                 // TODO: Wrap the provided function with a benchmark loop
                 // function. Doing so removes function call overhead, which
                 // would otherwise worsen measurement quality.
