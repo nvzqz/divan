@@ -1,7 +1,7 @@
 # Divan
 
-\[WIP] Divan (/diːvan/) is a statistically-comfy benchmarking library for Rust
-projects, brought to you by [Nikolai Vazquez](https://hachyderm.io/@nikolai).
+A statistically-comfy benchmarking library for Rust projects, brought to you by
+[Nikolai Vazquez](https://hachyderm.io/@nikolai).
 
 ## License
 
