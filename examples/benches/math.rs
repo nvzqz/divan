@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::hint::black_box as bb;
 
 fn main() {

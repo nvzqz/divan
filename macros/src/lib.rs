@@ -4,6 +4,7 @@
 #![warn(missing_docs)]
 
 use proc_macro::TokenStream;
+use quote::quote;
 
 /// Registers a benchmarking function.
 ///
@@ -54,8 +55,49 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     syn::parse_macro_input!(attr with attr_parser);
 
-    // All access to `divan` must go through this path.
-    let _divan_crate = divan_crate.unwrap_or_else(|| syn::parse_quote!(::divan));
+    // Items needed by generated code.
+    //
+    // Access to libstd is through a re-export because it's possible (although
+    // unlikely) to do `extern crate x as std`, which would cause `::std` to
+    // reference crate `x` instead.
+    let divan_crate = divan_crate.unwrap_or_else(|| syn::parse_quote!(::divan));
+    let private_mod = quote! { #divan_crate::__private };
+    let linkme_crate = quote! { #private_mod::linkme };
+    let std_crate = quote! { #private_mod::std };
 
-    item
+    let fn_item = item.clone();
+    let fn_item = syn::parse_macro_input!(fn_item as syn::ItemFn);
+    let fn_name = &fn_item.sig.ident;
+
+    // String expression of the benchmark's fully-qualified path.
+    let bench_path_expr = {
+        let fn_name = fn_name.to_string();
+        let fn_name = fn_name.strip_prefix("r#").unwrap_or(&fn_name);
+
+        quote! { #std_crate::concat!(#std_crate::module_path!(), "::", #fn_name) }
+    };
+
+    let entry_item = quote! {
+        // This `const _` prevents collisions in the current scope by giving us
+        // an anonymous scope to place our static in. As a result, this macro
+        // can be used multiple times within the same scope.
+        #[doc(hidden)]
+        const _: () = {
+            #[#linkme_crate::distributed_slice(#private_mod::ENTRIES)]
+            #[linkme(crate = #linkme_crate)]
+            static __DIVAN_BENCH_ENTRY: #private_mod::Entry = #private_mod::Entry {
+                path: #bench_path_expr,
+
+                // TODO: Wrap the provided function with a benchmark loop
+                // function. Doing so removes function call overhead, which
+                // would otherwise worsen measurement quality.
+                bench_loop: #fn_name,
+            };
+        };
+    };
+
+    // Append our generated code to the existing token stream.
+    let mut result = item;
+    result.extend(TokenStream::from(entry_item));
+    result
 }

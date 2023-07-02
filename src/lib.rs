@@ -9,6 +9,8 @@ pub use divan_macros::*;
 #[path = "private.rs"]
 pub mod __private;
 
+mod entry;
+
 /// Runs all registered benchmarks.
 ///
 /// # Examples
@@ -26,4 +28,9 @@ pub mod __private;
 /// ```
 ///
 /// See [`#[divan::bench]`](macro@bench) for more examples.
-pub fn main() {}
+pub fn main() {
+    for benchmark in entry::ENTRIES {
+        println!("Running '{}'", benchmark.path);
+        (benchmark.bench_loop)();
+    }
+}
