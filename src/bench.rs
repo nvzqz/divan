@@ -11,9 +11,6 @@ use std::{
 /// Instances of this type are publicly accessible to generated code, so care
 /// should be taken when making fields fully public.
 pub struct Context {
-    /// When benchmarking began.
-    pub(crate) start: Instant,
-
     /// Recorded samples.
     pub(crate) samples: Vec<Sample>,
 
@@ -26,7 +23,6 @@ impl Context {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
-            start: Instant::now(),
             // TODO: Pick these numbers dynamically.
             samples: Vec::with_capacity(1_000),
             iter_per_sample: 1_000,
@@ -39,37 +35,39 @@ impl Context {
         self.samples.capacity()
     }
 
+    /// Begins info measurement at the start of a loop.
+    #[inline(always)]
+    pub fn start_sample(&self) -> Instant {
+        Instant::now()
+    }
+
     /// Records measurement info at the end of a loop.
     #[inline(always)]
-    pub fn record_sample(&mut self) {
-        self.samples.push(Sample {
-            instant: Instant::now(),
-        });
+    pub fn end_sample(&mut self, start: Instant) {
+        let end = Instant::now();
+        self.samples.push(Sample { start, end });
     }
 
     pub fn compute_stats(&self) -> Option<Stats> {
-        // Converts a sample duration to an iteration duration.
-        let sample_to_iter_duration =
-            |sample| SmallDuration::average(sample, self.iter_per_sample as u128);
-
         let sample_count = self.samples.len();
         let total_count = sample_count * self.iter_per_sample as usize;
 
-        let (first, rest) = self.samples.split_first()?;
+        let first = self.samples.first()?;
+        let last = self.samples.last()?;
 
-        let first_duration = sample_to_iter_duration(first.instant.duration_since(self.start));
-        let mut all_durations = vec![first_duration];
-
-        let mut prev_instant = first.instant;
-        for sample in rest {
-            all_durations.push(sample_to_iter_duration(
-                sample.instant.duration_since(prev_instant),
-            ));
-            prev_instant = sample.instant;
-        }
-
-        let total_duration = prev_instant.duration_since(self.start);
+        let total_duration = last.end.duration_since(first.start);
         let avg_duration = SmallDuration::average(total_duration, total_count as u128);
+
+        let mut all_durations: Vec<SmallDuration> = self
+            .samples
+            .iter()
+            .map(|sample| {
+                SmallDuration::average(
+                    sample.end.duration_since(sample.start),
+                    self.iter_per_sample as u128,
+                )
+            })
+            .collect();
 
         all_durations.sort_unstable();
 
@@ -103,8 +101,11 @@ impl Context {
 
 /// Measurement datum.
 pub struct Sample {
-    /// When the sample was recorded.
-    pub instant: Instant,
+    /// When the sample began.
+    pub start: Instant,
+
+    /// When the sample stopped.
+    pub end: Instant,
 }
 
 /// Statistics from samples.

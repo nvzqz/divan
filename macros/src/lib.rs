@@ -100,12 +100,13 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                     );
 
                     for _ in 0..__divan_context.target_sample_count() {
+                        let __divan_sample = __divan_context.start_sample();
                         for _ in 0..__divan_context.iter_per_sample {
                             // NOTE: `push` is a no-op if the result of the
                             // benchmarked function does not need to be dropped.
                             __divan_drop_store.push(#std_crate::hint::black_box(#fn_name()));
                         }
-                        __divan_context.record_sample();
+                        __divan_context.end_sample(__divan_sample);
                     }
                 },
 
