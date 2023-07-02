@@ -2,7 +2,9 @@
 
 use std::hint::black_box as bb;
 
-fn main() {}
+fn main() {
+    divan::main();
+}
 
 #[divan::bench]
 fn add() {

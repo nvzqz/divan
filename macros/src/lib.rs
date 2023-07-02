@@ -16,6 +16,11 @@ use proc_macro::TokenStream;
 /// fn add() {
 ///     bb(bb(1) + bb(42));
 /// }
+///
+/// fn main() {
+///     // Run `add` benchmark:
+///     divan::main();
+/// }
 /// ```
 #[proc_macro_attribute]
 pub fn bench(_attr: TokenStream, item: TokenStream) -> TokenStream {
