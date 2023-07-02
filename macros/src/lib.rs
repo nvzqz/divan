@@ -14,8 +14,8 @@ use quote::quote;
 /// use std::hint::black_box as bb;
 ///
 /// #[divan::bench]
-/// fn add() {
-///     bb(bb(1) + bb(42));
+/// fn add() -> i32 {
+///     bb(1) + bb(42)
 /// }
 ///
 /// fn main() {
@@ -36,8 +36,9 @@ use quote::quote;
 ///   extern crate divan as sofa;
 ///
 ///   #[::sofa::bench(crate = ::sofa)]
-///   fn add() {
+///   fn add() -> i32 {
 ///       // ...
+///       # 0
 ///   }
 ///   ```
 #[proc_macro_attribute]

@@ -5,26 +5,26 @@ fn main() {
 }
 
 #[divan::bench]
-fn add() {
-    _ = bb(bb(2) + bb(1));
+fn add() -> i32 {
+    bb(2) + bb(1)
 }
 
 #[divan::bench]
-fn sub() {
-    _ = bb(bb(2) - bb(1));
+fn sub() -> i32 {
+    bb(2) - bb(1)
 }
 
 #[divan::bench]
-fn mul() {
-    _ = bb(bb(2) * bb(1));
+fn mul() -> i32 {
+    bb(2) * bb(1)
 }
 
 #[divan::bench]
-fn div() {
-    _ = bb(bb(2) / bb(1));
+fn div() -> i32 {
+    bb(2) / bb(1)
 }
 
 #[divan::bench]
-fn rem() {
-    _ = bb(bb(2) % bb(1));
+fn rem() -> i32 {
+    bb(2) % bb(1)
 }

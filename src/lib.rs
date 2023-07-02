@@ -18,8 +18,9 @@ mod entry;
 ///
 /// ```
 /// #[divan::bench]
-/// fn add() {
+/// fn add() -> i32 {
 ///     // ...
+///     # 0
 /// }
 ///
 /// fn main() {
