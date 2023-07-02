@@ -30,7 +30,7 @@ mod entry;
 /// See [`#[divan::bench]`](macro@bench) for more examples.
 pub fn main() {
     for benchmark in entry::ENTRIES {
-        println!("Running '{}'", benchmark.path);
+        println!("Running '{}' ({:?})", benchmark.path, (benchmark.get_id)());
         (benchmark.bench_loop)();
     }
 }

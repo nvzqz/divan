@@ -1,5 +1,7 @@
 // Tests that ensure weird (but valid) usage behave as expected.
 
+use std::collections::HashSet;
+
 use divan::__private::ENTRIES;
 
 #[divan::bench]
@@ -34,5 +36,20 @@ fn path() {
         if entry.path.contains("inner") {
             assert_eq!(entry.path, "weird_usage::inner");
         }
+    }
+}
+
+// Test that each benchmarked function has a unique type ID.
+#[test]
+fn unique_id() {
+    let mut seen = HashSet::new();
+
+    for entry in ENTRIES {
+        let id = (entry.get_id)();
+        assert!(
+            seen.insert(id),
+            "Function '{}' does not have a unique type ID",
+            entry.path
+        );
     }
 }

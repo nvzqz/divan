@@ -92,6 +92,8 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 // function. Doing so removes function call overhead, which
                 // would otherwise worsen measurement quality.
                 bench_loop: #fn_name,
+
+                get_id: || #std_crate::any::Any::type_id(&#fn_name),
             };
         };
     };
