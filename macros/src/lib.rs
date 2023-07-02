@@ -92,10 +92,15 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 file: #std_crate::file!(),
                 line: #std_crate::line!(),
 
-                // TODO: Wrap the provided function with a benchmark loop
-                // function. Doing so removes function call overhead, which
-                // would otherwise worsen measurement quality.
-                bench_loop: #fn_name,
+                bench_loop: |__divan_context| {
+                    for _ in 0..__divan_context.target_sample_count() {
+                        for _ in 0..__divan_context.iter_per_sample {
+                            // Discard any result.
+                            _ = #std_crate::hint::black_box(#fn_name());
+                        }
+                        __divan_context.record_sample();
+                    }
+                },
 
                 get_id: || #std_crate::any::Any::type_id(&#fn_name),
             };
