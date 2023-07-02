@@ -4,6 +4,11 @@
 #[doc(inline)]
 pub use divan_macros::*;
 
+// Used by generated code. Not public API and thus not subject to SemVer.
+#[doc(hidden)]
+#[path = "private.rs"]
+pub mod __private;
+
 /// Runs all registered benchmarks.
 ///
 /// # Examples

@@ -14,6 +14,7 @@ readme = "README.md"
 
 [dependencies]
 divan-macros = { version = "0.0.0", path = "macros" }
+linkme = { version = "0.3", default-features = false }
 
 [workspace]
 members = ["macros", "examples"]
