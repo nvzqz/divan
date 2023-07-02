@@ -36,7 +36,7 @@ pub fn main() {
     entries.sort_unstable_by_key(|e| (e.path, e.line));
 
     for entry in &entries {
-        println!("Running '{}' ({:?})", entry.path, (entry.get_id)());
+        println!("Running '{}'", entry.path);
 
         let mut context = bench::Context::new();
         (entry.bench_loop)(&mut context);
