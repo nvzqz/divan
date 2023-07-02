@@ -10,6 +10,7 @@ pub use divan_macros::*;
 pub mod __private;
 
 mod bench;
+mod cli;
 mod entry;
 
 /// Runs all registered benchmarks.
@@ -31,8 +32,15 @@ mod entry;
 ///
 /// See [`#[divan::bench]`](macro@bench) for more examples.
 pub fn main() {
+    let cli_args = cli::CliArgs::parse();
+    let filter = cli_args.filter();
+
+    let mut entries: Vec<&_> = entry::ENTRIES
+        .iter()
+        .filter(|entry| filter.map(|f| f.is_match(entry.path)).unwrap_or(true))
+        .collect();
+
     // Run benchmarks in alphabetical order, breaking ties by line order.
-    let mut entries: Vec<&_> = entry::ENTRIES.iter().collect();
     entries.sort_unstable_by_key(|e| (e.path, e.line));
 
     for entry in &entries {
