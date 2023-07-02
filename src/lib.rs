@@ -31,7 +31,11 @@ mod entry;
 ///
 /// See [`#[divan::bench]`](macro@bench) for more examples.
 pub fn main() {
-    for entry in entry::ENTRIES {
+    // Run benchmarks in alphabetical order, breaking ties by line order.
+    let mut entries: Vec<&_> = entry::ENTRIES.iter().collect();
+    entries.sort_unstable_by_key(|e| (e.path, e.line));
+
+    for entry in &entries {
         println!("Running '{}' ({:?})", entry.path, (entry.get_id)());
 
         let mut context = bench::Context::new();
