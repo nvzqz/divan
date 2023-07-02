@@ -12,5 +12,9 @@ publish = false
 divan = { workspace = true }
 
 [[bench]]
+name = "collections"
+harness = false
+
+[[bench]]
 name = "math"
 harness = false

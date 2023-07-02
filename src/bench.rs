@@ -28,8 +28,8 @@ impl Context {
         Self {
             start: Instant::now(),
             // TODO: Pick these numbers dynamically.
-            samples: Vec::with_capacity(10_000),
-            iter_per_sample: 100_000,
+            samples: Vec::with_capacity(1_000),
+            iter_per_sample: 1_000,
         }
     }
 
