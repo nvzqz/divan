@@ -94,10 +94,16 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 line: #std_crate::line!(),
 
                 bench_loop: |__divan_context| {
+                    // Prevents `Drop` from being measured automatically.
+                    let mut __divan_drop_store = #private_mod::DropStore::with_capacity(
+                        __divan_context.target_sample_count() * __divan_context.iter_per_sample as usize,
+                    );
+
                     for _ in 0..__divan_context.target_sample_count() {
                         for _ in 0..__divan_context.iter_per_sample {
-                            // Discard any result.
-                            _ = #std_crate::hint::black_box(#fn_name());
+                            // NOTE: `push` is a no-op if the result of the
+                            // benchmarked function does not need to be dropped.
+                            __divan_drop_store.push(#std_crate::hint::black_box(#fn_name()));
                         }
                         __divan_context.record_sample();
                     }

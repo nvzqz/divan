@@ -161,3 +161,31 @@ impl SmallDuration {
         }
     }
 }
+
+/// Defers `Drop` of items produced while benchmarking.
+pub struct DropStore<T> {
+    items: Vec<T>,
+}
+
+#[allow(missing_docs)]
+impl<T> DropStore<T> {
+    const IS_NO_OP: bool = !std::mem::needs_drop::<T>();
+
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            items: if Self::IS_NO_OP {
+                Vec::new()
+            } else {
+                Vec::with_capacity(capacity)
+            },
+        }
+    }
+
+    #[inline(always)]
+    pub fn push(&mut self, item: T) {
+        if !Self::IS_NO_OP {
+            self.items.push(item);
+        }
+    }
+}

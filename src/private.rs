@@ -2,4 +2,7 @@ pub use std;
 
 pub use linkme;
 
-pub use crate::entry::{Entry, ENTRIES};
+pub use crate::{
+    bench::DropStore,
+    entry::{Entry, ENTRIES},
+};
