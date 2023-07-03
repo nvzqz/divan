@@ -7,6 +7,14 @@ fn main() {
     divan::main();
 }
 
+mod util {
+    use super::*;
+
+    pub fn collect_nums<T: FromIterator<i32>>() -> T {
+        bb(0..100).collect()
+    }
+}
+
 mod vec {
     use super::*;
 
@@ -20,6 +28,12 @@ mod vec {
         // TODO: Make capacity be a provided value.
         let capacity = bb(100);
         Vec::with_capacity(capacity)
+    }
+
+    #[divan::bench]
+    fn from_iter() -> Vec<i32> {
+        // TODO: Make size be a provided value.
+        util::collect_nums()
     }
 }
 
@@ -37,6 +51,12 @@ mod vec_deque {
         let capacity = bb(100);
         VecDeque::with_capacity(capacity)
     }
+
+    #[divan::bench]
+    fn from_iter() -> VecDeque<i32> {
+        // TODO: Make size be a provided value.
+        util::collect_nums()
+    }
 }
 
 mod linked_list {
@@ -45,6 +65,12 @@ mod linked_list {
     #[divan::bench]
     fn default() -> LinkedList<i32> {
         Default::default()
+    }
+
+    #[divan::bench]
+    fn from_iter() -> LinkedList<i32> {
+        // TODO: Make size be a provided value.
+        util::collect_nums()
     }
 }
 
@@ -62,6 +88,12 @@ mod binary_heap {
         let capacity = bb(100);
         BinaryHeap::with_capacity(capacity)
     }
+
+    #[divan::bench]
+    fn from_iter() -> BinaryHeap<i32> {
+        // TODO: Make size be a provided value.
+        util::collect_nums()
+    }
 }
 
 mod hash_set {
@@ -78,6 +110,12 @@ mod hash_set {
         let capacity = bb(100);
         HashSet::with_capacity(capacity)
     }
+
+    #[divan::bench]
+    fn from_iter() -> HashSet<i32> {
+        // TODO: Make size be a provided value.
+        util::collect_nums()
+    }
 }
 
 mod btree_set {
@@ -86,5 +124,11 @@ mod btree_set {
     #[divan::bench]
     fn default() -> BTreeSet<i32> {
         Default::default()
+    }
+
+    #[divan::bench]
+    fn from_iter() -> BTreeSet<i32> {
+        // TODO: Make size be a provided value.
+        util::collect_nums()
     }
 }
