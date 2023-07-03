@@ -32,6 +32,9 @@ mod entry;
 ///
 /// See [`#[divan::bench]`](macro@bench) for more examples.
 pub fn main() {
+    use cli::CliAction;
+    use entry::Entry;
+
     let cli_args = cli::CliArgs::parse();
     let filter = cli_args.filter();
 
@@ -43,13 +46,25 @@ pub fn main() {
     // Run benchmarks in alphabetical order, breaking ties by line order.
     entries.sort_unstable_by_key(|e| (e.path, e.line));
 
-    for entry in &entries {
-        println!("Running '{}'", entry.path);
+    match cli_args.action {
+        CliAction::Bench => {
+            for entry in &entries {
+                println!("Running '{}'", entry.path);
 
-        let mut context = bench::Context::new();
-        (entry.bench_loop)(&mut context);
+                let mut context = bench::Context::new();
+                (entry.bench_loop)(&mut context);
 
-        println!("{:#?}", context.compute_stats().unwrap());
-        println!();
+                println!("{:#?}", context.compute_stats().unwrap());
+                println!();
+            }
+        }
+        CliAction::List => {
+            for Entry {
+                file, path, line, ..
+            } in &entries
+            {
+                println!("{file} - {path} (line {line}): bench");
+            }
+        }
     }
 }
