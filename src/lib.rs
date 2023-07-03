@@ -46,10 +46,12 @@ pub fn main() {
     // Run benchmarks in alphabetical order, breaking ties by line order.
     entries.sort_unstable_by_key(|e| (e.path, e.line));
 
+    let ignore_entry = |entry: &Entry| !cli_args.ignored_mode.should_run(entry.ignore);
+
     match cli_args.action {
         CliAction::Bench => {
             for entry in &entries {
-                if entry.ignore {
+                if ignore_entry(entry) {
                     println!("Ignoring '{}'", entry.path);
                     continue;
                 }
@@ -65,7 +67,7 @@ pub fn main() {
         }
         CliAction::Test => {
             for entry in &entries {
-                if entry.ignore {
+                if ignore_entry(entry) {
                     println!("Ignoring '{}'", entry.path);
                     continue;
                 }
