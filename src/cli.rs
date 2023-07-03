@@ -14,12 +14,7 @@ fn command() -> Command {
                 .value_parser(value_parser!(Regex)),
         )
         // libtest arguments:
-        .arg(
-            Arg::new("list")
-                .long("list")
-                .help("Lists benchmarks")
-                .action(ArgAction::SetTrue),
-        )
+        .arg(Arg::new("list").long("list").help("Lists benchmarks").action(ArgAction::SetTrue))
         // ignored:
         .arg(Arg::new("bench").long("bench").num_args(0).hide(true))
 }
@@ -28,12 +23,8 @@ impl CliArgs {
     pub fn parse() -> Self {
         let matches = command().get_matches();
 
-        Self {
-            action: if matches.get_flag("list") {
-                CliAction::List
-            } else {
-                CliAction::Bench
-            },
+        CliArgs {
+            action: if matches.get_flag("list") { CliAction::List } else { CliAction::Bench },
             matches,
         }
     }

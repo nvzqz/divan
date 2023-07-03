@@ -79,9 +79,7 @@ impl Context {
             let a = all_durations[sample_count / 2];
             let b = all_durations[(sample_count / 2) - 1];
 
-            SmallDuration {
-                picos: (a.picos + b.picos) / 2,
-            }
+            SmallDuration { picos: (a.picos + b.picos) / 2 }
         } else {
             // Single middle number.
             all_durations[sample_count / 2]
@@ -157,9 +155,7 @@ impl fmt::Debug for SmallDuration {
 impl SmallDuration {
     /// Computes the average of a duration over a number of elements.
     fn average(duration: Duration, n: u128) -> Self {
-        Self {
-            picos: (duration.as_nanos() * 1_000) / n,
-        }
+        Self { picos: (duration.as_nanos() * 1_000) / n }
     }
 }
 
@@ -174,13 +170,7 @@ impl<T> DropStore<T> {
 
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            items: if Self::IS_NO_OP {
-                Vec::new()
-            } else {
-                Vec::with_capacity(capacity)
-            },
-        }
+        Self { items: if Self::IS_NO_OP { Vec::new() } else { Vec::with_capacity(capacity) } }
     }
 
     /// Prepares the store for storing a sample.

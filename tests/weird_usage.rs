@@ -46,10 +46,6 @@ fn unique_id() {
 
     for entry in ENTRIES {
         let id = (entry.get_id)();
-        assert!(
-            seen.insert(id),
-            "Function '{}' does not have a unique type ID",
-            entry.path
-        );
+        assert!(seen.insert(id), "Function '{}' does not have a unique type ID", entry.path);
     }
 }

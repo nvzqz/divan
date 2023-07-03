@@ -59,10 +59,7 @@ pub fn main() {
             }
         }
         CliAction::List => {
-            for Entry {
-                file, path, line, ..
-            } in &entries
-            {
+            for Entry { file, path, line, .. } in &entries {
                 println!("{file} - {path} (line {line}): bench");
             }
         }
