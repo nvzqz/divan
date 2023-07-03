@@ -43,8 +43,8 @@ pub fn main() {
         .filter(|entry| filter.map(|f| f.is_match(entry.name)).unwrap_or(true))
         .collect();
 
-    // Run benchmarks in alphabetical order, breaking ties by line order.
-    entries.sort_unstable_by_key(|e| (e.name, e.line));
+    // Run benchmarks in alphabetical order, breaking ties by location order.
+    entries.sort_unstable_by_key(|e| (e.name, e.file, e.line));
 
     let ignore_entry = |entry: &Entry| !cli_args.ignored_mode.should_run(entry.ignore);
 
