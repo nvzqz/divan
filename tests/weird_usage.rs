@@ -5,6 +5,11 @@ use std::collections::HashSet;
 use divan::__private::ENTRIES;
 
 #[divan::bench]
+fn lifetime<'a>() -> &'a str {
+    "hello"
+}
+
+#[divan::bench]
 fn embedded() {
     #[divan::bench]
     fn inner() {
