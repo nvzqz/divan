@@ -183,6 +183,15 @@ impl<T> DropStore<T> {
         }
     }
 
+    /// Prepares the store for storing a sample.
+    #[inline(always)]
+    pub fn prepare(&mut self, capacity: usize) {
+        if !Self::IS_NO_OP {
+            self.items.clear();
+            self.items.reserve_exact(capacity);
+        }
+    }
+
     #[inline(always)]
     pub fn push(&mut self, item: T) {
         if !Self::IS_NO_OP {
