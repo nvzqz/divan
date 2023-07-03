@@ -1,9 +1,10 @@
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
+use clap::{value_parser, Arg, ArgAction, ArgMatches, ColorChoice, Command};
 use regex::Regex;
 
 pub struct CliArgs {
     pub matches: ArgMatches,
     pub action: CliAction,
+    pub color: ColorChoice,
 }
 
 fn command() -> Command {
@@ -14,6 +15,14 @@ fn command() -> Command {
                 .value_parser(value_parser!(Regex)),
         )
         // libtest arguments:
+        .arg(
+            Arg::new("color")
+                .long("color")
+                .value_name("WHEN")
+                .help("Controls when to use colors")
+                .value_parser(value_parser!(ColorChoice))
+                .default_value("auto"),
+        )
         .arg(
             Arg::new("test")
                 .long("test")
@@ -44,6 +53,7 @@ impl CliArgs {
             } else {
                 CliAction::Bench
             },
+            color: matches.get_one("color").copied().unwrap(),
             matches,
         }
     }
