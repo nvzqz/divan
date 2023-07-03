@@ -58,6 +58,12 @@ pub fn main() {
                 println!();
             }
         }
+        CliAction::Test => {
+            for entry in &entries {
+                println!("Running '{}'", entry.path);
+                (entry.test)();
+            }
+        }
         CliAction::List => {
             for Entry { file, path, line, .. } in &entries {
                 println!("{file} - {path} (line {line}): bench");

@@ -16,6 +16,9 @@ pub struct Entry {
     /// The benchmarking loop.
     pub bench_loop: fn(&mut Context),
 
+    /// Runs the benchmarked function once to test that it runs successfully.
+    pub test: fn(),
+
     /// Returns the globally unique ID of a benchmarked function.
     ///
     /// The Rust reference guarantees that [each function item has a unique

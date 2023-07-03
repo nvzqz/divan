@@ -112,6 +112,8 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 },
 
+                test: || _ = #fn_name(),
+
                 get_id: || #std_crate::any::Any::type_id(&#fn_name),
             };
         };

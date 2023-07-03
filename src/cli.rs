@@ -14,7 +14,20 @@ fn command() -> Command {
                 .value_parser(value_parser!(Regex)),
         )
         // libtest arguments:
-        .arg(Arg::new("list").long("list").help("Lists benchmarks").action(ArgAction::SetTrue))
+        .arg(
+            Arg::new("test")
+                .long("test")
+                .help("Run benchmarks once to ensure they run successfully")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("list"),
+        )
+        .arg(
+            Arg::new("list")
+                .long("list")
+                .help("Lists benchmarks")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("test"),
+        )
         // ignored:
         .arg(Arg::new("bench").long("bench").num_args(0).hide(true))
 }
@@ -24,7 +37,13 @@ impl CliArgs {
         let matches = command().get_matches();
 
         CliArgs {
-            action: if matches.get_flag("list") { CliAction::List } else { CliAction::Bench },
+            action: if matches.get_flag("test") {
+                CliAction::Test
+            } else if matches.get_flag("list") {
+                CliAction::List
+            } else {
+                CliAction::Bench
+            },
             matches,
         }
     }
@@ -37,8 +56,11 @@ impl CliArgs {
 /// The primary action to perform in `main()`.
 #[derive(Clone, Copy)]
 pub enum CliAction {
-    /// Run benchmarks.
+    /// Run benchmark loops.
     Bench,
+
+    /// Run benchmarked functions once to ensure they run successfully.
+    Test,
 
     /// List benchmarks.
     List,
