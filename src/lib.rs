@@ -40,11 +40,11 @@ pub fn main() {
 
     let mut entries: Vec<&_> = entry::ENTRIES
         .iter()
-        .filter(|entry| filter.map(|f| f.is_match(entry.path)).unwrap_or(true))
+        .filter(|entry| filter.map(|f| f.is_match(entry.name)).unwrap_or(true))
         .collect();
 
     // Run benchmarks in alphabetical order, breaking ties by line order.
-    entries.sort_unstable_by_key(|e| (e.path, e.line));
+    entries.sort_unstable_by_key(|e| (e.name, e.line));
 
     let ignore_entry = |entry: &Entry| !cli_args.ignored_mode.should_run(entry.ignore);
 
@@ -52,11 +52,11 @@ pub fn main() {
         CliAction::Bench => {
             for entry in &entries {
                 if ignore_entry(entry) {
-                    println!("Ignoring '{}'", entry.path);
+                    println!("Ignoring '{}'", entry.name);
                     continue;
                 }
 
-                println!("Running '{}'", entry.path);
+                println!("Running '{}'", entry.name);
 
                 let mut context = bench::Context::new();
                 (entry.bench_loop)(&mut context);
@@ -68,17 +68,17 @@ pub fn main() {
         CliAction::Test => {
             for entry in &entries {
                 if ignore_entry(entry) {
-                    println!("Ignoring '{}'", entry.path);
+                    println!("Ignoring '{}'", entry.name);
                     continue;
                 }
 
-                println!("Running '{}'", entry.path);
+                println!("Running '{}'", entry.name);
                 (entry.test)();
             }
         }
         CliAction::List => {
-            for Entry { file, path, line, .. } in &entries {
-                println!("{file} - {path} (line {line}): bench");
+            for Entry { file, name, line, .. } in &entries {
+                println!("{file} - {name} (line {line}): bench");
             }
         }
     }

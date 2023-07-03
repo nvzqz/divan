@@ -4,7 +4,7 @@
 #![warn(missing_docs)]
 
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 
 /// Registers a benchmarking function.
 ///
@@ -25,6 +25,20 @@ use quote::quote;
 /// ```
 ///
 /// # Options
+///
+/// - `#[divan::bench(name = "...")]`
+///
+///   By default, the benchmark is named after the function's [canonical path](https://doc.rust-lang.org/reference/paths.html#canonical-paths)
+///   (i.e. `module_path!() + "::" + fn_name`). This can be overridden via the
+///   `name` option:
+///
+///   ```
+///   #[divan::bench(name = "Add It")]
+///   fn add() -> i32 {
+///       // ...
+///       # 0
+///   }
+///   ```
 ///
 /// - `#[divan::bench(crate = path::to::divan)]`
 ///
@@ -58,10 +72,14 @@ use quote::quote;
 #[proc_macro_attribute]
 pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut divan_crate = None::<syn::Path>;
+    let mut bench_name_expr = None::<syn::Expr>;
 
     let attr_parser = syn::meta::parser(|meta| {
         if meta.path.is_ident("crate") {
             divan_crate = Some(meta.value()?.parse()?);
+            Ok(())
+        } else if meta.path.is_ident("name") {
+            bench_name_expr = Some(meta.value()?.parse()?);
             Ok(())
         } else {
             Err(meta.error("unsupported 'bench' property"))
@@ -102,6 +120,11 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! { #std_crate::concat!(#std_crate::module_path!(), "::", #fn_name) }
     };
 
+    let bench_name_expr: &dyn ToTokens = match &bench_name_expr {
+        Some(name) => name,
+        None => &bench_path_expr,
+    };
+
     let entry_item = quote! {
         // This `const _` prevents collisions in the current scope by giving us
         // an anonymous scope to place our static in. As a result, this macro
@@ -111,6 +134,7 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
             #[#linkme_crate::distributed_slice(#private_mod::ENTRIES)]
             #[linkme(crate = #linkme_crate)]
             static __DIVAN_BENCH_ENTRY: #private_mod::Entry = #private_mod::Entry {
+                name: #bench_name_expr,
                 path: #bench_path_expr,
 
                 // `Span` location info is nightly-only, so use macros.
