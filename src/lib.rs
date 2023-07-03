@@ -49,6 +49,11 @@ pub fn main() {
     match cli_args.action {
         CliAction::Bench => {
             for entry in &entries {
+                if entry.ignore {
+                    println!("Ignoring '{}'", entry.path);
+                    continue;
+                }
+
                 println!("Running '{}'", entry.path);
 
                 let mut context = bench::Context::new();
@@ -60,6 +65,11 @@ pub fn main() {
         }
         CliAction::Test => {
             for entry in &entries {
+                if entry.ignore {
+                    println!("Ignoring '{}'", entry.path);
+                    continue;
+                }
+
                 println!("Running '{}'", entry.path);
                 (entry.test)();
             }

@@ -41,6 +41,20 @@ use quote::quote;
 ///       # 0
 ///   }
 ///   ```
+///
+/// - [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute)
+///
+///   Like [`#[test]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-test-attribute),
+///   `#[divan::bench]` functions can be ignored:
+///
+///   ```
+///   #[divan::bench]
+///   #[ignore = "not yet implemented"]
+///   fn todo() {
+///       unimplemented!();
+///   }
+///   # divan::main();
+///   ```
 #[proc_macro_attribute]
 pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut divan_crate = None::<syn::Path>;
@@ -70,6 +84,16 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_item = syn::parse_macro_input!(fn_item as syn::ItemFn);
     let fn_name = &fn_item.sig.ident;
 
+    let mut ignore = false;
+    for attr in &fn_item.attrs {
+        let path = attr.meta.path();
+
+        if path.is_ident("ignore") {
+            ignore = true;
+            break;
+        }
+    }
+
     // String expression of the benchmark's fully-qualified path.
     let bench_path_expr = {
         let fn_name = fn_name.to_string();
@@ -92,6 +116,8 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 // `Span` location info is nightly-only, so use macros.
                 file: #std_crate::file!(),
                 line: #std_crate::line!(),
+
+                ignore: #ignore,
 
                 bench_loop: |__divan_context| {
                     // Prevents `Drop` from being measured automatically.

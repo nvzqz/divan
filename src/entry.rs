@@ -13,6 +13,9 @@ pub struct Entry {
     /// The line where the benchmarked function was defined.
     pub line: u32,
 
+    /// Whether this entry was marked with [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute).
+    pub ignore: bool,
+
     /// The benchmarking loop.
     pub bench_loop: fn(&mut Context),
 

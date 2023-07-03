@@ -25,6 +25,7 @@ fn div() -> i32 {
 }
 
 #[divan::bench]
+#[ignore]
 fn rem() -> i32 {
     bb(2) % bb(1)
 }
