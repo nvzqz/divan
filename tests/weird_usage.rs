@@ -18,6 +18,9 @@ fn embedded() {
     }
 }
 
+#[divan::bench]
+fn r#raw_ident() {}
+
 // Test that each function appears the expected number of times.
 #[test]
 fn count() {
@@ -40,6 +43,11 @@ fn path() {
         // their path because that's not how `module_path!()` works.
         if entry.path.contains("inner") {
             assert_eq!(entry.path, "weird_usage::inner");
+        }
+
+        // "r#" is removed from raw identifiers.
+        if entry.path.contains("raw_ident") {
+            assert_eq!(entry.path, "weird_usage::raw_ident");
         }
     }
 }
