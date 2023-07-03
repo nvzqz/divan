@@ -36,7 +36,7 @@ pub fn main() {
     use entry::Entry;
 
     let cli_args = cli::CliArgs::parse();
-    let filter = cli_args.filter();
+    let filter = cli_args.filter.as_ref();
 
     let mut entries: Vec<&_> = entry::ENTRIES
         .iter()

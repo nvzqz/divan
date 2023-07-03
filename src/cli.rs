@@ -3,6 +3,7 @@ use regex::Regex;
 
 pub struct CliArgs {
     pub matches: ArgMatches,
+    pub filter: Option<CliFilter>,
     pub action: CliAction,
     pub color: ColorChoice,
     pub ignored_mode: CliIgnoredMode,
@@ -15,9 +16,9 @@ fn command() -> Command {
 
     Command::new("divan")
         .arg(
-            Arg::new("BENCHNAME")
-                .help("If specified, only run benches matching this pattern in their names")
-                .value_parser(value_parser!(Regex)),
+            Arg::new("filter")
+                .value_name("BENCHNAME")
+                .help("If specified, only run benches matching this pattern in their names"),
         )
         // libtest arguments:
         .arg(
@@ -27,6 +28,12 @@ fn command() -> Command {
                 .help("Controls when to use colors")
                 .value_parser(value_parser!(ColorChoice))
                 .default_value("auto"),
+        )
+        .arg(
+            Arg::new("exact")
+                .long("exact")
+                .help("Exactly match BENCHNAME rather than by pattern")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("test")
@@ -62,9 +69,23 @@ fn command() -> Command {
 
 impl CliArgs {
     pub fn parse() -> Self {
-        let matches = command().get_matches();
+        let mut command = command();
+        let matches = command.get_matches_mut();
 
         CliArgs {
+            filter: matches.get_one::<String>("filter").map(|filter| {
+                if matches.get_flag("exact") {
+                    CliFilter::Exact(filter.clone())
+                } else {
+                    match Regex::new(filter) {
+                        Ok(r) => CliFilter::Regex(r),
+                        Err(error) => {
+                            let kind = clap::error::ErrorKind::ValueValidation;
+                            command.error(kind, error).exit();
+                        }
+                    }
+                }
+            }),
             action: if matches.get_flag("test") {
                 CliAction::Test
             } else if matches.get_flag("list") {
@@ -83,9 +104,20 @@ impl CliArgs {
             matches,
         }
     }
+}
 
-    pub fn filter(&self) -> Option<&Regex> {
-        self.matches.get_one("BENCHNAME")
+/// Filters which benchmark to run based on name.
+pub enum CliFilter {
+    Regex(Regex),
+    Exact(String),
+}
+
+impl CliFilter {
+    pub fn is_match(&self, s: &str) -> bool {
+        match self {
+            Self::Regex(r) => r.is_match(s),
+            Self::Exact(e) => e == s,
+        }
     }
 }
 
