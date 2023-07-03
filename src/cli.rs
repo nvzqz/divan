@@ -8,6 +8,10 @@ pub struct CliArgs {
 }
 
 fn command() -> Command {
+    fn ignored_flag(name: &'static str) -> Arg {
+        Arg::new(name).long(name).num_args(0).hide(true)
+    }
+
     Command::new("divan")
         .arg(
             Arg::new("BENCHNAME")
@@ -38,7 +42,7 @@ fn command() -> Command {
                 .conflicts_with("test"),
         )
         // ignored:
-        .arg(Arg::new("bench").long("bench").num_args(0).hide(true))
+        .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])
 }
 
 impl CliArgs {
