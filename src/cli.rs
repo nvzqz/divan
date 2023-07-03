@@ -1,4 +1,7 @@
-use clap::{value_parser, Arg, ArgAction, ArgMatches, ColorChoice, Command};
+use clap::{
+    builder::PossibleValue, value_parser, Arg, ArgAction, ArgMatches, ColorChoice, Command,
+    ValueEnum,
+};
 use regex::Regex;
 
 pub struct CliArgs {
@@ -6,6 +9,7 @@ pub struct CliArgs {
     pub filter: Option<CliFilter>,
     pub action: CliAction,
     pub color: ColorChoice,
+    pub format: CliOutputFormat,
     pub ignored_mode: CliIgnoredMode,
 }
 
@@ -28,6 +32,14 @@ fn command() -> Command {
                 .help("Controls when to use colors")
                 .value_parser(value_parser!(ColorChoice))
                 .default_value("auto"),
+        )
+        .arg(
+            Arg::new("format")
+                .long("format")
+                .value_name("pretty|terse")
+                .help("Configure formatting of output")
+                .value_parser(value_parser!(CliOutputFormat))
+                .default_value("pretty"),
         )
         .arg(
             Arg::new("exact")
@@ -94,6 +106,7 @@ impl CliArgs {
                 CliAction::Bench
             },
             color: matches.get_one("color").copied().unwrap(),
+            format: matches.get_one("format").copied().unwrap(),
             ignored_mode: if matches.get_flag("ignored") {
                 CliIgnoredMode::Only
             } else if matches.get_flag("include-ignored") {
@@ -132,6 +145,26 @@ pub enum CliAction {
 
     /// List benchmarks.
     List,
+}
+
+#[derive(Clone, Copy)]
+pub enum CliOutputFormat {
+    Pretty,
+    Terse,
+}
+
+impl ValueEnum for CliOutputFormat {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Pretty, Self::Terse]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        let name = match self {
+            Self::Pretty => "pretty",
+            Self::Terse => "terse",
+        };
+        Some(PossibleValue::new(name))
+    }
 }
 
 #[derive(Clone, Copy)]
