@@ -18,3 +18,7 @@ harness = false
 [[bench]]
 name = "math"
 harness = false
+
+[[bench]]
+name = "panic"
+harness = false
