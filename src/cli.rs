@@ -4,9 +4,12 @@ use clap::{
 };
 use regex::Regex;
 
+use crate::entry::Entry;
+
 pub struct CliArgs {
     pub matches: ArgMatches,
     pub filter: Option<CliFilter>,
+    pub skip: Vec<CliFilter>,
     pub action: CliAction,
     pub color: ColorChoice,
     pub format: CliOutputFormat,
@@ -21,8 +24,8 @@ fn command() -> Command {
     Command::new("divan")
         .arg(
             Arg::new("filter")
-                .value_name("BENCHNAME")
-                .help("If specified, only run benches matching this pattern in their names"),
+                .value_name("FILTER")
+                .help("Only run benchmarks whose names match this pattern"),
         )
         // libtest arguments:
         .arg(
@@ -42,9 +45,16 @@ fn command() -> Command {
                 .default_value("pretty"),
         )
         .arg(
+            Arg::new("skip")
+                .long("skip")
+                .value_name("FILTER")
+                .help("Skip benchmarks whose names match this pattern")
+                .action(ArgAction::Append),
+        )
+        .arg(
             Arg::new("exact")
                 .long("exact")
-                .help("Exactly match BENCHNAME rather than by pattern")
+                .help("Filter benchmarks by exact name rather than by pattern")
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -82,22 +92,30 @@ fn command() -> Command {
 impl CliArgs {
     pub fn parse() -> Self {
         let mut command = command();
-        let matches = command.get_matches_mut();
 
-        CliArgs {
-            filter: matches.get_one::<String>("filter").map(|filter| {
-                if matches.get_flag("exact") {
-                    CliFilter::Exact(filter.clone())
-                } else {
-                    match Regex::new(filter) {
-                        Ok(r) => CliFilter::Regex(r),
-                        Err(error) => {
-                            let kind = clap::error::ErrorKind::ValueValidation;
-                            command.error(kind, error).exit();
-                        }
+        let matches = command.get_matches_mut();
+        let is_exact = matches.get_flag("exact");
+
+        let mut parse_filter = |filter: &str| {
+            if is_exact {
+                CliFilter::Exact(filter.to_owned())
+            } else {
+                match Regex::new(filter) {
+                    Ok(r) => CliFilter::Regex(r),
+                    Err(error) => {
+                        let kind = clap::error::ErrorKind::ValueValidation;
+                        command.error(kind, error).exit();
                     }
                 }
-            }),
+            }
+        };
+
+        CliArgs {
+            filter: matches.get_one::<String>("filter").map(|filter| parse_filter(filter)),
+            skip: matches
+                .get_many::<String>("skip")
+                .map(|filters| filters.map(|filter| parse_filter(filter)).collect())
+                .unwrap_or_default(),
             action: if matches.get_flag("test") {
                 CliAction::Test
             } else if matches.get_flag("list") {
@@ -116,6 +134,22 @@ impl CliArgs {
             },
             matches,
         }
+    }
+
+    /// Returns `true` if `entry` should be considered for running.
+    ///
+    /// This does not take into account `entry.ignored` because that is handled
+    /// separately.
+    pub fn filter(&self, entry: &Entry) -> bool {
+        let name = entry.name;
+
+        if let Some(filter) = &self.filter {
+            if !filter.is_match(name) {
+                return false;
+            }
+        }
+
+        !self.skip.iter().any(|filter| filter.is_match(name))
     }
 }
 

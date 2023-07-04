@@ -36,12 +36,9 @@ pub fn main() {
     use entry::Entry;
 
     let cli_args = cli::CliArgs::parse();
-    let filter = cli_args.filter.as_ref();
 
-    let mut entries: Vec<&_> = entry::ENTRIES
-        .iter()
-        .filter(|entry| filter.map(|f| f.is_match(entry.name)).unwrap_or(true))
-        .collect();
+    let mut entries: Vec<&_> =
+        entry::ENTRIES.iter().filter(|entry| cli_args.filter(entry)).collect();
 
     // Run benchmarks in alphabetical order, breaking ties by location order.
     entries.sort_unstable_by_key(|e| (e.name, e.file, e.line));
