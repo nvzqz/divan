@@ -30,6 +30,13 @@ fn twice() {}
 #[divan::bench]
 fn thrice() {}
 
+#[test]
+fn test_fn() {
+    for entry in ENTRIES {
+        (entry.test)();
+    }
+}
+
 // Test that each function appears the expected number of times.
 #[test]
 fn count() {
