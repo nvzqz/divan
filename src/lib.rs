@@ -43,6 +43,9 @@ pub fn main() {
     // Run benchmarks in alphabetical order, breaking ties by location order.
     entries.sort_unstable_by_key(|e| (e.name, e.file, e.line));
 
+    // Run each benchmark once even if registered multiple times.
+    entries.dedup_by_key(|e| (e.get_id)());
+
     let ignore_entry = |entry: &Entry| !cli_args.ignored_mode.should_run(entry.ignore);
 
     match cli_args.action {
