@@ -1,4 +1,6 @@
-use std::{hint::black_box, panic};
+use std::panic;
+
+use divan::black_box;
 
 fn main() {
     // Silence panics.

@@ -1,7 +1,6 @@
-use std::{
-    collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque},
-    hint::black_box,
-};
+use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
+
+use divan::black_box;
 
 fn main() {
     divan::main();

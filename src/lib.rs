@@ -12,12 +12,15 @@ mod config;
 mod divan;
 mod entry;
 
+#[doc(inline)]
+pub use std::hint::black_box;
+
 /// Registers a benchmarking function.
 ///
 /// # Examples
 ///
 /// ```
-/// use std::hint::black_box;
+/// use divan::black_box;
 ///
 /// #[divan::bench]
 /// fn add() -> i32 {

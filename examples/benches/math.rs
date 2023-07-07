@@ -1,4 +1,4 @@
-use std::hint::black_box;
+use divan::black_box;
 
 fn main() {
     divan::main();
