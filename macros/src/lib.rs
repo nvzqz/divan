@@ -1,74 +1,11 @@
 //! Macros for [Divan](https://github.com/nvzqz/divan), a statistically-comfy
 //! benchmarking library brought to you by [Nikolai Vazquez](https://hachyderm.io/@nikolai).
-
-#![warn(missing_docs)]
+//!
+//! See [`divan`](https://docs.rs/divan) crate for documentation.
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 
-/// Registers a benchmarking function.
-///
-/// # Examples
-///
-/// ```
-/// use std::hint::black_box as bb;
-///
-/// #[divan::bench]
-/// fn add() -> i32 {
-///     bb(1) + bb(42)
-/// }
-///
-/// fn main() {
-///     // Run `add` benchmark:
-///     divan::main();
-/// }
-/// ```
-///
-/// # Options
-///
-/// - `#[divan::bench(name = "...")]`
-///
-///   By default, the benchmark is named after the function's [canonical path](https://doc.rust-lang.org/reference/paths.html#canonical-paths)
-///   (i.e. `module_path!() + "::" + fn_name`). This can be overridden via the
-///   `name` option:
-///
-///   ```
-///   #[divan::bench(name = "Add It")]
-///   fn add() -> i32 {
-///       // ...
-///       # 0
-///   }
-///   ```
-///
-/// - `#[divan::bench(crate = path::to::divan)]`
-///
-///   The path to the specific `divan` crate instance used by this macro's
-///   generated code can be specified via the `crate` option. This is applicable
-///   when using `divan` via a macro from your own crate.
-///
-///   ```
-///   extern crate divan as sofa;
-///
-///   #[::sofa::bench(crate = ::sofa)]
-///   fn add() -> i32 {
-///       // ...
-///       # 0
-///   }
-///   ```
-///
-/// - [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute)
-///
-///   Like [`#[test]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-test-attribute),
-///   `#[divan::bench]` functions can be ignored:
-///
-///   ```
-///   #[divan::bench]
-///   #[ignore = "not yet implemented"]
-///   fn todo() {
-///       unimplemented!();
-///   }
-///   # divan::main();
-///   ```
 #[proc_macro_attribute]
 pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut divan_crate = None::<syn::Path>;
