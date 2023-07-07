@@ -38,6 +38,9 @@ impl Context {
     /// Begins info measurement at the start of a loop.
     #[inline(always)]
     pub fn start_sample(&self) -> Instant {
+        // Prevent other operations from affecting timing measurements.
+        std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
+
         Instant::now()
     }
 
@@ -45,6 +48,10 @@ impl Context {
     #[inline(always)]
     pub fn end_sample(&mut self, start: Instant) {
         let end = Instant::now();
+
+        // Prevent other operations from affecting timing measurements.
+        std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
+
         self.samples.push(Sample { start, end });
     }
 
