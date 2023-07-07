@@ -1,6 +1,9 @@
 // Tests that ensure weird (but valid) usage behave as expected.
 
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    sync::atomic::{AtomicUsize, Ordering as AtomicOrdering},
+};
 
 use divan::{Divan, __private::ENTRIES};
 
@@ -21,18 +24,29 @@ fn embedded() {
 #[divan::bench]
 fn r#raw_ident() {}
 
+static TWICE_RUNS: AtomicUsize = AtomicUsize::new(0);
+static THRICE_RUNS: AtomicUsize = AtomicUsize::new(0);
+
 #[divan::bench]
 #[divan::bench]
-fn twice() {}
+fn twice() {
+    TWICE_RUNS.fetch_add(1, AtomicOrdering::Relaxed);
+}
 
 #[divan::bench]
 #[divan::bench]
 #[divan::bench]
-fn thrice() {}
+fn thrice() {
+    THRICE_RUNS.fetch_add(1, AtomicOrdering::Relaxed);
+}
 
 #[test]
 fn test_fn() {
     Divan::default().test();
+
+    // `Divan::test` should deduplicate benchmark registration.
+    assert_eq!(TWICE_RUNS.load(AtomicOrdering::Relaxed), 1);
+    assert_eq!(THRICE_RUNS.load(AtomicOrdering::Relaxed), 1);
 }
 
 // Test that each function appears the expected number of times.
