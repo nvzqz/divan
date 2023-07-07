@@ -4,5 +4,5 @@ pub use linkme;
 
 pub use crate::{
     bench::DropStore,
-    entry::{Entry, ENTRIES},
+    entry::{BenchFn, Entry, TestFn, ENTRIES},
 };

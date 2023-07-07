@@ -19,6 +19,8 @@ pub use std::hint::black_box;
 ///
 /// # Examples
 ///
+/// The quickest way to get started is to benchmark the function as-is:
+///
 /// ```
 /// use divan::black_box;
 ///
@@ -30,6 +32,23 @@ pub use std::hint::black_box;
 /// fn main() {
 ///     // Run `add` benchmark:
 ///     divan::main();
+/// }
+/// ```
+///
+/// If context is needed within the benchmarked function, take a [`Bencher`] and
+/// use [`Bencher::bench`]:
+///
+/// ```
+/// use divan::{Bencher, black_box};
+///
+/// #[divan::bench]
+/// fn copy_from_slice(bencher: Bencher) {
+///     let src = (0..100).collect::<Vec<i32>>();
+///     let mut dst = vec![0; src.len()];
+///
+///     bencher.bench(move || {
+///         black_box(&mut dst).copy_from_slice(black_box(&src));
+///     });
 /// }
 /// ```
 ///
@@ -81,7 +100,7 @@ pub use std::hint::black_box;
 pub use divan_macros::bench;
 
 #[doc(inline)]
-pub use crate::divan::Divan;
+pub use crate::{bench::Bencher, divan::Divan};
 
 /// Runs all registered benchmarks.
 ///

@@ -3,6 +3,75 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::config::Action;
+
+/// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
+///
+/// # Examples
+///
+/// ```
+/// use divan::{Bencher, black_box};
+///
+/// #[divan::bench]
+/// fn copy_from_slice(bencher: Bencher) {
+///     // Input and output buffers get moved into the closure.
+///     let src = (0..100).collect::<Vec<i32>>();
+///     let mut dst = vec![0; src.len()];
+///
+///     bencher.bench(move || {
+///         black_box(&mut dst).copy_from_slice(black_box(&src));
+///     });
+/// }
+/// ```
+pub struct Bencher<'a> {
+    pub(crate) action: Action,
+    pub(crate) action_fn: &'a mut Option<BencherFn>,
+}
+
+impl fmt::Debug for Bencher<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Bencher").finish_non_exhaustive()
+    }
+}
+
+pub(crate) enum BencherFn {
+    Bench(Box<dyn FnMut(&mut Context)>),
+    Test(Box<dyn FnMut()>),
+}
+
+impl Bencher<'_> {
+    /// Registers the given function to be benchmarked.
+    pub fn bench<F, R>(self, mut f: F)
+    where
+        F: FnMut() -> R + 'static,
+    {
+        match self.action {
+            Action::List => {}
+
+            Action::Bench => {
+                *self.action_fn = Some(BencherFn::Bench(Box::new(move |cx| {
+                    // Prevents `Drop` from being measured automatically.
+                    let mut drop_store = DropStore::with_capacity(cx.iter_per_sample as usize);
+
+                    for _ in 0..cx.target_sample_count() {
+                        drop_store.prepare(cx.iter_per_sample as usize);
+
+                        let sample = cx.start_sample();
+                        for _ in 0..cx.iter_per_sample {
+                            // NOTE: `push` is a no-op if the result of the
+                            // benchmarked function does not need to be dropped.
+                            drop_store.push(std::hint::black_box(f()));
+                        }
+                        cx.end_sample(sample);
+                    }
+                })))
+            }
+
+            Action::Test => *self.action_fn = Some(BencherFn::Test(Box::new(move || _ = f()))),
+        }
+    }
+}
+
 /// `#[divan::bench]` loop context.
 ///
 /// Functions called within the benchmark loop should be `#[inline(always)]` to

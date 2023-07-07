@@ -4,6 +4,7 @@ use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
+    bench::{Bencher, BencherFn},
     config::{Action, Filter, OutputFormat, RunIgnored},
     entry::Entry,
 };
@@ -84,6 +85,8 @@ impl Divan {
 
         match action {
             Action::Bench => {
+                use crate::entry::BenchFn;
+
                 // Try pinning this thread's execution to the first CPU core to
                 // help reduce variance from scheduling.
                 if let Some(&[core_id, ..]) = core_affinity::get_core_ids().as_deref() {
@@ -101,13 +104,29 @@ impl Divan {
                     println!("Running '{}'", entry.name);
 
                     let mut context = crate::bench::Context::new();
-                    (entry.bench_loop)(&mut context);
+                    match &entry.bench {
+                        // Run the statically-constructed function.
+                        BenchFn::Static(bench) => bench(&mut context),
+
+                        // Get the function with context and then run it.
+                        BenchFn::Runtime(bench) => {
+                            let action_fn = &mut None;
+                            bench(Bencher { action, action_fn });
+
+                            match action_fn {
+                                Some(BencherFn::Bench(action_fn)) => action_fn(&mut context),
+                                _ => unreachable!(),
+                            }
+                        }
+                    }
 
                     println!("{:#?}", context.compute_stats().unwrap());
                     println!();
                 }
             }
             Action::Test => {
+                use crate::entry::TestFn;
+
                 for entry in entries {
                     if self.should_ignore(entry) {
                         println!("Ignoring '{}'", entry.name);
@@ -115,7 +134,22 @@ impl Divan {
                     }
 
                     println!("Running '{}'", entry.name);
-                    (entry.test)();
+
+                    match &entry.test {
+                        // Run the statically-constructed function.
+                        TestFn::Static(test_fn) => test_fn(),
+
+                        // Get the function with context and then run it.
+                        TestFn::Runtime(test_fn) => {
+                            let action_fn = &mut None;
+                            test_fn(Bencher { action, action_fn });
+
+                            match action_fn {
+                                Some(BencherFn::Test(action_fn)) => action_fn(),
+                                _ => unreachable!(),
+                            }
+                        }
+                    }
                 }
             }
             Action::List => {

@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
 
-use divan::black_box;
+use divan::{black_box, Bencher};
 
 fn main() {
     divan::main();
@@ -33,6 +33,14 @@ mod vec {
     fn from_iter() -> Vec<i32> {
         // TODO: Make size be a provided value.
         util::collect_nums()
+    }
+
+    #[divan::bench]
+    fn copy_from_slice(bencher: Bencher) {
+        let src = from_iter();
+        let mut dst = vec![0; src.len()];
+
+        bencher.bench(move || black_box(&mut dst).copy_from_slice(black_box(&src)))
     }
 }
 
