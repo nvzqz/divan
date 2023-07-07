@@ -68,22 +68,7 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         // `fn(&mut divan::bench::Context) -> ()`.
         quote! {
             #private_mod::BenchLoop::Static(|__divan_context| {
-                // Prevents `Drop` from being measured automatically.
-                let mut __divan_drop_store = #private_mod::DropStore::with_capacity(
-                    __divan_context.iter_per_sample as usize,
-                );
-
-                for _ in 0..__divan_context.target_sample_count() {
-                    __divan_drop_store.prepare(__divan_context.iter_per_sample as usize);
-
-                    let __divan_sample = __divan_context.start_sample();
-                    for _ in 0..__divan_context.iter_per_sample {
-                        // NOTE: `push` is a no-op if the result of the
-                        // benchmarked function does not need to be dropped.
-                        __divan_drop_store.push(#std_crate::hint::black_box(#fn_name()));
-                    }
-                    __divan_context.end_sample(__divan_sample);
-                }
+                __divan_context.bench_loop(#fn_name)
             })
         }
     } else {

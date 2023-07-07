@@ -35,25 +35,9 @@ impl fmt::Debug for Bencher<'_> {
 
 impl Bencher<'_> {
     /// Benchmarks the given function.
-    pub fn bench<R>(self, mut f: impl FnMut() -> R) {
+    pub fn bench<R>(self, f: impl FnMut() -> R) {
         *self.did_run = true;
-
-        let context = self.context;
-
-        // Prevents `Drop` from being measured automatically.
-        let mut drop_store = DropStore::with_capacity(context.iter_per_sample as usize);
-
-        for _ in 0..context.target_sample_count() {
-            drop_store.prepare(context.iter_per_sample as usize);
-
-            let sample = context.start_sample();
-            for _ in 0..context.iter_per_sample {
-                // NOTE: `push` is a no-op if the result of the benchmarked
-                // function does not need to be dropped.
-                drop_store.push(std::hint::black_box(f()));
-            }
-            context.end_sample(sample);
-        }
+        self.context.bench_loop(f);
     }
 }
 
@@ -63,13 +47,13 @@ impl Bencher<'_> {
 /// ensure instruction cache locality.
 ///
 /// Instances of this type are publicly accessible to generated code, so care
-/// should be taken when making fields fully public.
+/// should be taken when making fields and methods fully public.
 pub struct Context {
     /// Recorded samples.
-    pub(crate) samples: Vec<Sample>,
+    samples: Vec<Sample>,
 
     /// The number of iterations between recording samples.
-    pub iter_per_sample: u32,
+    iter_per_sample: u32,
 }
 
 impl Context {
@@ -87,15 +71,33 @@ impl Context {
         Self { samples: Vec::with_capacity(1), iter_per_sample: 1 }
     }
 
+    /// Runs the benchmarking loop.
+    pub fn bench_loop<R>(&mut self, mut f: impl FnMut() -> R) {
+        // Prevents `Drop` from being measured automatically.
+        let mut drop_store = DropStore::with_capacity(self.iter_per_sample as usize);
+
+        for _ in 0..self.target_sample_count() {
+            drop_store.prepare(self.iter_per_sample as usize);
+
+            let sample = self.start_sample();
+            for _ in 0..self.iter_per_sample {
+                // NOTE: `push` is a no-op if the result of the benchmarked
+                // function does not need to be dropped.
+                drop_store.push(std::hint::black_box(f()));
+            }
+            self.end_sample(sample);
+        }
+    }
+
     /// Returns the number of samples that should be taken.
     #[inline(always)]
-    pub fn target_sample_count(&self) -> usize {
+    fn target_sample_count(&self) -> usize {
         self.samples.capacity()
     }
 
     /// Begins info measurement at the start of a loop.
     #[inline(always)]
-    pub fn start_sample(&self) -> Instant {
+    fn start_sample(&self) -> Instant {
         // Prevent other operations from affecting timing measurements.
         std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
 
@@ -104,7 +106,7 @@ impl Context {
 
     /// Records measurement info at the end of a loop.
     #[inline(always)]
-    pub fn end_sample(&mut self, start: Instant) {
+    fn end_sample(&mut self, start: Instant) {
         let end = Instant::now();
 
         // Prevent other operations from affecting timing measurements.
@@ -225,7 +227,7 @@ impl SmallDuration {
 }
 
 /// Defers `Drop` of items produced while benchmarking.
-pub struct DropStore<T> {
+struct DropStore<T> {
     items: Vec<T>,
 }
 
@@ -234,13 +236,13 @@ impl<T> DropStore<T> {
     const IS_NO_OP: bool = !std::mem::needs_drop::<T>();
 
     #[inline]
-    pub fn with_capacity(capacity: usize) -> Self {
+    fn with_capacity(capacity: usize) -> Self {
         Self { items: if Self::IS_NO_OP { Vec::new() } else { Vec::with_capacity(capacity) } }
     }
 
     /// Prepares the store for storing a sample.
     #[inline(always)]
-    pub fn prepare(&mut self, capacity: usize) {
+    fn prepare(&mut self, capacity: usize) {
         if !Self::IS_NO_OP {
             self.items.clear();
             self.items.reserve_exact(capacity);
@@ -248,7 +250,7 @@ impl<T> DropStore<T> {
     }
 
     #[inline(always)]
-    pub fn push(&mut self, item: T) {
+    fn push(&mut self, item: T) {
         if !Self::IS_NO_OP {
             self.items.push(item);
         }
