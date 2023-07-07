@@ -19,11 +19,8 @@ pub struct Entry {
     /// Whether this entry was marked with [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute).
     pub ignore: bool,
 
-    /// The benchmarking function.
-    pub bench: BenchFn,
-
-    /// The testing function.
-    pub test: TestFn,
+    /// The benchmarking loop.
+    pub bench_loop: BenchLoop,
 
     /// Returns the globally unique ID of a benchmarked function.
     ///
@@ -46,19 +43,10 @@ pub struct Entry {
 #[linkme::distributed_slice]
 pub static ENTRIES: [Entry] = [..];
 
-/// `Entry.bench`.
-pub enum BenchFn {
+/// `Entry` benchmarking loop.
+pub enum BenchLoop {
     /// Statically-constructed without context.
     Static(fn(&mut Context)),
-
-    /// Runtime-constructed with context.
-    Runtime(fn(Bencher)),
-}
-
-/// `Entry.test`.
-pub enum TestFn {
-    /// Statically-constructed without context.
-    Static(fn()),
 
     /// Runtime-constructed with context.
     Runtime(fn(Bencher)),

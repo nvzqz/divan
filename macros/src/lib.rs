@@ -64,10 +64,10 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let fn_args = &fn_item.sig.inputs;
 
-    let bench = if fn_args.is_empty() {
+    let bench_loop = if fn_args.is_empty() {
         // `fn(&mut divan::bench::Context) -> ()`.
         quote! {
-            #private_mod::BenchFn::Static(|__divan_context| {
+            #private_mod::BenchLoop::Static(|__divan_context| {
                 // Prevents `Drop` from being measured automatically.
                 let mut __divan_drop_store = #private_mod::DropStore::with_capacity(
                     __divan_context.iter_per_sample as usize,
@@ -88,15 +88,7 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     } else {
         // `fn(divan::Bencher) -> ()`.
-        quote! { #private_mod::BenchFn::Runtime(#fn_name) }
-    };
-
-    let test = if fn_args.is_empty() {
-        // `fn() -> T`.
-        quote! { #private_mod::TestFn::Static(|| _ = #fn_name()) }
-    } else {
-        // `fn(divan::Bencher) -> ()`.
-        quote! { #private_mod::TestFn::Runtime(#fn_name) }
+        quote! { #private_mod::BenchLoop::Runtime(#fn_name) }
     };
 
     let entry_item = quote! {
@@ -117,8 +109,7 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 ignore: #ignore,
 
-                bench: #bench,
-                test: #test,
+                bench_loop: #bench_loop,
 
                 get_id: || #std_crate::any::Any::type_id(&#fn_name),
             };

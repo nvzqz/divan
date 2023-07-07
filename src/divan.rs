@@ -4,9 +4,9 @@ use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
-    bench::{Bencher, BencherFn},
+    bench::Bencher,
     config::{Action, Filter, OutputFormat, RunIgnored},
-    entry::Entry,
+    entry::{BenchLoop, Entry},
 };
 
 /// The benchmark runner.
@@ -76,6 +76,8 @@ impl Divan {
     }
 
     pub(crate) fn run_action(&self, action: Action) {
+        use crate::bench::Context;
+
         let entries = self.get_entries();
 
         // Quick exit without setting CPU affinity.
@@ -83,79 +85,58 @@ impl Divan {
             return;
         }
 
-        match action {
-            Action::Bench => {
-                use crate::entry::BenchFn;
+        let is_test = match action {
+            Action::Bench => false,
+            Action::Test => true,
 
-                // Try pinning this thread's execution to the first CPU core to
-                // help reduce variance from scheduling.
-                if let Some(&[core_id, ..]) = core_affinity::get_core_ids().as_deref() {
-                    if core_affinity::set_for_current(core_id) {
-                        eprintln!("Pinned thread to core {}", core_id.id);
-                    };
-                }
-
-                for entry in entries {
-                    if self.should_ignore(entry) {
-                        println!("Ignoring '{}'", entry.name);
-                        continue;
-                    }
-
-                    println!("Running '{}'", entry.name);
-
-                    let mut context = crate::bench::Context::new();
-                    match &entry.bench {
-                        // Run the statically-constructed function.
-                        BenchFn::Static(bench) => bench(&mut context),
-
-                        // Get the function with context and then run it.
-                        BenchFn::Runtime(bench) => {
-                            let action_fn = &mut None;
-                            bench(Bencher { action, action_fn });
-
-                            match action_fn {
-                                Some(BencherFn::Bench(action_fn)) => action_fn(&mut context),
-                                _ => unreachable!(),
-                            }
-                        }
-                    }
-
-                    println!("{:#?}", context.compute_stats().unwrap());
-                    println!();
-                }
-            }
-            Action::Test => {
-                use crate::entry::TestFn;
-
-                for entry in entries {
-                    if self.should_ignore(entry) {
-                        println!("Ignoring '{}'", entry.name);
-                        continue;
-                    }
-
-                    println!("Running '{}'", entry.name);
-
-                    match &entry.test {
-                        // Run the statically-constructed function.
-                        TestFn::Static(test_fn) => test_fn(),
-
-                        // Get the function with context and then run it.
-                        TestFn::Runtime(test_fn) => {
-                            let action_fn = &mut None;
-                            test_fn(Bencher { action, action_fn });
-
-                            match action_fn {
-                                Some(BencherFn::Test(action_fn)) => action_fn(),
-                                _ => unreachable!(),
-                            }
-                        }
-                    }
-                }
-            }
             Action::List => {
                 for Entry { file, name, line, .. } in entries {
                     println!("{file} - {name} (line {line}): bench");
                 }
+                return;
+            }
+        };
+
+        if !is_test {
+            // Try pinning this thread's execution to the first CPU core to
+            // help reduce variance from scheduling.
+            if let Some(&[core_id, ..]) = core_affinity::get_core_ids().as_deref() {
+                if core_affinity::set_for_current(core_id) {
+                    eprintln!("Pinned thread to core {}", core_id.id);
+                };
+            }
+        }
+
+        for entry in entries {
+            if self.should_ignore(entry) {
+                println!("Ignoring '{}'", entry.name);
+                continue;
+            }
+
+            println!("Running '{}'", entry.name);
+
+            // NOTE: Testing and benchmarking should behave equally since we
+            // don't want to introduce extra code in benchmarks just to handle
+            // tests.
+            let mut context = if is_test { Context::test() } else { Context::bench() };
+
+            match &entry.bench_loop {
+                // Run the statically-constructed function.
+                BenchLoop::Static(bench_loop) => bench_loop(&mut context),
+
+                // Get the function with context and then run it.
+                BenchLoop::Runtime(make_bench) => {
+                    let mut bench_loop = None;
+                    make_bench(Bencher { bench_loop: &mut bench_loop });
+
+                    let mut bench_loop = bench_loop.unwrap();
+                    bench_loop(&mut context);
+                }
+            }
+
+            if !is_test {
+                println!("{:#?}", context.compute_stats().unwrap());
+                println!();
             }
         }
     }

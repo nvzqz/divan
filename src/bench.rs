@@ -3,8 +3,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::config::Action;
-
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
 ///
 /// # Examples
@@ -24,8 +22,8 @@ use crate::config::Action;
 /// }
 /// ```
 pub struct Bencher<'a> {
-    pub(crate) action: Action,
-    pub(crate) action_fn: &'a mut Option<BencherFn>,
+    #[allow(clippy::type_complexity)]
+    pub(crate) bench_loop: &'a mut Option<Box<dyn FnMut(&mut Context)>>,
 }
 
 impl fmt::Debug for Bencher<'_> {
@@ -34,41 +32,28 @@ impl fmt::Debug for Bencher<'_> {
     }
 }
 
-pub(crate) enum BencherFn {
-    Bench(Box<dyn FnMut(&mut Context)>),
-    Test(Box<dyn FnMut()>),
-}
-
 impl Bencher<'_> {
     /// Registers the given function to be benchmarked.
     pub fn bench<F, R>(self, mut f: F)
     where
         F: FnMut() -> R + 'static,
     {
-        match self.action {
-            Action::List => {}
+        *self.bench_loop = Some(Box::new(move |cx| {
+            // Prevents `Drop` from being measured automatically.
+            let mut drop_store = DropStore::with_capacity(cx.iter_per_sample as usize);
 
-            Action::Bench => {
-                *self.action_fn = Some(BencherFn::Bench(Box::new(move |cx| {
-                    // Prevents `Drop` from being measured automatically.
-                    let mut drop_store = DropStore::with_capacity(cx.iter_per_sample as usize);
+            for _ in 0..cx.target_sample_count() {
+                drop_store.prepare(cx.iter_per_sample as usize);
 
-                    for _ in 0..cx.target_sample_count() {
-                        drop_store.prepare(cx.iter_per_sample as usize);
-
-                        let sample = cx.start_sample();
-                        for _ in 0..cx.iter_per_sample {
-                            // NOTE: `push` is a no-op if the result of the
-                            // benchmarked function does not need to be dropped.
-                            drop_store.push(std::hint::black_box(f()));
-                        }
-                        cx.end_sample(sample);
-                    }
-                })))
+                let sample = cx.start_sample();
+                for _ in 0..cx.iter_per_sample {
+                    // NOTE: `push` is a no-op if the result of the benchmarked
+                    // function does not need to be dropped.
+                    drop_store.push(std::hint::black_box(f()));
+                }
+                cx.end_sample(sample);
             }
-
-            Action::Test => *self.action_fn = Some(BencherFn::Test(Box::new(move || _ = f()))),
-        }
+        }));
     }
 }
 
@@ -88,14 +73,18 @@ pub struct Context {
 }
 
 impl Context {
-    #[inline(always)]
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    /// Creates a context for actual benchmarking.
+    pub(crate) fn bench() -> Self {
         Self {
             // TODO: Pick these numbers dynamically.
             samples: Vec::with_capacity(1_000),
             iter_per_sample: 1_000,
         }
+    }
+
+    /// Creates a context for testing benchmarked functions.
+    pub(crate) fn test() -> Self {
+        Self { samples: Vec::with_capacity(1), iter_per_sample: 1 }
     }
 
     /// Returns the number of samples that should be taken.
@@ -124,7 +113,7 @@ impl Context {
         self.samples.push(Sample { start, end });
     }
 
-    pub fn compute_stats(&self) -> Option<Stats> {
+    pub(crate) fn compute_stats(&self) -> Option<Stats> {
         let sample_count = self.samples.len();
         let total_count = sample_count * self.iter_per_sample as usize;
 
