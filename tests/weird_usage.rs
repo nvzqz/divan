@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use divan::__private::ENTRIES;
+use divan::{Divan, __private::ENTRIES};
 
 #[divan::bench]
 fn lifetime<'a>() -> &'a str {
@@ -32,9 +32,7 @@ fn thrice() {}
 
 #[test]
 fn test_fn() {
-    for entry in ENTRIES {
-        (entry.test)();
-    }
+    Divan::default().test();
 }
 
 // Test that each function appears the expected number of times.
