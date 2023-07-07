@@ -77,8 +77,21 @@ impl Divan {
     pub(crate) fn run_action(&self, action: Action) {
         let entries = self.get_entries();
 
+        // Quick exit without setting CPU affinity.
+        if entries.is_empty() {
+            return;
+        }
+
         match action {
             Action::Bench => {
+                // Try pinning this thread's execution to the first CPU core to
+                // help reduce variance from scheduling.
+                if let Some(&[core_id, ..]) = core_affinity::get_core_ids().as_deref() {
+                    if core_affinity::set_for_current(core_id) {
+                        eprintln!("Pinned thread to core {}", core_id.id);
+                    };
+                }
+
                 for entry in entries {
                     if self.should_ignore(entry) {
                         println!("Ignoring '{}'", entry.name);
