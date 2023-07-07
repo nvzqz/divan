@@ -1,4 +1,4 @@
-use std::{hint::black_box as bb, panic};
+use std::{hint::black_box, panic};
 
 fn main() {
     // Silence panics.
@@ -19,12 +19,12 @@ mod catch_unwind {
     #[divan::bench]
     fn panic() -> std::thread::Result<()> {
         let panic: fn() = || panic!();
-        panic::catch_unwind(bb(panic))
+        panic::catch_unwind(black_box(panic))
     }
 
     #[divan::bench]
     fn success() -> std::thread::Result<()> {
         let success: fn() = || {};
-        panic::catch_unwind(bb(success))
+        panic::catch_unwind(black_box(success))
     }
 }

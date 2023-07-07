@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque},
-    hint::black_box as bb,
+    hint::black_box,
 };
 
 fn main() {
@@ -11,7 +11,7 @@ mod util {
     use super::*;
 
     pub fn collect_nums<T: FromIterator<i32>>() -> T {
-        bb(0..100).collect()
+        black_box(0..100).collect()
     }
 }
 
@@ -26,7 +26,7 @@ mod vec {
     #[divan::bench]
     fn with_capacity() -> Vec<i32> {
         // TODO: Make capacity be a provided value.
-        let capacity = bb(100);
+        let capacity = black_box(100);
         Vec::with_capacity(capacity)
     }
 
@@ -48,7 +48,7 @@ mod vec_deque {
     #[divan::bench]
     fn with_capacity() -> VecDeque<i32> {
         // TODO: Make capacity be a provided value.
-        let capacity = bb(100);
+        let capacity = black_box(100);
         VecDeque::with_capacity(capacity)
     }
 
@@ -85,7 +85,7 @@ mod binary_heap {
     #[divan::bench]
     fn with_capacity() -> BinaryHeap<i32> {
         // TODO: Make capacity be a provided value.
-        let capacity = bb(100);
+        let capacity = black_box(100);
         BinaryHeap::with_capacity(capacity)
     }
 
@@ -107,7 +107,7 @@ mod hash_set {
     #[divan::bench]
     fn with_capacity() -> HashSet<i32> {
         // TODO: Make capacity be a provided value.
-        let capacity = bb(100);
+        let capacity = black_box(100);
         HashSet::with_capacity(capacity)
     }
 

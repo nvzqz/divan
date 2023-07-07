@@ -17,11 +17,11 @@ mod entry;
 /// # Examples
 ///
 /// ```
-/// use std::hint::black_box as bb;
+/// use std::hint::black_box;
 ///
 /// #[divan::bench]
 /// fn add() -> i32 {
-///     bb(1) + bb(42)
+///     black_box(1) + black_box(42)
 /// }
 ///
 /// fn main() {

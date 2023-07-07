@@ -1,4 +1,4 @@
-use std::hint::black_box as bb;
+use std::hint::black_box;
 
 fn main() {
     divan::main();
@@ -6,28 +6,28 @@ fn main() {
 
 #[divan::bench]
 fn add() -> i32 {
-    bb(2) + bb(1)
+    black_box(2) + black_box(1)
 }
 
 #[divan::bench]
 fn sub() -> i32 {
-    bb(2) - bb(1)
+    black_box(2) - black_box(1)
 }
 
 #[divan::bench]
 fn mul() -> i32 {
-    bb(2) * bb(1)
+    black_box(2) * black_box(1)
 }
 
 #[divan::bench]
 fn div() -> i32 {
-    bb(2) / bb(1)
+    black_box(2) / black_box(1)
 }
 
 #[divan::bench]
 #[ignore]
 fn rem() -> i32 {
-    bb(2) % bb(1)
+    black_box(2) % black_box(1)
 }
 
 // 1, 1, 2, 3, 5, ...
@@ -50,7 +50,7 @@ mod fibonacci {
             current
         }
 
-        fibonacci(bb(10))
+        fibonacci(black_box(10))
     }
 
     // O(2^n)
@@ -64,6 +64,6 @@ mod fibonacci {
             }
         }
 
-        fibonacci(bb(10))
+        fibonacci(black_box(10))
     }
 }
