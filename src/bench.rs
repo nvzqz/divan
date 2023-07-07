@@ -12,19 +12,19 @@ use std::{
 ///
 /// #[divan::bench]
 /// fn copy_from_slice(bencher: Bencher) {
-///     // Input and output buffers get moved into the closure.
+///     // Input and output buffers get used in the closure.
 ///     let src = (0..100).collect::<Vec<i32>>();
 ///     let mut dst = vec![0; src.len()];
 ///
-///     bencher.bench(move || {
+///     bencher.bench(|| {
 ///         black_box(&mut dst).copy_from_slice(black_box(&src));
 ///     });
 /// }
 /// ```
 #[must_use = "a benchmark function must be registered"]
 pub struct Bencher<'a> {
-    #[allow(clippy::type_complexity)]
-    pub(crate) bench_loop: &'a mut Option<Box<dyn FnMut(&mut Context)>>,
+    pub(crate) did_run: &'a mut bool,
+    pub(crate) context: &'a mut Context,
 }
 
 impl fmt::Debug for Bencher<'_> {
@@ -34,27 +34,26 @@ impl fmt::Debug for Bencher<'_> {
 }
 
 impl Bencher<'_> {
-    /// Registers the given function to be benchmarked.
-    pub fn bench<F, R>(self, mut f: F)
-    where
-        F: FnMut() -> R + 'static,
-    {
-        *self.bench_loop = Some(Box::new(move |cx| {
-            // Prevents `Drop` from being measured automatically.
-            let mut drop_store = DropStore::with_capacity(cx.iter_per_sample as usize);
+    /// Benchmarks the given function.
+    pub fn bench<R>(self, mut f: impl FnMut() -> R) {
+        *self.did_run = true;
 
-            for _ in 0..cx.target_sample_count() {
-                drop_store.prepare(cx.iter_per_sample as usize);
+        let context = self.context;
 
-                let sample = cx.start_sample();
-                for _ in 0..cx.iter_per_sample {
-                    // NOTE: `push` is a no-op if the result of the benchmarked
-                    // function does not need to be dropped.
-                    drop_store.push(std::hint::black_box(f()));
-                }
-                cx.end_sample(sample);
+        // Prevents `Drop` from being measured automatically.
+        let mut drop_store = DropStore::with_capacity(context.iter_per_sample as usize);
+
+        for _ in 0..context.target_sample_count() {
+            drop_store.prepare(context.iter_per_sample as usize);
+
+            let sample = context.start_sample();
+            for _ in 0..context.iter_per_sample {
+                // NOTE: `push` is a no-op if the result of the benchmarked
+                // function does not need to be dropped.
+                drop_store.push(std::hint::black_box(f()));
             }
-        }));
+            context.end_sample(sample);
+        }
     }
 }
 

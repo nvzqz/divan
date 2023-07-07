@@ -40,7 +40,7 @@ mod vec {
         let src = from_iter();
         let mut dst = vec![0; src.len()];
 
-        bencher.bench(move || black_box(&mut dst).copy_from_slice(black_box(&src)))
+        bencher.bench(|| black_box(&mut dst).copy_from_slice(black_box(&src)))
     }
 }
 

@@ -124,17 +124,15 @@ impl Divan {
                 // Run the statically-constructed function.
                 BenchLoop::Static(bench_loop) => bench_loop(&mut context),
 
-                // Get the function with context and then run it.
-                BenchLoop::Runtime(make_bench) => {
-                    let bench_loop = &mut None;
-                    make_bench(Bencher { bench_loop });
+                // Run the function with context via `Bencher`.
+                BenchLoop::Runtime(bench) => {
+                    let mut did_run = false;
+                    bench(Bencher { did_run: &mut did_run, context: &mut context });
 
-                    let Some(bench_loop) = bench_loop else {
+                    if !did_run {
                         eprintln!("warning: No benchmark function registered for '{}'", entry.name);
                         continue 'entry;
-                    };
-
-                    bench_loop(&mut context);
+                    }
                 }
             }
 
