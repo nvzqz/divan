@@ -29,3 +29,41 @@ fn div() -> i32 {
 fn rem() -> i32 {
     bb(2) % bb(1)
 }
+
+// 1, 1, 2, 3, 5, ...
+mod fibonacci {
+    use super::*;
+
+    // O(n)
+    #[divan::bench]
+    fn iterative() -> u64 {
+        fn fibonacci(n: u64) -> u64 {
+            let mut previous = 1;
+            let mut current = 1;
+
+            for _ in 2..=n {
+                let next = previous + current;
+                previous = current;
+                current = next;
+            }
+
+            current
+        }
+
+        fibonacci(bb(10))
+    }
+
+    // O(2^n)
+    #[divan::bench]
+    fn recursive() -> u64 {
+        fn fibonacci(n: u64) -> u64 {
+            if n <= 1 {
+                1
+            } else {
+                fibonacci(n - 2) + fibonacci(n - 1)
+            }
+        }
+
+        fibonacci(bb(10))
+    }
+}
