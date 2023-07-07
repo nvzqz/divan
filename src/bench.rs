@@ -21,6 +21,7 @@ use std::{
 ///     });
 /// }
 /// ```
+#[must_use = "a benchmark function must be registered"]
 pub struct Bencher<'a> {
     #[allow(clippy::type_complexity)]
     pub(crate) bench_loop: &'a mut Option<Box<dyn FnMut(&mut Context)>>,

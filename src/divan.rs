@@ -107,10 +107,10 @@ impl Divan {
             }
         }
 
-        for entry in entries {
+        'entry: for entry in entries {
             if self.should_ignore(entry) {
                 println!("Ignoring '{}'", entry.name);
-                continue;
+                continue 'entry;
             }
 
             println!("Running '{}'", entry.name);
@@ -126,10 +126,14 @@ impl Divan {
 
                 // Get the function with context and then run it.
                 BenchLoop::Runtime(make_bench) => {
-                    let mut bench_loop = None;
-                    make_bench(Bencher { bench_loop: &mut bench_loop });
+                    let bench_loop = &mut None;
+                    make_bench(Bencher { bench_loop });
 
-                    let mut bench_loop = bench_loop.unwrap();
+                    let Some(bench_loop) = bench_loop else {
+                        eprintln!("warning: No benchmark function registered for '{}'", entry.name);
+                        continue 'entry;
+                    };
+
                     bench_loop(&mut context);
                 }
             }
