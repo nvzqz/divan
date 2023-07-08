@@ -30,7 +30,7 @@ fn count() {
     let mut inner_count = 0;
 
     for entry in ENTRIES {
-        if entry.path.contains("inner") {
+        if entry.name == "inner" {
             inner_count += 1;
         }
     }
@@ -43,14 +43,14 @@ fn count() {
 fn path() {
     for entry in ENTRIES {
         // Embedded functions do not contain their parent function's name in
-        // their path because that's not how `module_path!()` works.
-        if entry.path.contains("inner") {
-            assert_eq!(entry.path, "weird_usage::inner");
+        // their `module_path!()`.
+        if entry.name == "inner" {
+            assert_eq!(entry.module_path, "weird_usage");
         }
 
         // "r#" is removed from raw identifiers.
-        if entry.path.contains("raw_ident") {
-            assert_eq!(entry.path, "weird_usage::raw_ident");
+        if entry.name.contains("raw_ident") {
+            assert_eq!(entry.name, "raw_ident");
         }
     }
 }

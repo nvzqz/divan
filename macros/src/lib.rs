@@ -52,14 +52,9 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    // String expression of the benchmark's fully-qualified path.
-    let bench_path_expr = quote! {
-        #std_crate::concat!(#std_crate::module_path!(), "::", #fn_name_pretty)
-    };
-
     let bench_name_expr: &dyn ToTokens = match &bench_name_expr {
         Some(name) => name,
-        None => &bench_path_expr,
+        None => &fn_name_pretty,
     };
 
     let fn_args = &fn_item.sig.inputs;
@@ -96,7 +91,8 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
             #[linkme(crate = #linkme_crate)]
             static __DIVAN_BENCH_ENTRY: #private_mod::Entry = #private_mod::Entry {
                 name: #bench_name_expr,
-                path: #bench_path_expr,
+                module_path: #std_crate::module_path!(),
+                full_path: #std_crate::concat!(#std_crate::module_path!(), "::", #bench_name_expr),
 
                 // `Span` location info is nightly-only, so use macros.
                 file: #std_crate::file!(),

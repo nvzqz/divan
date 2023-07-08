@@ -15,6 +15,16 @@ pub(crate) enum Action {
     List,
 }
 
+impl Action {
+    pub fn is_bench(&self) -> bool {
+        matches!(self, Self::Bench)
+    }
+
+    pub fn is_list(&self) -> bool {
+        matches!(self, Self::List)
+    }
+}
+
 /// Filters which benchmark to run based on name.
 pub enum Filter {
     Regex(Regex),
@@ -68,4 +78,10 @@ pub enum OutputFormat {
     #[default]
     Pretty,
     Terse,
+}
+
+impl OutputFormat {
+    pub fn is_terse(&self) -> bool {
+        matches!(self, Self::Terse)
+    }
 }

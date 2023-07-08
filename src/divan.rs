@@ -6,7 +6,7 @@ use regex::Regex;
 use crate::{
     bench::Bencher,
     config::{Action, Filter, OutputFormat, RunIgnored},
-    entry::{BenchLoop, Entry},
+    entry::{BenchLoop, Entry, EntryTree},
 };
 
 /// The benchmark runner.
@@ -46,8 +46,8 @@ impl Divan {
         let mut entries: Vec<&_> =
             crate::entry::ENTRIES.iter().filter(|entry| self.filter(entry)).collect();
 
-        // Run benchmarks in alphabetical order, breaking ties by location order.
-        entries.sort_unstable_by_key(|e| (e.name, e.file, e.line));
+        // Run benchmarks in order.
+        entries.sort_unstable_by_key(|e| e.sorting_key());
 
         entries
     }
@@ -57,15 +57,13 @@ impl Divan {
     /// This does not take into account `entry.ignored` because that is handled
     /// separately.
     fn filter(&self, entry: &Entry) -> bool {
-        let name = entry.name;
-
         if let Some(filter) = &self.filter {
-            if !filter.is_match(name) {
+            if !filter.is_match(entry.full_path) {
                 return false;
             }
         }
 
-        !self.skip_filters.iter().any(|filter| filter.is_match(name))
+        !self.skip_filters.iter().any(|filter| filter.is_match(entry.full_path))
     }
 
     pub(crate) fn should_ignore(&self, entry: &Entry) -> bool {
@@ -73,8 +71,6 @@ impl Divan {
     }
 
     pub(crate) fn run_action(&self, action: Action) {
-        use crate::bench::Context;
-
         let entries = self.get_entries();
 
         // Quick exit without setting CPU affinity.
@@ -82,19 +78,7 @@ impl Divan {
             return;
         }
 
-        let is_test = match action {
-            Action::Bench => false,
-            Action::Test => true,
-
-            Action::List => {
-                for Entry { file, name, line, .. } in entries {
-                    println!("{file} - {name} (line {line}): bench");
-                }
-                return;
-            }
-        };
-
-        if !is_test {
+        if action.is_bench() {
             // Try pinning this thread's execution to the first CPU core to
             // help reduce variance from scheduling.
             if let Some(&[core_id, ..]) = core_affinity::get_core_ids().as_deref() {
@@ -104,38 +88,97 @@ impl Divan {
             }
         }
 
-        'entry: for entry in entries {
-            if self.should_ignore(entry) {
-                println!("Ignoring '{}'", entry.name);
-                continue 'entry;
+        match self.format {
+            OutputFormat::Pretty => {
+                let tree = EntryTree::from_entries(entries.iter().copied());
+                self.run_tree(action, &tree, 0);
+                return;
             }
+            OutputFormat::Terse => {}
+        }
 
-            println!("Running '{}'", entry.name);
+        if action.is_list() {
+            for Entry { file, name, line, .. } in entries {
+                println!("{file} - {name} (line {line}): bench");
+            }
+            return;
+        }
 
-            // NOTE: Testing and benchmarking should behave equally since we
-            // don't want to introduce extra code in benchmarks just to handle
-            // tests.
-            let mut context = if is_test { Context::test() } else { Context::bench() };
+        for entry in entries {
+            self.run_entry(action, entry);
+        }
+    }
 
-            match &entry.bench_loop {
-                // Run the statically-constructed function.
-                BenchLoop::Static(bench_loop) => bench_loop(&mut context),
+    fn run_tree(&self, action: Action, children: &[EntryTree], depth: usize) {
+        // TODO: Emit `tree(1)`-like structure with box drawing characters.
+        let indent: String = (0..(depth * 4)).map(|_| ' ').collect();
 
-                // Run the function with context via `Bencher`.
-                BenchLoop::Runtime(bench) => {
-                    let mut did_run = false;
-                    bench(Bencher { did_run: &mut did_run, context: &mut context });
-
-                    if !did_run {
-                        eprintln!("warning: No benchmark function registered for '{}'", entry.name);
-                        continue 'entry;
+        for tree in children {
+            match tree {
+                EntryTree::Leaf(entry) => {
+                    if action.is_list() {
+                        println!("{indent}{}", entry.name);
+                    } else {
+                        print!("{indent}{} ", entry.name);
+                        self.run_entry(action, entry);
+                        println!();
                     }
                 }
-            }
+                EntryTree::Parent { name, children } => {
+                    println!("{indent}{name}");
+                    self.run_tree(action, children, depth + 1);
+                }
+            };
+        }
+    }
 
-            if !is_test {
-                println!("{:#?}", context.compute_stats().unwrap());
-                println!();
+    fn run_entry(&self, action: Action, entry: &Entry) {
+        use crate::bench::Context;
+
+        if self.should_ignore(entry) {
+            match self.format {
+                OutputFormat::Pretty => print!("(ignored)"),
+                OutputFormat::Terse => println!("Ignoring '{}'", entry.full_path),
+            }
+            return;
+        }
+
+        if self.format.is_terse() {
+            println!("Running '{}'", entry.full_path);
+        }
+
+        // NOTE: Testing and benchmarking should behave equally since we don't
+        // want to introduce extra code in benchmarks just to handle tests.
+        let mut context = if action.is_bench() { Context::bench() } else { Context::test() };
+
+        match &entry.bench_loop {
+            // Run the statically-constructed function.
+            BenchLoop::Static(bench_loop) => bench_loop(&mut context),
+
+            // Run the function with context via `Bencher`.
+            BenchLoop::Runtime(bench) => {
+                let mut did_run = false;
+                bench(Bencher { did_run: &mut did_run, context: &mut context });
+
+                if !did_run {
+                    eprintln!("warning: No benchmark function registered for '{}'", entry.name);
+                    return;
+                }
+            }
+        }
+
+        if action.is_bench() {
+            let stats = context.compute_stats().unwrap();
+
+            // TODO: Improve stats formatting.
+            match self.format {
+                OutputFormat::Pretty => {
+                    print!("{stats:?}");
+                }
+                OutputFormat::Terse => {
+                    println!("{stats:#?}");
+                    println!();
+                }
             }
         }
     }

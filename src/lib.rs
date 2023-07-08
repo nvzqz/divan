@@ -69,12 +69,11 @@ pub use std::hint::black_box;
 ///
 /// - `#[divan::bench(name = "...")]`
 ///
-///   By default, the benchmark is named after the function's [canonical path](https://doc.rust-lang.org/reference/paths.html#canonical-paths)
-///   (i.e. `module_path!() + "::" + fn_name`). This can be overridden via the
-///   `name` option:
+///   The benchmark uses the same name as the function. It can be overridden via
+///   the `name` option:
 ///
 ///   ```
-///   #[divan::bench(name = "Add It")]
+///   #[divan::bench(name = "my_add")]
 ///   fn add() -> i32 {
 ///       // ...
 ///       # 0
