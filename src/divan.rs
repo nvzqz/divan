@@ -91,7 +91,7 @@ impl Divan {
         match self.format {
             OutputFormat::Pretty => {
                 let tree = EntryTree::from_entries(entries.iter().copied());
-                self.run_tree(action, &tree, 0);
+                self.run_tree(action, &tree, None);
                 return;
             }
             OutputFormat::Terse => {}
@@ -109,24 +109,37 @@ impl Divan {
         }
     }
 
-    fn run_tree(&self, action: Action, children: &[EntryTree], depth: usize) {
-        // TODO: Emit `tree(1)`-like structure with box drawing characters.
-        let indent: String = (0..(depth * 4)).map(|_| ' ').collect();
+    fn run_tree(&self, action: Action, children: &[EntryTree], parent_prefix: Option<&str>) {
+        for (i, child) in children.iter().enumerate() {
+            let is_last = i == children.len() - 1;
 
-        for tree in children {
-            match tree {
+            let [current_prefix, child_prefix] = if parent_prefix.is_none() {
+                ["", ""]
+            } else if !is_last {
+                ["├── ", "│   "]
+            } else {
+                ["└── ", "    "]
+            };
+
+            let parent_prefix = parent_prefix.unwrap_or_default();
+
+            match child {
                 EntryTree::Leaf(entry) => {
                     if action.is_list() {
-                        println!("{indent}{}", entry.name);
+                        println!("{parent_prefix}{current_prefix}{}", entry.name);
                     } else {
-                        print!("{indent}{} ", entry.name);
+                        print!("{parent_prefix}{current_prefix}{} ", entry.name);
                         self.run_entry(action, entry);
                         println!();
                     }
                 }
                 EntryTree::Parent { name, children } => {
-                    println!("{indent}{name}");
-                    self.run_tree(action, children, depth + 1);
+                    println!("{parent_prefix}{current_prefix}{name}");
+                    self.run_tree(
+                        action,
+                        children,
+                        Some(&format!("{parent_prefix}{child_prefix}")),
+                    );
                 }
             };
         }
