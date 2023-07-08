@@ -11,6 +11,8 @@ mod cli;
 mod config;
 mod divan;
 mod entry;
+mod stats;
+mod time;
 
 #[doc(inline)]
 pub use std::hint::black_box;

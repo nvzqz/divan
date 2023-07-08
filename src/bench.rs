@@ -1,6 +1,8 @@
-use std::{
-    fmt,
-    time::{Duration, Instant},
+use std::{fmt, time::Instant};
+
+use crate::{
+    stats::{Sample, Stats},
+    time::SmallDuration,
 };
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
@@ -161,68 +163,6 @@ impl Context {
             max_duration,
             median_duration,
         })
-    }
-}
-
-/// Measurement datum.
-pub struct Sample {
-    /// When the sample began.
-    pub start: Instant,
-
-    /// When the sample stopped.
-    pub end: Instant,
-}
-
-/// Statistics from samples.
-#[derive(Debug)]
-pub struct Stats {
-    /// Total number of samples taken.
-    pub sample_count: usize,
-
-    /// Total number of iterations (`sample_count * iter_per_sample`).
-    pub total_count: usize,
-
-    /// The total amount of time spent benchmarking.
-    pub total_duration: Duration,
-
-    /// Mean time taken by all iterations.
-    pub avg_duration: SmallDuration,
-
-    /// The minimum amount of time taken by an iteration.
-    pub min_duration: SmallDuration,
-
-    /// The maximum amount of time taken by an iteration.
-    pub max_duration: SmallDuration,
-
-    /// Midpoint time taken by an iteration.
-    pub median_duration: SmallDuration,
-}
-
-/// [Picosecond](https://en.wikipedia.org/wiki/Picosecond)-precise [`Duration`].
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SmallDuration {
-    picos: u128,
-}
-
-impl fmt::Debug for SmallDuration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // `Duration` has no notion of picoseconds, so we manually format
-        // picoseconds and nanoseconds ourselves.
-        if self.picos < 1_000 {
-            write!(f, "{}ps", self.picos)
-        } else if self.picos < 1_000_000 {
-            let nanos = self.picos as f64 / 1_000.0;
-            write!(f, "{}ns", nanos)
-        } else {
-            Duration::from_nanos((self.picos / 1_000) as u64).fmt(f)
-        }
-    }
-}
-
-impl SmallDuration {
-    /// Computes the average of a duration over a number of elements.
-    fn average(duration: Duration, n: u128) -> Self {
-        Self { picos: (duration.as_nanos() * 1_000) / n }
     }
 }
 
