@@ -1,6 +1,7 @@
-use std::{fmt, time::Instant};
+use std::{fmt, mem::MaybeUninit, time::Instant};
 
 use crate::{
+    black_box,
     stats::{Sample, Stats},
     time::SmallDuration,
 };
@@ -55,7 +56,7 @@ pub struct Context {
     samples: Vec<Sample>,
 
     /// The number of iterations between recording samples.
-    iter_per_sample: u32,
+    sample_size: u32,
 }
 
 impl Context {
@@ -64,30 +65,59 @@ impl Context {
         Self {
             // TODO: Pick these numbers dynamically.
             samples: Vec::with_capacity(1_000),
-            iter_per_sample: 1_000,
+            sample_size: 1_000,
         }
     }
 
     /// Creates a context for testing benchmarked functions.
     pub(crate) fn test() -> Self {
-        Self { samples: Vec::with_capacity(1), iter_per_sample: 1 }
+        Self { samples: Vec::with_capacity(1), sample_size: 1 }
     }
 
-    /// Runs the benchmarking loop.
+    /// Runs the loop for benchmarking `f`.
     pub fn bench_loop<R>(&mut self, mut f: impl FnMut() -> R) {
-        // Prevents `Drop` from being measured automatically.
-        let mut drop_store = DropStore::with_capacity(self.iter_per_sample as usize);
+        // `drop_store` prevents any drop destructor for `R` from affecting
+        // sample measurements. It defers `Drop` by storing instances within a
+        // pre-allocated buffer during the sample loop. The allocation is reused
+        // between samples to reduce time spent between samples.
+        let mut drop_store = Vec::<R>::new();
 
+        // TODO: Set sample count and size dynamically.
         for _ in 0..self.target_sample_count() {
-            drop_store.prepare(self.iter_per_sample as usize);
+            let sample_size = self.sample_size as usize;
 
-            let sample = self.start_sample();
-            for _ in 0..self.iter_per_sample {
-                // NOTE: `push` is a no-op if the result of the benchmarked
-                // function does not need to be dropped.
-                drop_store.push(std::hint::black_box(f()));
+            // If `R` needs to be dropped, we defer drop in the sample loop by
+            // inserting it into `drop_store`. Otherwise, we just loop up to
+            // `sample_size`.
+            if std::mem::needs_drop::<R>() {
+                // Drop values from the previous sample.
+                drop_store.clear();
+
+                // The sample loop below is over `sample_size` number of slots
+                // of pre-allocated memory in `drop_store`.
+                drop_store.reserve_exact(sample_size);
+                let drop_slots = drop_store.spare_capacity_mut()[..sample_size].iter_mut();
+
+                // Sample loop:
+                let start = self.start_sample();
+                for drop_slot in drop_slots {
+                    *drop_slot = MaybeUninit::new(black_box(f()));
+                }
+                self.end_sample(start);
+
+                // Increase length to mark stored values as initialized so that
+                // they can be dropped.
+                //
+                // SAFETY: All values were initialized in the sample loop.
+                unsafe { drop_store.set_len(sample_size) };
+            } else {
+                // Sample loop:
+                let start = self.start_sample();
+                for _ in 0..sample_size {
+                    _ = black_box(f());
+                }
+                self.end_sample(start);
             }
-            self.end_sample(sample);
         }
     }
 
@@ -119,7 +149,7 @@ impl Context {
 
     pub(crate) fn compute_stats(&self) -> Option<Stats> {
         let sample_count = self.samples.len();
-        let total_count = sample_count * self.iter_per_sample as usize;
+        let total_count = sample_count * self.sample_size as usize;
 
         let first = self.samples.first()?;
         let last = self.samples.last()?;
@@ -133,7 +163,7 @@ impl Context {
             .map(|sample| {
                 SmallDuration::average(
                     sample.end.duration_since(sample.start),
-                    self.iter_per_sample as u128,
+                    self.sample_size as u128,
                 )
             })
             .collect();
@@ -163,36 +193,5 @@ impl Context {
             max_duration,
             median_duration,
         })
-    }
-}
-
-/// Defers `Drop` of items produced while benchmarking.
-struct DropStore<T> {
-    items: Vec<T>,
-}
-
-#[allow(missing_docs)]
-impl<T> DropStore<T> {
-    const IS_NO_OP: bool = !std::mem::needs_drop::<T>();
-
-    #[inline]
-    fn with_capacity(capacity: usize) -> Self {
-        Self { items: if Self::IS_NO_OP { Vec::new() } else { Vec::with_capacity(capacity) } }
-    }
-
-    /// Prepares the store for storing a sample.
-    #[inline(always)]
-    fn prepare(&mut self, capacity: usize) {
-        if !Self::IS_NO_OP {
-            self.items.clear();
-            self.items.reserve_exact(capacity);
-        }
-    }
-
-    #[inline(always)]
-    fn push(&mut self, item: T) {
-        if !Self::IS_NO_OP {
-            self.items.push(item);
-        }
     }
 }
