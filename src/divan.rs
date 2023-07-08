@@ -91,7 +91,14 @@ impl Divan {
         match self.format {
             OutputFormat::Pretty => {
                 let tree = EntryTree::from_entries(entries.iter().copied());
-                self.run_tree(action, &tree, None);
+                self.run_tree(
+                    action,
+                    &tree,
+                    TreeFormat {
+                        parent_prefix: None,
+                        max_name_span: EntryTree::max_name_span(&tree, 0),
+                    },
+                );
                 return;
             }
             OutputFormat::Terse => {}
@@ -109,11 +116,11 @@ impl Divan {
         }
     }
 
-    fn run_tree(&self, action: Action, children: &[EntryTree], parent_prefix: Option<&str>) {
+    fn run_tree(&self, action: Action, children: &[EntryTree], fmt: TreeFormat) {
         for (i, child) in children.iter().enumerate() {
             let is_last = i == children.len() - 1;
 
-            let [current_prefix, child_prefix] = if parent_prefix.is_none() {
+            let [current_prefix, child_prefix] = if fmt.parent_prefix.is_none() {
                 ["", ""]
             } else if !is_last {
                 ["├── ", "│   "]
@@ -121,24 +128,31 @@ impl Divan {
                 ["└── ", "    "]
             };
 
-            let parent_prefix = parent_prefix.unwrap_or_default();
+            let parent_prefix = fmt.parent_prefix.unwrap_or_default();
+            let current_prefix = format!("{parent_prefix}{current_prefix}");
+
+            let name_pad_len = fmt.max_name_span.saturating_sub(current_prefix.chars().count());
 
             match child {
                 EntryTree::Leaf(entry) => {
+                    let name = entry.name;
                     if action.is_list() {
-                        println!("{parent_prefix}{current_prefix}{}", entry.name);
+                        println!("{current_prefix}{name:name_pad_len$}");
                     } else {
-                        print!("{parent_prefix}{current_prefix}{} ", entry.name);
+                        print!("{current_prefix}{name:name_pad_len$} ");
                         self.run_entry(action, entry);
                         println!();
                     }
                 }
                 EntryTree::Parent { name, children } => {
-                    println!("{parent_prefix}{current_prefix}{name}");
+                    println!("{current_prefix}{name:name_pad_len$}");
                     self.run_tree(
                         action,
                         children,
-                        Some(&format!("{parent_prefix}{child_prefix}")),
+                        TreeFormat {
+                            parent_prefix: Some(&format!("{parent_prefix}{child_prefix}")),
+                            ..fmt
+                        },
                     );
                 }
             };
@@ -195,6 +209,12 @@ impl Divan {
             }
         }
     }
+}
+
+#[derive(Clone, Copy)]
+struct TreeFormat<'a> {
+    parent_prefix: Option<&'a str>,
+    max_name_span: usize,
 }
 
 /// Makes `Divan::skip_regex` input polymorphic.

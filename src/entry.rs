@@ -74,6 +74,21 @@ impl<'a> EntryTree<'a> {
         result
     }
 
+    /// Returns the maximum span for a name in `tree`.
+    pub fn max_name_span(tree: &[Self], depth: usize) -> usize {
+        tree.iter()
+            .map(|node| {
+                let node_name_len = node.name().chars().count();
+                let node_name_span = node_name_len + (depth * 4);
+
+                let children_max = Self::max_name_span(node.children(), depth + 1);
+
+                node_name_span.max(children_max)
+            })
+            .max()
+            .unwrap_or_default()
+    }
+
     /// Helper for constructing a tree.
     ///
     /// This uses recursion because the iterative approach runs into limitations
@@ -110,5 +125,19 @@ impl<'a> EntryTree<'a> {
             Self::Parent { name, children } if *name == module => Some(children),
             _ => None,
         })
+    }
+
+    fn name(&self) -> &'a str {
+        match self {
+            Self::Leaf(entry) => entry.name,
+            Self::Parent { name, .. } => name,
+        }
+    }
+
+    fn children(&self) -> &[Self] {
+        match self {
+            Self::Leaf { .. } => &[],
+            Self::Parent { children, .. } => children,
+        }
     }
 }
