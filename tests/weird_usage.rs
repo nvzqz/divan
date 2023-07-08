@@ -1,11 +1,6 @@
 // Tests that ensure weird (but valid) usage behave as expected.
 
-use std::{any::TypeId, collections::HashMap};
-
-use divan::{
-    Divan,
-    __private::{Entry, ENTRIES},
-};
+use divan::{Divan, __private::ENTRIES};
 
 #[divan::bench]
 fn lifetime<'a>() -> &'a str {
@@ -56,24 +51,6 @@ fn path() {
         // "r#" is removed from raw identifiers.
         if entry.path.contains("raw_ident") {
             assert_eq!(entry.path, "weird_usage::raw_ident");
-        }
-    }
-}
-
-// Test that each benchmarked function has a unique type ID.
-#[test]
-fn unique_id() {
-    let mut seen = HashMap::<TypeId, &Entry>::new();
-
-    for entry in ENTRIES {
-        let id = (entry.get_id)();
-
-        if let Some(collision) = seen.insert(id, entry) {
-            fn info(entry: &Entry) -> String {
-                format!("'{}' ({}:{})", entry.path, entry.file, entry.line)
-            }
-
-            panic!("Type ID collision for {} and {}", info(collision), info(entry));
         }
     }
 }

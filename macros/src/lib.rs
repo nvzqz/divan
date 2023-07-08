@@ -105,8 +105,6 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 ignore: #ignore,
 
                 bench_loop: #bench_loop,
-
-                get_id: || #std_crate::any::Any::type_id(&#fn_name),
             };
         };
     };
