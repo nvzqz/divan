@@ -101,7 +101,14 @@ impl Context {
                 // Sample loop:
                 let start = self.start_sample();
                 for drop_slot in drop_slots {
-                    *drop_slot = MaybeUninit::new(black_box(f()));
+                    *drop_slot = MaybeUninit::new(f());
+
+                    // PERF: We `black_box` the result's slot address instead of
+                    // the result by-value because `black_box` currently writes
+                    // its input to the stack. Using the slot address reduces
+                    // overhead when `R` is a larger type like `String` since
+                    // then it will write a single word instead of three words.
+                    _ = black_box(drop_slot);
                 }
                 self.end_sample(start);
 
