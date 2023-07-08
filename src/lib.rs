@@ -54,6 +54,17 @@ pub use std::hint::black_box;
 /// }
 /// ```
 ///
+/// Applying this attribute multiple times to the same item will cause a compile
+/// error:
+///
+/// ```compile_fail
+/// #[divan::bench]
+/// #[divan::bench]
+/// fn bench() {
+///     // ...
+/// }
+/// ```
+///
 /// # Options
 ///
 /// - `#[divan::bench(name = "...")]`

@@ -37,7 +37,10 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let fn_item = item.clone();
     let fn_item = syn::parse_macro_input!(fn_item as syn::ItemFn);
-    let fn_name = &fn_item.sig.ident;
+
+    let fn_ident = &fn_item.sig.ident;
+    let fn_name = fn_ident.to_string();
+    let fn_name_pretty = fn_name.strip_prefix("r#").unwrap_or(&fn_name);
 
     let mut ignore = false;
     for attr in &fn_item.attrs {
@@ -50,11 +53,8 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     // String expression of the benchmark's fully-qualified path.
-    let bench_path_expr = {
-        let fn_name = fn_name.to_string();
-        let fn_name = fn_name.strip_prefix("r#").unwrap_or(&fn_name);
-
-        quote! { #std_crate::concat!(#std_crate::module_path!(), "::", #fn_name) }
+    let bench_path_expr = quote! {
+        #std_crate::concat!(#std_crate::module_path!(), "::", #fn_name_pretty)
     };
 
     let bench_name_expr: &dyn ToTokens = match &bench_name_expr {
@@ -68,15 +68,25 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         // `fn(&mut divan::bench::Context) -> ()`.
         quote! {
             #private_mod::BenchLoop::Static(|__divan_context| {
-                __divan_context.bench_loop(#fn_name)
+                __divan_context.bench_loop(#fn_ident)
             })
         }
     } else {
         // `fn(divan::Bencher) -> ()`.
-        quote! { #private_mod::BenchLoop::Runtime(#fn_name) }
+        quote! { #private_mod::BenchLoop::Runtime(#fn_ident) }
     };
 
-    let entry_item = quote! {
+    // Prefixed with "__" to prevent IDEs from recommending using this symbol.
+    let fn_dup_ident =
+        syn::Ident::new(&format!("__divan_{fn_name_pretty}_bench_is_duplicate"), fn_ident.span());
+
+    let generated_items = quote! {
+        // Causes a compile error if this attribute is used multiple times on
+        // the same function.
+        #[doc(hidden)]
+        #[allow(warnings, clippy::all)]
+        fn #fn_dup_ident() {}
+
         // This `const _` prevents collisions in the current scope by giving us
         // an anonymous scope to place our static in. As a result, this macro
         // can be used multiple times within the same scope.
@@ -103,6 +113,6 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Append our generated code to the existing token stream.
     let mut result = item;
-    result.extend(TokenStream::from(entry_item));
+    result.extend(TokenStream::from(generated_items));
     result
 }
