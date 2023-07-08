@@ -1,11 +1,15 @@
 // Tests that ensure weird (but valid) usage behave as expected.
 
 use std::{
-    collections::HashSet,
+    any::TypeId,
+    collections::HashMap,
     sync::atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
 
-use divan::{Divan, __private::ENTRIES};
+use divan::{
+    Divan,
+    __private::{Entry, ENTRIES},
+};
 
 #[divan::bench]
 fn lifetime<'a>() -> &'a str {
@@ -93,7 +97,7 @@ fn path() {
 // Test that each benchmarked function has a unique type ID.
 #[test]
 fn unique_id() {
-    let mut seen = HashSet::new();
+    let mut seen = HashMap::<TypeId, &Entry>::new();
 
     for entry in ENTRIES {
         if entry.path.contains("twice") || entry.path.contains("thrice") {
@@ -101,6 +105,13 @@ fn unique_id() {
         }
 
         let id = (entry.get_id)();
-        assert!(seen.insert(id), "Function '{}' does not have a unique type ID", entry.path);
+
+        if let Some(collision) = seen.insert(id, entry) {
+            fn info(entry: &Entry) -> String {
+                format!("'{}' ({}:{})", entry.path, entry.file, entry.line)
+            }
+
+            panic!("Type ID collision for {} and {}", info(collision), info(entry));
+        }
     }
 }
