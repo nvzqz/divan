@@ -90,7 +90,9 @@ impl Divan {
 
         match self.format {
             OutputFormat::Pretty => {
-                let tree = EntryTree::from_entries(entries.iter().copied());
+                let mut tree = EntryTree::from_entries(entries.iter().copied());
+                EntryTree::sort_by_kind(&mut tree);
+
                 self.run_tree(
                     action,
                     &tree,

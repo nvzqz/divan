@@ -89,6 +89,22 @@ impl<'a> EntryTree<'a> {
             .unwrap_or_default()
     }
 
+    /// Sorts the tree such that leaves appear before parents.
+    ///
+    /// Trees of the same kind are sorted by name.
+    pub fn sort_by_kind(tree: &mut [Self]) {
+        tree.sort_unstable_by_key(|tree| {
+            // Leaves should appear before parents.
+            let order = match tree {
+                EntryTree::Leaf { .. } => 0,
+                EntryTree::Parent { .. } => 1,
+            };
+            (order, tree.name())
+        });
+
+        tree.iter_mut().for_each(|tree| Self::sort_by_kind(tree.children_mut()));
+    }
+
     /// Helper for constructing a tree.
     ///
     /// This uses recursion because the iterative approach runs into limitations
@@ -137,6 +153,13 @@ impl<'a> EntryTree<'a> {
     fn children(&self) -> &[Self] {
         match self {
             Self::Leaf { .. } => &[],
+            Self::Parent { children, .. } => children,
+        }
+    }
+
+    fn children_mut(&mut self) -> &mut [Self] {
+        match self {
+            Self::Leaf { .. } => &mut [],
             Self::Parent { children, .. } => children,
         }
     }
