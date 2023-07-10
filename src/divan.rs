@@ -129,7 +129,7 @@ impl Divan {
             } else if !is_last {
                 ["├── ", "│   "]
             } else {
-                ["└── ", "    "]
+                ["╰── ", "    "]
             };
 
             let parent_prefix = fmt.parent_prefix.unwrap_or_default();
