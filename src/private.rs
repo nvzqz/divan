@@ -1,5 +1,8 @@
-pub use std;
+pub use std::{self, default::Default, option::Option::Some};
 
 pub use linkme;
 
-pub use crate::entry::{BenchLoop, Entry, ENTRIES};
+pub use crate::{
+    bench::BenchOptions,
+    entry::{BenchLoop, Entry, ENTRIES},
+};

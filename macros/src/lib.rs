@@ -3,8 +3,6 @@
 //!
 //! See [`divan`](https://docs.rs/divan) crate for documentation.
 
-use std::collections::BTreeMap;
-
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 
@@ -13,7 +11,7 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut divan_crate = None::<syn::Path>;
     let mut bench_name_expr = None::<syn::Expr>;
 
-    let mut bench_options = BTreeMap::<syn::Ident, syn::Expr>::new();
+    let mut bench_options = Vec::<(syn::Ident, syn::Expr)>::new();
 
     let attr_parser = syn::meta::parser(|meta| {
         let repeat_error = || Err(meta.error("repeated 'bench' property"));
@@ -34,13 +32,9 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         } else if meta.path.is_ident("name") {
             parse!(bench_name_expr)
         } else if let Some(ident) = meta.path.get_ident() {
-            // TODO: Make reuse via raw identifiers also cause an error.
-            let is_new = bench_options.insert(ident.clone(), meta.value()?.parse()?).is_none();
-            if is_new {
-                Ok(())
-            } else {
-                repeat_error()
-            }
+            // Option reuse is handled by ensuring fields are not repeated.
+            bench_options.push((ident.clone(), meta.value()?.parse()?));
+            Ok(())
         } else {
             Err(meta.error("unsupported 'bench' property"))
         }
@@ -86,11 +80,28 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     // things by:
     // - Having a single source of truth
     // - Making unknown options a compile error
-    let set_options = {
-        let set_options = bench_options.iter().map(|(option, value)| {
-            quote! { _ = __divan_options.#option.insert(#value); }
+    //
+    // We use `..` (struct update syntax) to ensure that no option is set twice,
+    // even if raw identifiers are used. This also has the accidental benefit of
+    // Rust Analyzer recognizing fields and emitting suggestions with docs and
+    // type info.
+    let bench_options = if bench_options.is_empty() {
+        // Use the `Default` impl function to slightly reduce code generation in
+        // the common case where there's no options set.
+        quote! { #private_mod::Default::default }
+    } else {
+        let options_iter = bench_options.iter().map(|(option, value)| {
+            quote! { #option: #private_mod::Some(#value), }
         });
-        quote! { |__divan_options| { #(#set_options)* } }
+        quote! {
+            || {
+                #[allow(clippy::needless_update)]
+                #private_mod::BenchOptions {
+                    #(#options_iter)*
+                    ..#private_mod::Default::default()
+                }
+            }
+        }
     };
 
     let bench_loop = if fn_args.is_empty() {
@@ -138,7 +149,7 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 ignore: #ignore,
 
-                set_options: #set_options,
+                bench_options: #bench_options,
                 bench_loop: #bench_loop,
             };
         };

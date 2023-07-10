@@ -80,8 +80,8 @@ pub struct Context {
 
 impl Context {
     /// Creates a new benchmarking context.
-    pub(crate) fn new(is_test: bool) -> Self {
-        Self { is_test, options: Default::default(), samples: Vec::new() }
+    pub(crate) fn new(is_test: bool, options: BenchOptions) -> Self {
+        Self { is_test, options, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `f`.

@@ -178,9 +178,7 @@ impl Divan {
             println!("Running '{}'", entry.full_path);
         }
 
-        let mut context = Context::new(action.is_test());
-
-        (entry.set_options)(&mut context.options);
+        let mut context = Context::new(action.is_test(), (entry.bench_options)());
 
         if let Some(sample_count) = self.sample_count {
             context.options.sample_count = Some(sample_count);

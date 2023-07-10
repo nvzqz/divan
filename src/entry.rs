@@ -26,7 +26,7 @@ pub struct Entry {
     pub ignore: bool,
 
     /// Configures the benchmarker via attribute options.
-    pub set_options: fn(&mut BenchOptions),
+    pub bench_options: fn() -> BenchOptions,
 
     /// The benchmarking loop.
     pub bench_loop: BenchLoop,
