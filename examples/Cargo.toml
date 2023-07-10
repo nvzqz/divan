@@ -10,9 +10,14 @@ publish = false
 
 [dev-dependencies]
 divan = { workspace = true }
+image = "0.24"
 
 [[bench]]
 name = "collections"
+harness = false
+
+[[bench]]
+name = "image"
 harness = false
 
 [[bench]]
