@@ -1,6 +1,6 @@
 //! Measurement statistics.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::time::FineDuration;
 
@@ -14,7 +14,7 @@ pub struct Stats {
     pub total_count: usize,
 
     /// The total amount of time spent benchmarking.
-    pub total_duration: Duration,
+    pub total_duration: FineDuration,
 
     /// Mean time taken by all iterations.
     pub avg_duration: FineDuration,

@@ -158,12 +158,6 @@ impl Context {
         let sample_count = self.samples.len();
         let total_count = sample_count * self.sample_size as usize;
 
-        let first = self.samples.first()?;
-        let last = self.samples.last()?;
-
-        let total_duration = last.end.duration_since(first.start);
-        let avg_duration = FineDuration::average(total_duration, total_count as u128);
-
         let mut all_durations: Vec<FineDuration> = self
             .samples
             .iter()
@@ -174,6 +168,11 @@ impl Context {
                 )
             })
             .collect();
+
+        // Sum all for total to prevent counting work between samples.
+        let total_picos = all_durations.iter().map(|d| d.picos).sum();
+        let total_duration = FineDuration { picos: total_picos };
+        let avg_duration = FineDuration { picos: total_picos / total_count as u128 };
 
         all_durations.sort_unstable();
 
