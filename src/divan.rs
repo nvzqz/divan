@@ -195,7 +195,7 @@ impl Divan {
         }
 
         if action.is_bench() {
-            let stats = context.compute_stats().unwrap();
+            let stats = context.compute_stats();
 
             // TODO: Improve stats formatting.
             match self.format {

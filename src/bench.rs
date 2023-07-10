@@ -154,7 +154,7 @@ impl Context {
         self.samples.push(Sample { start, end });
     }
 
-    pub(crate) fn compute_stats(&self) -> Option<Stats> {
+    pub(crate) fn compute_stats(&self) -> Stats {
         let sample_count = self.samples.len();
         let total_count = sample_count * self.sample_size as usize;
 
@@ -176,10 +176,12 @@ impl Context {
 
         all_durations.sort_unstable();
 
-        let min_duration = *all_durations.first().unwrap();
-        let max_duration = *all_durations.last().unwrap();
+        let min_duration = all_durations.first().copied().unwrap_or_default();
+        let max_duration = all_durations.last().copied().unwrap_or_default();
 
-        let median_duration = if sample_count % 2 == 0 {
+        let median_duration = if sample_count == 0 {
+            FineDuration::default()
+        } else if sample_count % 2 == 0 {
             // Take average of two middle numbers.
             let a = all_durations[sample_count / 2];
             let b = all_durations[(sample_count / 2) - 1];
@@ -190,7 +192,7 @@ impl Context {
             all_durations[sample_count / 2]
         };
 
-        Some(Stats {
+        Stats {
             sample_count,
             total_count,
             total_duration,
@@ -198,6 +200,6 @@ impl Context {
             min_duration,
             max_duration,
             median_duration,
-        })
+        }
     }
 }
