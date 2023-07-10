@@ -6,6 +6,13 @@ pub struct FineDuration {
     pub picos: u128,
 }
 
+impl From<Duration> for FineDuration {
+    #[inline]
+    fn from(duration: Duration) -> Self {
+        Self { picos: duration.as_nanos() * 1_000 }
+    }
+}
+
 impl fmt::Debug for FineDuration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // `Duration` has no notion of picoseconds, so we manually format
@@ -21,19 +28,14 @@ impl fmt::Debug for FineDuration {
     }
 }
 
-impl FineDuration {
-    /// Computes the average of a duration over a number of elements.
-    pub fn average(duration: Duration, n: u128) -> Self {
-        Self { picos: (duration.as_nanos() * 1_000) / n }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn max_duration_average() {
-        _ = FineDuration::average(Duration::MAX, 1);
+    fn duration_from_max() {
+        let max_picos = Duration::MAX.as_nanos().checked_mul(1_000);
+        let max_duration = FineDuration::from(Duration::MAX);
+        assert_eq!(Some(max_duration.picos), max_picos);
     }
 }

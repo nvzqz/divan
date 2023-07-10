@@ -44,6 +44,19 @@ impl Bencher<'_> {
     }
 }
 
+/// Options set directly by the user in `#[divan::bench]`.
+///
+/// Changes to fields must be reflected in the "Options" section in the
+/// `#[divan::bench]` documentation.
+#[derive(Default)]
+pub struct BenchOptions {
+    /// The number of sample recordings.
+    pub sample_count: Option<u32>,
+
+    /// The number of iterations inside a single sample.
+    pub sample_size: Option<u32>,
+}
+
 /// `#[divan::bench]` loop context.
 ///
 /// Functions called within the benchmark loop should be `#[inline(always)]` to
@@ -52,26 +65,23 @@ impl Bencher<'_> {
 /// Instances of this type are publicly accessible to generated code, so care
 /// should be taken when making fields and methods fully public.
 pub struct Context {
+    /// Whether the benchmark is being run as `--test`.
+    ///
+    /// When `true`, the benchmark is run exactly once. To achieve this, sample
+    /// count and size are each set to 1.
+    is_test: bool,
+
+    /// User-configured options.
+    pub(crate) options: BenchOptions,
+
     /// Recorded samples.
     samples: Vec<Sample>,
-
-    /// The number of iterations between recording samples.
-    sample_size: u32,
 }
 
 impl Context {
-    /// Creates a context for actual benchmarking.
-    pub(crate) fn bench() -> Self {
-        Self {
-            // TODO: Pick these numbers dynamically.
-            samples: Vec::with_capacity(1_000),
-            sample_size: 1_000,
-        }
-    }
-
-    /// Creates a context for testing benchmarked functions.
-    pub(crate) fn test() -> Self {
-        Self { samples: Vec::with_capacity(1), sample_size: 1 }
+    /// Creates a new benchmarking context.
+    pub(crate) fn new(is_test: bool) -> Self {
+        Self { is_test, options: Default::default(), samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `f`.
@@ -82,10 +92,23 @@ impl Context {
         // between samples to reduce time spent between samples.
         let mut drop_store = Vec::<R>::new();
 
-        // TODO: Set sample count and size dynamically.
-        for _ in 0..self.target_sample_count() {
-            let sample_size = self.sample_size as usize;
+        // TODO: Set sample count and size dynamically if not set by the user.
+        let sample_count =
+            if self.is_test { 1 } else { self.options.sample_count.unwrap_or(1_000) };
 
+        let sample_size = if self.is_test { 1 } else { self.options.sample_size.unwrap_or(1_000) };
+
+        if sample_count == 0 || sample_size == 0 {
+            return;
+        }
+
+        self.samples.reserve_exact(sample_count as usize);
+
+        // NOTE: Aside from handling sample count and size, testing and
+        // benchmarking should behave exactly the same since we don't want to
+        // introduce extra work in benchmarks just to handle tests. Doing so may
+        // worsen measurement quality for real benchmarking.
+        for _ in 0..sample_count {
             // If `R` needs to be dropped, we defer drop in the sample loop by
             // inserting it into `drop_store`. Otherwise, we just loop up to
             // `sample_size`.
@@ -95,8 +118,8 @@ impl Context {
 
                 // The sample loop below is over `sample_size` number of slots
                 // of pre-allocated memory in `drop_store`.
-                drop_store.reserve_exact(sample_size);
-                let drop_slots = drop_store.spare_capacity_mut()[..sample_size].iter_mut();
+                drop_store.reserve_exact(sample_size as usize);
+                let drop_slots = drop_store.spare_capacity_mut()[..sample_size as usize].iter_mut();
 
                 // Sample loop:
                 let start = self.start_sample();
@@ -110,28 +133,22 @@ impl Context {
                     // then it will write a single word instead of three words.
                     _ = black_box(drop_slot);
                 }
-                self.end_sample(start);
+                self.end_sample(start, sample_size);
 
                 // Increase length to mark stored values as initialized so that
                 // they can be dropped.
                 //
                 // SAFETY: All values were initialized in the sample loop.
-                unsafe { drop_store.set_len(sample_size) };
+                unsafe { drop_store.set_len(sample_size as usize) };
             } else {
                 // Sample loop:
                 let start = self.start_sample();
                 for _ in 0..sample_size {
                     _ = black_box(f());
                 }
-                self.end_sample(start);
+                self.end_sample(start, sample_size);
             }
         }
-    }
-
-    /// Returns the number of samples that should be taken.
-    #[inline(always)]
-    fn target_sample_count(&self) -> usize {
-        self.samples.capacity()
     }
 
     /// Begins info measurement at the start of a loop.
@@ -145,55 +162,60 @@ impl Context {
 
     /// Records measurement info at the end of a loop.
     #[inline(always)]
-    fn end_sample(&mut self, start: Instant) {
+    fn end_sample(&mut self, start: Instant, size: u32) {
         let end = Instant::now();
 
         // Prevent other operations from affecting timing measurements.
         std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
 
-        self.samples.push(Sample { start, end });
+        self.samples.push(Sample {
+            start,
+            end,
+            size,
+            total_duration: end.duration_since(start).into(),
+        });
+    }
+
+    /// Computes the total iteration count and duration.
+    ///
+    /// We use `u64` for total count in case sample count and sizes are huge.
+    fn compute_totals(&self) -> (u64, FineDuration) {
+        self.samples.iter().fold(Default::default(), |(mut count, mut duration), sample| {
+            count += sample.size as u64;
+            duration.picos += sample.total_duration.picos;
+            (count, duration)
+        })
     }
 
     pub(crate) fn compute_stats(&self) -> Stats {
         let sample_count = self.samples.len();
-        let total_count = sample_count * self.sample_size as usize;
+        let (total_count, total_duration) = self.compute_totals();
 
-        let mut all_durations: Vec<FineDuration> = self
-            .samples
-            .iter()
-            .map(|sample| {
-                FineDuration::average(
-                    sample.end.duration_since(sample.start),
-                    self.sample_size as u128,
-                )
-            })
-            .collect();
+        // Samples ordered by each average duration.
+        let mut ordered_samples: Vec<&Sample> = self.samples.iter().collect();
+        ordered_samples.sort_unstable_by_key(|s| s.avg_duration());
 
-        // Sum all for total to prevent counting work between samples.
-        let total_picos = all_durations.iter().map(|d| d.picos).sum();
-        let total_duration = FineDuration { picos: total_picos };
-        let avg_duration = FineDuration { picos: total_picos / total_count as u128 };
+        let avg_duration = FineDuration {
+            picos: total_duration.picos.checked_div(total_count as u128).unwrap_or_default(),
+        };
 
-        all_durations.sort_unstable();
-
-        let min_duration = all_durations.first().copied().unwrap_or_default();
-        let max_duration = all_durations.last().copied().unwrap_or_default();
+        let min_duration = ordered_samples.first().map(|s| s.avg_duration()).unwrap_or_default();
+        let max_duration = ordered_samples.last().map(|s| s.avg_duration()).unwrap_or_default();
 
         let median_duration = if sample_count == 0 {
             FineDuration::default()
         } else if sample_count % 2 == 0 {
             // Take average of two middle numbers.
-            let a = all_durations[sample_count / 2];
-            let b = all_durations[(sample_count / 2) - 1];
-
-            FineDuration { picos: (a.picos + b.picos) / 2 }
+            let s1 = ordered_samples[sample_count / 2];
+            let s2 = ordered_samples[(sample_count / 2) - 1];
+            s1.avg_duration_between(s2)
         } else {
             // Single middle number.
-            all_durations[sample_count / 2]
+            ordered_samples[sample_count / 2].avg_duration()
         };
 
         Stats {
-            sample_count,
+            sample_count: sample_count as u32,
             total_count,
             total_duration,
             avg_duration,

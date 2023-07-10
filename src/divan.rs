@@ -18,6 +18,8 @@ pub struct Divan {
     filter: Option<Filter>,
     skip_filters: Vec<Filter>,
     run_ignored: RunIgnored,
+    sample_size: Option<u32>,
+    sample_count: Option<u32>,
 }
 
 impl fmt::Debug for Divan {
@@ -176,9 +178,17 @@ impl Divan {
             println!("Running '{}'", entry.full_path);
         }
 
-        // NOTE: Testing and benchmarking should behave equally since we don't
-        // want to introduce extra code in benchmarks just to handle tests.
-        let mut context = if action.is_bench() { Context::bench() } else { Context::test() };
+        let mut context = Context::new(action.is_test());
+
+        (entry.set_options)(&mut context.options);
+
+        if let Some(sample_count) = self.sample_count {
+            context.options.sample_count = Some(sample_count);
+        }
+
+        if let Some(sample_size) = self.sample_size {
+            context.options.sample_size = Some(sample_size);
+        }
 
         match &entry.bench_loop {
             // Run the statically-constructed function.
@@ -276,6 +286,14 @@ impl Divan {
             self.run_ignored = RunIgnored::Only;
         } else if matches.get_flag("include-ignored") {
             self.run_ignored = RunIgnored::Yes;
+        }
+
+        if let Some(&sample_count) = matches.get_one("sample-count") {
+            self.sample_count = Some(sample_count);
+        }
+
+        if let Some(&sample_size) = matches.get_one("sample-size") {
+            self.sample_size = Some(sample_size);
         }
 
         self
@@ -411,6 +429,24 @@ impl Divan {
     #[must_use]
     pub fn skip_exact(mut self, filter: impl Into<String>) -> Self {
         self.skip_filters.push(Filter::Exact(filter.into()));
+        self
+    }
+
+    /// Sets the number of sampling iterations.
+    ///
+    /// This option is equivalent to the `--sample-count` CLI argument.
+    #[inline]
+    pub fn sample_count(mut self, count: u32) -> Self {
+        self.sample_count = Some(count);
+        self
+    }
+
+    /// Sets the number of iterations inside a single sample.
+    ///
+    /// This option is equivalent to the `--sample-size` CLI argument.
+    #[inline]
+    pub fn sample_size(mut self, count: u32) -> Self {
+        self.sample_size = Some(count);
         self
     }
 }

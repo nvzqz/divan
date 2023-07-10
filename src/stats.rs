@@ -8,10 +8,10 @@ use crate::time::FineDuration;
 #[derive(Debug)]
 pub struct Stats {
     /// Total number of samples taken.
-    pub sample_count: usize,
+    pub sample_count: u32,
 
-    /// Total number of iterations (`sample_count * iter_per_sample`).
-    pub total_count: usize,
+    /// Total number of iterations (currently `sample_count * `sample_size`).
+    pub total_count: u64,
 
     /// The total amount of time spent benchmarking.
     pub total_duration: FineDuration,
@@ -36,4 +36,25 @@ pub struct Sample {
 
     /// When the sample stopped.
     pub end: Instant,
+
+    /// The number of iterations.
+    pub size: u32,
+
+    /// The time this sample took to run.
+    pub total_duration: FineDuration,
+}
+
+impl Sample {
+    /// The time each iteration took to run on average.
+    pub fn avg_duration(&self) -> FineDuration {
+        FineDuration { picos: self.total_duration.picos / self.size as u128 }
+    }
+
+    /// The time each iteration took to run on average between `self` and
+    /// `other`.
+    pub fn avg_duration_between(&self, other: &Self) -> FineDuration {
+        let d1 = self.avg_duration();
+        let d2 = other.avg_duration();
+        FineDuration { picos: (d1.picos + d2.picos) / 2 }
+    }
 }

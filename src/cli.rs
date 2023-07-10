@@ -16,12 +16,27 @@ pub fn command() -> Command {
     }
 
     Command::new("divan")
+        // Our custom arguments, which are not supported by libtest:
+        .arg(
+            option("sample-count")
+                .env("DIVAN_SAMPLE_COUNT")
+                .value_name("N")
+                .help("Set the number of sampling iterations")
+                .value_parser(value_parser!(u32)),
+        )
+        .arg(
+            option("sample-size")
+                .env("DIVAN_SAMPLE_SIZE")
+                .value_name("N")
+                .help("Set the number of iterations inside a single sample")
+                .value_parser(value_parser!(u32)),
+        )
+        // libtest-supported arguments:
         .arg(
             Arg::new("filter")
                 .value_name("FILTER")
                 .help("Only run benchmarks whose names match this pattern"),
         )
-        // libtest arguments:
         .arg(
             option("color")
                 .value_name("WHEN")

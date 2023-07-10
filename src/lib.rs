@@ -126,6 +126,36 @@ pub use std::hint::black_box;
 ///   }
 ///   ```
 ///
+/// - `#[divan::bench(sample_count = 1000)]`
+///
+///   The number of statistical sample recordings can be set to a predetermined
+///   [`u32`] value via the `sample_count` option. This may be overridden at
+///   runtime using either the `DIVAN_SAMPLE_COUNT` environment variable or
+///   `--sample-count` CLI argument.
+///
+///   ```
+///   #[divan::bench(sample_count = 1000)]
+///   fn add() -> i32 {
+///       // ...
+///       # 0
+///   }
+///   ```
+///
+/// - `#[divan::bench(sample_size = 1000)]`
+///
+///   The number iterations within each statistics sample can be set to a
+///   predetermined [`u32`] value via the `sample_size` option. This may be
+///   overridden at runtime using either the `DIVAN_SAMPLE_SIZE` environment
+///   variable or `--sample-size` CLI argument.
+///
+///   ```
+///   #[divan::bench(sample_size = 1000)]
+///   fn add() -> i32 {
+///       // ...
+///       # 0
+///   }
+///   ```
+///
 /// - [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute)
 ///
 ///   Like [`#[test]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-test-attribute),

@@ -3,6 +3,8 @@
 //!
 //! See [`divan`](https://docs.rs/divan) crate for documentation.
 
+use std::collections::BTreeMap;
+
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 
@@ -11,14 +13,18 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut divan_crate = None::<syn::Path>;
     let mut bench_name_expr = None::<syn::Expr>;
 
+    let mut bench_options = BTreeMap::<syn::Ident, syn::Expr>::new();
+
     let attr_parser = syn::meta::parser(|meta| {
+        let repeat_error = || Err(meta.error("repeated 'bench' property"));
+
         macro_rules! parse {
             ($storage:ident) => {
                 if $storage.is_none() {
                     $storage = Some(meta.value()?.parse()?);
                     Ok(())
                 } else {
-                    Err(meta.error("repeated 'bench' property"))
+                    repeat_error()
                 }
             };
         }
@@ -27,6 +33,14 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
             parse!(divan_crate)
         } else if meta.path.is_ident("name") {
             parse!(bench_name_expr)
+        } else if let Some(ident) = meta.path.get_ident() {
+            // TODO: Make reuse via raw identifiers also cause an error.
+            let is_new = bench_options.insert(ident.clone(), meta.value()?.parse()?).is_none();
+            if is_new {
+                Ok(())
+            } else {
+                repeat_error()
+            }
         } else {
             Err(meta.error("unsupported 'bench' property"))
         }
@@ -68,6 +82,17 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let fn_args = &fn_item.sig.inputs;
 
+    // Directly set fields on `BenchOptions` held by `Context`. This simplifies
+    // things by:
+    // - Having a single source of truth
+    // - Making unknown options a compile error
+    let set_options = {
+        let set_options = bench_options.iter().map(|(option, value)| {
+            quote! { _ = __divan_options.#option.insert(#value); }
+        });
+        quote! { |__divan_options| { #(#set_options)* } }
+    };
+
     let bench_loop = if fn_args.is_empty() {
         // `fn(&mut divan::bench::Context) -> ()`.
         quote! {
@@ -76,8 +101,12 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
             })
         }
     } else {
-        // `fn(divan::Bencher) -> ()`.
-        quote! { #private_mod::BenchLoop::Runtime(#fn_ident) }
+        quote! {
+            #private_mod::BenchLoop::Runtime(
+                // `fn(divan::Bencher) -> ()`.
+                #fn_ident
+            )
+        }
     };
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
@@ -109,6 +138,7 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 ignore: #ignore,
 
+                set_options: #set_options,
                 bench_loop: #bench_loop,
             };
         };

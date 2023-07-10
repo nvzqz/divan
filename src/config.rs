@@ -20,6 +20,10 @@ impl Action {
         matches!(self, Self::Bench)
     }
 
+    pub fn is_test(&self) -> bool {
+        matches!(self, Self::Test)
+    }
+
     pub fn is_list(&self) -> bool {
         matches!(self, Self::List)
     }
