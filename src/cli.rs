@@ -3,8 +3,16 @@ use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Co
 use crate::config::OutputFormat;
 
 pub fn command() -> Command {
+    fn option(name: &'static str) -> Arg {
+        Arg::new(name).long(name)
+    }
+
+    fn flag(name: &'static str) -> Arg {
+        option(name).action(ArgAction::SetTrue)
+    }
+
     fn ignored_flag(name: &'static str) -> Arg {
-        Arg::new(name).long(name).num_args(0).hide(true)
+        flag(name).hide(true)
     }
 
     Command::new("divan")
@@ -15,60 +23,36 @@ pub fn command() -> Command {
         )
         // libtest arguments:
         .arg(
-            Arg::new("color")
-                .long("color")
+            option("color")
                 .value_name("WHEN")
                 .help("Controls when to use colors")
                 .value_parser(value_parser!(ColorChoice))
                 .default_value("auto"),
         )
         .arg(
-            Arg::new("format")
-                .long("format")
-                .value_name("pretty|terse")
+            option("format")
                 .help("Configure formatting of output")
+                .value_name("pretty|terse")
                 .value_parser(value_parser!(OutputFormat))
                 .default_value("pretty"),
         )
         .arg(
-            Arg::new("skip")
-                .long("skip")
+            option("skip")
                 .value_name("FILTER")
                 .help("Skip benchmarks whose names match this pattern")
                 .action(ArgAction::Append),
         )
+        .arg(flag("exact").help("Filter benchmarks by exact name rather than by pattern"))
         .arg(
-            Arg::new("exact")
-                .long("exact")
-                .help("Filter benchmarks by exact name rather than by pattern")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("test")
-                .long("test")
+            flag("test")
                 .help("Run benchmarks once to ensure they run successfully")
-                .action(ArgAction::SetTrue)
                 .conflicts_with("list"),
         )
+        .arg(flag("list").help("Lists benchmarks").conflicts_with("test"))
+        .arg(flag("ignored").help("Run only ignored benchmarks").conflicts_with("include-ignored"))
         .arg(
-            Arg::new("list")
-                .long("list")
-                .help("Lists benchmarks")
-                .action(ArgAction::SetTrue)
-                .conflicts_with("test"),
-        )
-        .arg(
-            Arg::new("ignored")
-                .long("ignored")
-                .help("Run only ignored benchmarks")
-                .action(ArgAction::SetTrue)
-                .conflicts_with("include-ignored"),
-        )
-        .arg(
-            Arg::new("include-ignored")
-                .long("include-ignored")
+            flag("include-ignored")
                 .help("Run ignored and not-ignored benchmarks")
-                .action(ArgAction::SetTrue)
                 .conflicts_with("ignored"),
         )
         // ignored:
