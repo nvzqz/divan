@@ -27,3 +27,13 @@ impl SmallDuration {
         Self { picos: (duration.as_nanos() * 1_000) / n }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn max_duration_average() {
+        _ = SmallDuration::average(Duration::MAX, 1);
+    }
+}
