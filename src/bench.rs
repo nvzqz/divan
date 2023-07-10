@@ -3,7 +3,7 @@ use std::{fmt, mem::MaybeUninit, time::Instant};
 use crate::{
     black_box,
     stats::{Sample, Stats},
-    time::SmallDuration,
+    time::FineDuration,
 };
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
@@ -162,13 +162,13 @@ impl Context {
         let last = self.samples.last()?;
 
         let total_duration = last.end.duration_since(first.start);
-        let avg_duration = SmallDuration::average(total_duration, total_count as u128);
+        let avg_duration = FineDuration::average(total_duration, total_count as u128);
 
-        let mut all_durations: Vec<SmallDuration> = self
+        let mut all_durations: Vec<FineDuration> = self
             .samples
             .iter()
             .map(|sample| {
-                SmallDuration::average(
+                FineDuration::average(
                     sample.end.duration_since(sample.start),
                     self.sample_size as u128,
                 )
@@ -185,7 +185,7 @@ impl Context {
             let a = all_durations[sample_count / 2];
             let b = all_durations[(sample_count / 2) - 1];
 
-            SmallDuration { picos: (a.picos + b.picos) / 2 }
+            FineDuration { picos: (a.picos + b.picos) / 2 }
         } else {
             // Single middle number.
             all_durations[sample_count / 2]

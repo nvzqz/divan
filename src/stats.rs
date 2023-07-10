@@ -2,7 +2,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::time::SmallDuration;
+use crate::time::FineDuration;
 
 /// Statistics from samples.
 #[derive(Debug)]
@@ -17,16 +17,16 @@ pub struct Stats {
     pub total_duration: Duration,
 
     /// Mean time taken by all iterations.
-    pub avg_duration: SmallDuration,
+    pub avg_duration: FineDuration,
 
     /// The minimum amount of time taken by an iteration.
-    pub min_duration: SmallDuration,
+    pub min_duration: FineDuration,
 
     /// The maximum amount of time taken by an iteration.
-    pub max_duration: SmallDuration,
+    pub max_duration: FineDuration,
 
     /// Midpoint time taken by an iteration.
-    pub median_duration: SmallDuration,
+    pub median_duration: FineDuration,
 }
 
 /// Measurement datum.

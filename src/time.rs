@@ -2,11 +2,11 @@ use std::{fmt, time::Duration};
 
 /// [Picosecond](https://en.wikipedia.org/wiki/Picosecond)-precise [`Duration`].
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SmallDuration {
+pub struct FineDuration {
     pub picos: u128,
 }
 
-impl fmt::Debug for SmallDuration {
+impl fmt::Debug for FineDuration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // `Duration` has no notion of picoseconds, so we manually format
         // picoseconds and nanoseconds ourselves.
@@ -21,7 +21,7 @@ impl fmt::Debug for SmallDuration {
     }
 }
 
-impl SmallDuration {
+impl FineDuration {
     /// Computes the average of a duration over a number of elements.
     pub fn average(duration: Duration, n: u128) -> Self {
         Self { picos: (duration.as_nanos() * 1_000) / n }
@@ -34,6 +34,6 @@ mod tests {
 
     #[test]
     fn max_duration_average() {
-        _ = SmallDuration::average(Duration::MAX, 1);
+        _ = FineDuration::average(Duration::MAX, 1);
     }
 }
