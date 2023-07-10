@@ -12,12 +12,21 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut bench_name_expr = None::<syn::Expr>;
 
     let attr_parser = syn::meta::parser(|meta| {
+        macro_rules! parse {
+            ($storage:ident) => {
+                if $storage.is_none() {
+                    $storage = Some(meta.value()?.parse()?);
+                    Ok(())
+                } else {
+                    Err(meta.error("repeated 'bench' property"))
+                }
+            };
+        }
+
         if meta.path.is_ident("crate") {
-            divan_crate = Some(meta.value()?.parse()?);
-            Ok(())
+            parse!(divan_crate)
         } else if meta.path.is_ident("name") {
-            bench_name_expr = Some(meta.value()?.parse()?);
-            Ok(())
+            parse!(bench_name_expr)
         } else {
             Err(meta.error("unsupported 'bench' property"))
         }
