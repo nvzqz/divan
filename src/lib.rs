@@ -8,6 +8,7 @@ pub mod __private;
 
 mod bench;
 mod cli;
+mod compile_fail;
 mod config;
 mod divan;
 mod entry;
