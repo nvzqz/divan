@@ -53,8 +53,8 @@ impl Sample {
     /// The time each iteration took to run on average between `self` and
     /// `other`.
     pub fn avg_duration_between(&self, other: &Self) -> FineDuration {
-        let d1 = self.avg_duration();
-        let d2 = other.avg_duration();
-        FineDuration { picos: (d1.picos + d2.picos) / 2 }
+        let total_picos = self.total_duration.picos + other.total_duration.picos;
+        let total_size = self.size as u128 + other.size as u128;
+        FineDuration { picos: total_picos / total_size }
     }
 }
