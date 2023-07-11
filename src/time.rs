@@ -2,6 +2,7 @@ use std::{fmt, time::Duration};
 
 /// [Picosecond](https://en.wikipedia.org/wiki/Picosecond)-precise [`Duration`].
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
 pub struct FineDuration {
     pub picos: u128,
 }
