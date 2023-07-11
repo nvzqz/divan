@@ -29,14 +29,11 @@ impl fmt::Debug for FineDuration {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn duration_from_max() {
-        let max_picos = Duration::MAX.as_nanos().checked_mul(1_000);
-        let max_duration = FineDuration::from(Duration::MAX);
-        assert_eq!(Some(max_duration.picos), max_picos);
-    }
+impl FineDuration {
+    /// Equal to [`Duration::MAX`].
+    #[allow(unused)]
+    pub const MAX: Self = match Duration::MAX.as_nanos().checked_mul(1_000) {
+        Some(picos) => Self { picos },
+        None => panic!("Cannot represent `Duration::MAX`"),
+    };
 }

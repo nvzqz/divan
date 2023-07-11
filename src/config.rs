@@ -29,6 +29,17 @@ impl Action {
     }
 }
 
+/// How time should be measured.
+#[derive(Clone, Copy, Default)]
+pub enum Timer {
+    /// Use the operating system's timer.
+    #[default]
+    Os,
+
+    /// Use the timestamp counter.
+    Tsc,
+}
+
 /// Filters which benchmark to run based on name.
 pub enum Filter {
     Regex(Regex),

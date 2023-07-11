@@ -5,7 +5,7 @@ use regex::Regex;
 
 use crate::{
     bench::Bencher,
-    config::{Action, Filter, OutputFormat, RunIgnored},
+    config::{Action, Filter, OutputFormat, RunIgnored, Timer},
     entry::{BenchLoop, Entry, EntryTree},
 };
 
@@ -13,6 +13,7 @@ use crate::{
 #[derive(Default)]
 pub struct Divan {
     action: Action,
+    timer: Timer,
     color: ColorChoice,
     format: OutputFormat,
     filter: Option<Filter>,
@@ -178,7 +179,7 @@ impl Divan {
             println!("Running '{}'", entry.full_path);
         }
 
-        let mut context = Context::new(action.is_test(), (entry.bench_options)());
+        let mut context = Context::new(action.is_test(), self.timer, (entry.bench_options)());
 
         if let Some(sample_count) = self.sample_count {
             context.options.sample_count = Some(sample_count);
@@ -284,6 +285,10 @@ impl Divan {
             self.run_ignored = RunIgnored::Only;
         } else if matches.get_flag("include-ignored") {
             self.run_ignored = RunIgnored::Yes;
+        }
+
+        if let Some(&timer) = matches.get_one("timer") {
+            self.timer = timer;
         }
 
         if let Some(&sample_count) = matches.get_one("sample-count") {

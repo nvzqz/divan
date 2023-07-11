@@ -1,9 +1,10 @@
-use std::{fmt, mem::MaybeUninit, time::Instant};
+use std::{fmt, mem::MaybeUninit};
 
 use crate::{
     black_box,
+    config::Timer,
     stats::{Sample, Stats},
-    time::FineDuration,
+    time::{fence, AnyTimestamp, FineDuration, Tsc},
 };
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
@@ -71,6 +72,8 @@ pub struct Context {
     /// count and size are each set to 1.
     is_test: bool,
 
+    tsc_frequency: u64,
+
     /// User-configured options.
     pub(crate) options: BenchOptions,
 
@@ -80,12 +83,20 @@ pub struct Context {
 
 impl Context {
     /// Creates a new benchmarking context.
-    pub(crate) fn new(is_test: bool, options: BenchOptions) -> Self {
-        Self { is_test, options, samples: Vec::new() }
+    pub(crate) fn new(is_test: bool, timer: Timer, options: BenchOptions) -> Self {
+        let tsc_frequency = match timer {
+            // TODO: Report `None` and `Some(0)` TSC frequency.
+            Timer::Tsc => Tsc::frequency().unwrap_or_default(),
+            Timer::Os => 0,
+        };
+        Self { is_test, tsc_frequency, options, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `f`.
     pub fn bench_loop<R>(&mut self, mut f: impl FnMut() -> R) {
+        let tsc_frequency = self.tsc_frequency;
+        let use_tsc = tsc_frequency != 0;
+
         // `drop_store` prevents any drop destructor for `R` from affecting
         // sample measurements. It defers `Drop` by storing instances within a
         // pre-allocated buffer during the sample loop. The allocation is reused
@@ -112,7 +123,7 @@ impl Context {
             // If `R` needs to be dropped, we defer drop in the sample loop by
             // inserting it into `drop_store`. Otherwise, we just loop up to
             // `sample_size`.
-            if std::mem::needs_drop::<R>() {
+            let [start, end] = if std::mem::needs_drop::<R>() {
                 // Drop values from the previous sample.
                 drop_store.clear();
 
@@ -121,8 +132,11 @@ impl Context {
                 drop_store.reserve_exact(sample_size as usize);
                 let drop_slots = drop_store.spare_capacity_mut()[..sample_size as usize].iter_mut();
 
+                fence::full_fence();
+                let start = AnyTimestamp::now(use_tsc);
+                fence::compiler_fence();
+
                 // Sample loop:
-                let start = self.start_sample();
                 for drop_slot in drop_slots {
                     *drop_slot = MaybeUninit::new(f());
 
@@ -133,47 +147,47 @@ impl Context {
                     // then it will write a single word instead of three words.
                     _ = black_box(drop_slot);
                 }
-                self.end_sample(start, sample_size);
+
+                fence::compiler_fence();
+                let end = AnyTimestamp::now(use_tsc);
+                fence::full_fence();
 
                 // Increase length to mark stored values as initialized so that
                 // they can be dropped.
                 //
                 // SAFETY: All values were initialized in the sample loop.
                 unsafe { drop_store.set_len(sample_size as usize) };
+
+                [start, end]
             } else {
+                fence::full_fence();
+                let start = AnyTimestamp::now(use_tsc);
+                fence::compiler_fence();
+
                 // Sample loop:
-                let start = self.start_sample();
                 for _ in 0..sample_size {
                     _ = black_box(f());
                 }
-                self.end_sample(start, sample_size);
-            }
+
+                fence::compiler_fence();
+                let end = AnyTimestamp::now(use_tsc);
+                fence::full_fence();
+
+                [start, end]
+            };
+
+            // SAFETY: These values are guaranteed to be the correct variant
+            // because they were created from the same `use_tsc`.
+            let [start, end] =
+                unsafe { [start.into_timestamp(use_tsc), end.into_timestamp(use_tsc)] };
+
+            self.samples.push(Sample {
+                start,
+                end,
+                size: sample_size,
+                total_duration: end.duration_since(start, tsc_frequency),
+            });
         }
-    }
-
-    /// Begins info measurement at the start of a loop.
-    #[inline(always)]
-    fn start_sample(&self) -> Instant {
-        // Prevent other operations from affecting timing measurements.
-        std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
-
-        Instant::now()
-    }
-
-    /// Records measurement info at the end of a loop.
-    #[inline(always)]
-    fn end_sample(&mut self, start: Instant, size: u32) {
-        let end = Instant::now();
-
-        // Prevent other operations from affecting timing measurements.
-        std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
-
-        self.samples.push(Sample {
-            start,
-            end,
-            size,
-            total_duration: end.duration_since(start).into(),
-        });
     }
 
     /// Computes the total iteration count and duration.

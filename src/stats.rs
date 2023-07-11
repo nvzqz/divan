@@ -1,8 +1,6 @@
 //! Measurement statistics.
 
-use std::time::Instant;
-
-use crate::time::FineDuration;
+use crate::time::{FineDuration, Timestamp};
 
 /// Statistics from samples.
 #[derive(Debug)]
@@ -32,10 +30,10 @@ pub struct Stats {
 /// Measurement datum.
 pub struct Sample {
     /// When the sample began.
-    pub start: Instant,
+    pub start: Timestamp,
 
     /// When the sample stopped.
-    pub end: Instant,
+    pub end: Timestamp,
 
     /// The number of iterations.
     pub size: u32,

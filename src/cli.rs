@@ -1,6 +1,6 @@
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
-use crate::config::OutputFormat;
+use crate::config::{OutputFormat, Timer};
 
 pub fn command() -> Command {
     fn option(name: &'static str) -> Arg {
@@ -30,6 +30,13 @@ pub fn command() -> Command {
                 .value_name("N")
                 .help("Set the number of iterations inside a single sample")
                 .value_parser(value_parser!(u32)),
+        )
+        .arg(
+            option("timer")
+                .env("DIVAN_TIMER")
+                .value_name("os|tsc")
+                .help("Set the timer used for measuring samples")
+                .value_parser(value_parser!(Timer)),
         )
         // libtest-supported arguments:
         .arg(
@@ -72,6 +79,20 @@ pub fn command() -> Command {
         )
         // ignored:
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])
+}
+
+impl ValueEnum for Timer {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Os, Self::Tsc]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        let name = match self {
+            Self::Os => "os",
+            Self::Tsc => "tsc",
+        };
+        Some(PossibleValue::new(name))
+    }
 }
 
 impl ValueEnum for OutputFormat {
