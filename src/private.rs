@@ -4,5 +4,5 @@ pub use linkme;
 
 pub use crate::{
     bench::BenchOptions,
-    entry::{BenchLoop, Entry, ENTRIES},
+    entry::{Entry, ENTRIES},
 };

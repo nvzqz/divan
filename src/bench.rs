@@ -62,10 +62,7 @@ pub struct BenchOptions {
 ///
 /// Functions called within the benchmark loop should be `#[inline(always)]` to
 /// ensure instruction cache locality.
-///
-/// Instances of this type are publicly accessible to generated code, so care
-/// should be taken when making fields and methods fully public.
-pub struct Context {
+pub(crate) struct Context {
     /// Whether the benchmark is being run as `--test`.
     ///
     /// When `true`, the benchmark is run exactly once. To achieve this, sample
@@ -75,7 +72,7 @@ pub struct Context {
     tsc_frequency: u64,
 
     /// User-configured options.
-    pub(crate) options: BenchOptions,
+    pub options: BenchOptions,
 
     /// Recorded samples.
     samples: Vec<Sample>,
@@ -83,7 +80,7 @@ pub struct Context {
 
 impl Context {
     /// Creates a new benchmarking context.
-    pub(crate) fn new(is_test: bool, timer: Timer, options: BenchOptions) -> Self {
+    pub fn new(is_test: bool, timer: Timer, options: BenchOptions) -> Self {
         let tsc_frequency = match timer {
             // TODO: Report `None` and `Some(0)` TSC frequency.
             Timer::Tsc => Tsc::frequency().unwrap_or_default(),
@@ -201,7 +198,7 @@ impl Context {
         })
     }
 
-    pub(crate) fn compute_stats(&self) -> Stats {
+    pub fn compute_stats(&self) -> Stats {
         let sample_count = self.samples.len();
         let (total_count, total_duration) = self.compute_totals();
 

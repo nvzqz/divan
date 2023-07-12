@@ -6,7 +6,7 @@ use regex::Regex;
 use crate::{
     bench::Bencher,
     config::{Action, Filter, OutputFormat, RunIgnored, Timer},
-    entry::{BenchLoop, Entry, EntryTree},
+    entry::{Entry, EntryTree},
 };
 
 /// The benchmark runner.
@@ -189,20 +189,12 @@ impl Divan {
             context.options.sample_size = Some(sample_size);
         }
 
-        match &entry.bench_loop {
-            // Run the statically-constructed function.
-            BenchLoop::Static(bench_loop) => bench_loop(&mut context),
+        let mut did_run = false;
+        (entry.bench)(Bencher { did_run: &mut did_run, context: &mut context });
 
-            // Run the function with context via `Bencher`.
-            BenchLoop::Runtime(bench) => {
-                let mut did_run = false;
-                bench(Bencher { did_run: &mut did_run, context: &mut context });
-
-                if !did_run {
-                    eprintln!("warning: No benchmark function registered for '{}'", entry.name);
-                    return;
-                }
-            }
+        if !did_run {
+            eprintln!("warning: No benchmark function registered for '{}'", entry.name);
+            return;
         }
 
         if action.is_bench() {

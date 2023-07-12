@@ -104,20 +104,10 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let bench_loop = if fn_args.is_empty() {
-        // `fn(&mut divan::bench::Context) -> ()`.
-        quote! {
-            #private_mod::BenchLoop::Static(|__divan_context| {
-                __divan_context.bench_loop(#fn_ident)
-            })
-        }
+    let bench_fn = if fn_args.is_empty() {
+        quote! { |divan| divan.bench(#fn_ident) }
     } else {
-        quote! {
-            #private_mod::BenchLoop::Runtime(
-                // `fn(divan::Bencher) -> ()`.
-                #fn_ident
-            )
-        }
+        quote! { #fn_ident }
     };
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
@@ -150,7 +140,7 @@ pub fn bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 ignore: #ignore,
 
                 bench_options: #bench_options,
-                bench_loop: #bench_loop,
+                bench: #bench_fn,
             };
         };
     };
