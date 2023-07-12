@@ -38,10 +38,51 @@ impl fmt::Debug for Bencher<'_> {
 }
 
 impl Bencher<'_> {
-    /// Benchmarks the given function.
-    pub fn bench<R>(self, f: impl FnMut() -> R) {
+    /// Benchmarks a function.
+    pub fn bench<O, B>(self, mut benched: B)
+    where
+        B: FnMut() -> O,
+    {
+        // Reusing `bench_with_values` for a zero-sized non-drop input type
+        // should have no overhead.
+        self.bench_with_values(|| (), |()| benched());
+    }
+
+    /// Benchmarks a function over per-iteration generated inputs, provided
+    /// by-value.
+    ///
+    /// Per-iteration means the benchmarked function is called exactly once for
+    /// each generated input.
+    ///
+    /// Time spent generating inputs does not affect benchmark timing.
+    pub fn bench_with_values<I, O, G, B>(self, gen_input: G, benched: B)
+    where
+        G: FnMut() -> I,
+        B: FnMut(I) -> O,
+    {
         *self.did_run = true;
-        self.context.bench_loop(f);
+        self.context.bench_loop(gen_input, benched);
+    }
+
+    /// Benchmarks a function over per-iteration generated inputs, provided
+    /// by-reference.
+    ///
+    /// Per-iteration means the benchmarked function is called exactly once for
+    /// each generated input.
+    ///
+    /// Time spent generating inputs does not affect benchmark timing.
+    pub fn bench_with_refs<I, O, G, B>(self, gen_input: G, mut benched: B)
+    where
+        G: FnMut() -> I,
+        B: FnMut(&mut I) -> O,
+    {
+        // TODO: Make this more efficient by referencing the inputs buffer and
+        // not moving inputs out of it. This should also allow `O` to safely
+        // reference `&mut I` as long as `I` outlives `O`.
+        self.bench_with_values(gen_input, |mut input| {
+            let output = benched(&mut input);
+            (input, output)
+        });
     }
 }
 
@@ -89,16 +130,22 @@ impl Context {
         Self { is_test, tsc_frequency, options, samples: Vec::new() }
     }
 
-    /// Runs the loop for benchmarking `f`.
-    pub fn bench_loop<R>(&mut self, mut f: impl FnMut() -> R) {
+    /// Runs the loop for benchmarking `benched`.
+    pub fn bench_loop<I, O>(
+        &mut self,
+        mut gen_input: impl FnMut() -> I,
+        mut benched: impl FnMut(I) -> O,
+    ) {
         let tsc_frequency = self.tsc_frequency;
         let use_tsc = tsc_frequency != 0;
 
-        // `drop_store` prevents any drop destructor for `R` from affecting
-        // sample measurements. It defers `Drop` by storing instances within a
+        let mut inputs = Vec::<I>::new();
+
+        // `drop_store` prevents any drop destructor for `O` from affecting
+        // sample measurements. It defers `Drop` by storing outputs within a
         // pre-allocated buffer during the sample loop. The allocation is reused
         // between samples to reduce time spent between samples.
-        let mut drop_store = Vec::<R>::new();
+        let mut drop_store = Vec::<O>::new();
 
         // TODO: Set sample count and size dynamically if not set by the user.
         let sample_count =
@@ -117,10 +164,13 @@ impl Context {
         // introduce extra work in benchmarks just to handle tests. Doing so may
         // worsen measurement quality for real benchmarking.
         for _ in 0..sample_count {
-            // If `R` needs to be dropped, we defer drop in the sample loop by
+            inputs.extend((0..sample_size).map(|_| black_box(gen_input())));
+            let inputs = inputs.drain(..);
+
+            // If `O` needs to be dropped, we defer drop in the sample loop by
             // inserting it into `drop_store`. Otherwise, we just loop up to
             // `sample_size`.
-            let [start, end] = if std::mem::needs_drop::<R>() {
+            let [start, end] = if std::mem::needs_drop::<O>() {
                 // Drop values from the previous sample.
                 drop_store.clear();
 
@@ -129,18 +179,20 @@ impl Context {
                 drop_store.reserve_exact(sample_size as usize);
                 let drop_slots = drop_store.spare_capacity_mut()[..sample_size as usize].iter_mut();
 
+                let iter = inputs.zip(drop_slots);
+
                 fence::full_fence();
                 let start = AnyTimestamp::now(use_tsc);
                 fence::compiler_fence();
 
                 // Sample loop:
-                for drop_slot in drop_slots {
-                    *drop_slot = MaybeUninit::new(f());
+                for (input, drop_slot) in iter {
+                    *drop_slot = MaybeUninit::new(benched(input));
 
                     // PERF: We `black_box` the result's slot address instead of
                     // the result by-value because `black_box` currently writes
                     // its input to the stack. Using the slot address reduces
-                    // overhead when `R` is a larger type like `String` since
+                    // overhead when `O` is a larger type like `String` since
                     // then it will write a single word instead of three words.
                     _ = black_box(drop_slot);
                 }
@@ -162,8 +214,8 @@ impl Context {
                 fence::compiler_fence();
 
                 // Sample loop:
-                for _ in 0..sample_size {
-                    _ = black_box(f());
+                for input in inputs {
+                    _ = black_box(benched(input));
                 }
 
                 fence::compiler_fence();
