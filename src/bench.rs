@@ -1,4 +1,7 @@
-use std::{fmt, mem::MaybeUninit};
+use std::{
+    fmt,
+    mem::{self, MaybeUninit},
+};
 
 use crate::{
     black_box,
@@ -165,21 +168,47 @@ impl Context {
         // introduce extra work in benchmarks just to handle tests. Doing so may
         // worsen measurement quality for real benchmarking.
         for _ in 0..sample_count {
+            // TODO: Skip alloc if not used by the sample loop.
             let defer_entries = defer_store.prepare(sample_size as usize);
 
-            // Initialize inputs.
+            // Initialize inputs. We do this regardless if `defer_entries` is
+            // used, in case `make_input` updates state used by `benched`.
             for entry in &mut *defer_entries {
                 entry.input = MaybeUninit::new(gen_input());
             }
 
-            // Create iterator before the sample timing section to reduce
-            // benchmarking overhead.
-            let defer_entries = black_box(defer_entries.iter_mut());
+            let [start, end] = if mem::size_of::<I>() == 0 && !mem::needs_drop::<O>() {
+                // If inputs are ZSTs and outputs do not need to be dropped, we
+                // can skip using `defer_store` altogether. This makes the
+                // benchmarking loop cheaper for e.g. `Bencher::bench`, which
+                // uses `()` inputs.
 
-            // If `O` needs to be dropped, we defer drop in the sample loop by
-            // inserting it into `defer_entries`. Otherwise, we just loop up to
-            // `sample_size`.
-            let [start, end] = if std::mem::needs_drop::<O>() {
+                fence::full_fence();
+                let start = AnyTimestamp::now(use_tsc);
+                fence::compiler_fence();
+
+                // Sample loop:
+                for _ in 0..sample_size {
+                    // SAFETY: Input is a ZST, so we can construct one out of
+                    // thin air.
+                    let input: I = unsafe { mem::zeroed() };
+
+                    _ = black_box(benched(input));
+                }
+
+                fence::compiler_fence();
+                let end = AnyTimestamp::now(use_tsc);
+                fence::full_fence();
+
+                [start, end]
+            } else if mem::needs_drop::<O>() {
+                // If `O` needs to be dropped, we defer drop in the sample loop
+                // by inserting it into `defer_entries`.
+
+                // Create iterator before the sample timing section to reduce
+                // benchmarking overhead.
+                let defer_entries = black_box(defer_entries.iter_mut());
+
                 fence::full_fence();
                 let start = AnyTimestamp::now(use_tsc);
                 fence::compiler_fence();
@@ -208,6 +237,13 @@ impl Context {
 
                 [start, end]
             } else {
+                // Outputs do not need to have deferred drop, but inputs still
+                // need to be retrieved from `defer_entries`.
+
+                // Create iterator before the sample timing section to reduce
+                // benchmarking overhead.
+                let defer_entries = black_box(defer_entries.iter_mut());
+
                 fence::full_fence();
                 let start = AnyTimestamp::now(use_tsc);
                 fence::compiler_fence();
