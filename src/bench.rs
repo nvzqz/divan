@@ -177,14 +177,17 @@ impl Context {
                 entry.input = MaybeUninit::new(gen_input());
             }
 
-            let [start, end] = if mem::size_of::<I>() == 0 && !mem::needs_drop::<O>() {
+            let start: AnyTimestamp;
+            let end: AnyTimestamp;
+
+            if mem::size_of::<I>() == 0 && !mem::needs_drop::<O>() {
                 // If inputs are ZSTs and outputs do not need to be dropped, we
                 // can skip using `defer_store` altogether. This makes the
                 // benchmarking loop cheaper for e.g. `Bencher::bench`, which
                 // uses `()` inputs.
 
                 fence::full_fence();
-                let start = AnyTimestamp::now(use_tsc);
+                start = AnyTimestamp::now(use_tsc);
                 fence::compiler_fence();
 
                 // Sample loop:
@@ -197,10 +200,8 @@ impl Context {
                 }
 
                 fence::compiler_fence();
-                let end = AnyTimestamp::now(use_tsc);
+                end = AnyTimestamp::now(use_tsc);
                 fence::full_fence();
-
-                [start, end]
             } else if mem::needs_drop::<O>() {
                 // If `O` needs to be dropped, we defer drop in the sample loop
                 // by inserting it into `defer_entries`.
@@ -210,7 +211,7 @@ impl Context {
                 let defer_entries = black_box(defer_entries.iter_mut());
 
                 fence::full_fence();
-                let start = AnyTimestamp::now(use_tsc);
+                start = AnyTimestamp::now(use_tsc);
                 fence::compiler_fence();
 
                 // Sample loop:
@@ -229,13 +230,11 @@ impl Context {
                 }
 
                 fence::compiler_fence();
-                let end = AnyTimestamp::now(use_tsc);
+                end = AnyTimestamp::now(use_tsc);
                 fence::full_fence();
 
                 // SAFETY: All outputs were initialized in the sample loop.
                 unsafe { defer_store.drop_outputs() };
-
-                [start, end]
             } else {
                 // Outputs do not need to have deferred drop, but inputs still
                 // need to be retrieved from `defer_entries`.
@@ -245,7 +244,7 @@ impl Context {
                 let defer_entries = black_box(defer_entries.iter_mut());
 
                 fence::full_fence();
-                let start = AnyTimestamp::now(use_tsc);
+                start = AnyTimestamp::now(use_tsc);
                 fence::compiler_fence();
 
                 // Sample loop:
@@ -257,11 +256,9 @@ impl Context {
                 }
 
                 fence::compiler_fence();
-                let end = AnyTimestamp::now(use_tsc);
+                end = AnyTimestamp::now(use_tsc);
                 fence::full_fence();
-
-                [start, end]
-            };
+            }
 
             // SAFETY: These values are guaranteed to be the correct variant
             // because they were created from the same `use_tsc`.
