@@ -125,17 +125,7 @@ impl Divan {
         for (i, child) in children.iter().enumerate() {
             let is_last = i == children.len() - 1;
 
-            let [current_prefix, child_prefix] = if fmt.parent_prefix.is_none() {
-                ["", ""]
-            } else if !is_last {
-                ["├── ", "│   "]
-            } else {
-                ["╰── ", "    "]
-            };
-
-            let parent_prefix = fmt.parent_prefix.unwrap_or_default();
-            let current_prefix = format!("{parent_prefix}{current_prefix}");
-
+            let current_prefix = fmt.current_prefix(is_last);
             let name_pad_len = fmt.max_name_span.saturating_sub(current_prefix.chars().count());
 
             match child {
@@ -154,10 +144,7 @@ impl Divan {
                     self.run_tree(
                         action,
                         children,
-                        TreeFormat {
-                            parent_prefix: Some(&format!("{parent_prefix}{child_prefix}")),
-                            ..fmt
-                        },
+                        TreeFormat { parent_prefix: Some(&fmt.child_prefix(is_last)), ..fmt },
                     );
                 }
             };
@@ -218,6 +205,34 @@ impl Divan {
 struct TreeFormat<'a> {
     parent_prefix: Option<&'a str>,
     max_name_span: usize,
+}
+
+impl TreeFormat<'_> {
+    fn current_prefix(&self, is_last: bool) -> String {
+        let next_part = if self.parent_prefix.is_none() {
+            ""
+        } else if !is_last {
+            "├── "
+        } else {
+            "╰── "
+        };
+        let parent_prefix = self.parent_prefix.unwrap_or_default();
+
+        format!("{parent_prefix}{next_part}")
+    }
+
+    fn child_prefix(&self, is_last: bool) -> String {
+        let next_part = if self.parent_prefix.is_none() {
+            ""
+        } else if !is_last {
+            "│   "
+        } else {
+            "    "
+        };
+        let parent_prefix = self.parent_prefix.unwrap_or_default();
+
+        format!("{parent_prefix}{next_part}")
+    }
 }
 
 /// Makes `Divan::skip_regex` input polymorphic.
