@@ -288,3 +288,74 @@ impl Context {
         }
     }
 }
+
+/// Tests every benchmarking loop combination in `Bencher`. When run under Miri,
+/// this catches memory leaks and UB in `unsafe` code.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // We use a small number of runs because Miri is very slow.
+    const SAMPLE_COUNT: u32 = 5;
+    const SAMPLE_SIZE: u32 = 5;
+
+    #[track_caller]
+    fn test_bencher(mut test: impl FnMut(Bencher<'_>)) {
+        let timers: &[Timer] = if cfg!(miri) {
+            // Miri does not support inline assembly.
+            &[Timer::Os]
+        } else {
+            &[Timer::Os, Timer::Tsc]
+        };
+
+        for is_test in [true, false] {
+            for &timer in timers {
+                let mut did_run = false;
+                test(Bencher {
+                    did_run: &mut did_run,
+                    context: &mut Context::new(
+                        is_test,
+                        timer,
+                        BenchOptions {
+                            sample_count: Some(SAMPLE_COUNT),
+                            sample_size: Some(SAMPLE_SIZE),
+                        },
+                    ),
+                });
+                assert!(did_run);
+            }
+        }
+    }
+
+    fn make_string() -> String {
+        ('a'..='z').collect()
+    }
+
+    mod string_input {
+        use super::*;
+
+        #[test]
+        fn string_output() {
+            test_bencher(|b| b.bench_with_values(make_string, |s| s.to_ascii_uppercase()));
+        }
+
+        #[test]
+        fn no_output() {
+            test_bencher(|b| b.bench_with_refs(make_string, |s| s.make_ascii_uppercase()));
+        }
+    }
+
+    mod no_input {
+        use super::*;
+
+        #[test]
+        fn string_output() {
+            test_bencher(|b| b.bench(make_string));
+        }
+
+        #[test]
+        fn no_output() {
+            test_bencher(|b| b.bench(|| _ = black_box(make_string())));
+        }
+    }
+}
