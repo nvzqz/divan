@@ -3,6 +3,7 @@ use std::{fmt, mem::MaybeUninit};
 use crate::{
     black_box,
     config::Timer,
+    defer::{DeferEntry, DeferStore},
     stats::{Sample, Stats},
     time::{fence, AnyTimestamp, FineDuration, Tsc},
 };
@@ -139,13 +140,13 @@ impl Context {
         let tsc_frequency = self.tsc_frequency;
         let use_tsc = tsc_frequency != 0;
 
-        let mut inputs = Vec::<I>::new();
-
-        // `drop_store` prevents any drop destructor for `O` from affecting
-        // sample measurements. It defers `Drop` by storing outputs within a
-        // pre-allocated buffer during the sample loop. The allocation is reused
-        // between samples to reduce time spent between samples.
-        let mut drop_store = Vec::<O>::new();
+        // Defer:
+        // - Usage of `gen_input` values.
+        // - Drop destructor for `O`, preventing it from affecting sample
+        //   measurements. Outputs are stored into a pre-allocated buffer during
+        //   the sample loop. The allocation is reused between samples to reduce
+        //   time spent between samples.
+        let mut defer_store: DeferStore<I, O> = DeferStore::default();
 
         // TODO: Set sample count and size dynamically if not set by the user.
         let sample_count =
@@ -164,48 +165,46 @@ impl Context {
         // introduce extra work in benchmarks just to handle tests. Doing so may
         // worsen measurement quality for real benchmarking.
         for _ in 0..sample_count {
-            inputs.extend((0..sample_size).map(|_| black_box(gen_input())));
-            let inputs = inputs.drain(..);
+            let defer_entries = defer_store.prepare(sample_size as usize);
+
+            // Initialize inputs.
+            for entry in &mut *defer_entries {
+                entry.input = MaybeUninit::new(gen_input());
+            }
+
+            // Create iterator before the sample timing section to reduce
+            // benchmarking overhead.
+            let defer_entries = black_box(defer_entries.iter_mut());
 
             // If `O` needs to be dropped, we defer drop in the sample loop by
-            // inserting it into `drop_store`. Otherwise, we just loop up to
+            // inserting it into `defer_entries`. Otherwise, we just loop up to
             // `sample_size`.
             let [start, end] = if std::mem::needs_drop::<O>() {
-                // Drop values from the previous sample.
-                drop_store.clear();
-
-                // The sample loop below is over `sample_size` number of slots
-                // of pre-allocated memory in `drop_store`.
-                drop_store.reserve_exact(sample_size as usize);
-                let drop_slots = drop_store.spare_capacity_mut()[..sample_size as usize].iter_mut();
-
-                let iter = inputs.zip(drop_slots);
-
                 fence::full_fence();
                 let start = AnyTimestamp::now(use_tsc);
                 fence::compiler_fence();
 
                 // Sample loop:
-                for (input, drop_slot) in iter {
-                    *drop_slot = MaybeUninit::new(benched(input));
+                for DeferEntry { input, output } in defer_entries {
+                    // SAFETY: All inputs in `defer_store` were initialized.
+                    let input = unsafe { input.assume_init_read() };
 
-                    // PERF: We `black_box` the result's slot address instead of
+                    *output = MaybeUninit::new(benched(input));
+
+                    // PERF: We `black_box` the output's slot address instead of
                     // the result by-value because `black_box` currently writes
                     // its input to the stack. Using the slot address reduces
                     // overhead when `O` is a larger type like `String` since
                     // then it will write a single word instead of three words.
-                    _ = black_box(drop_slot);
+                    _ = black_box(output);
                 }
 
                 fence::compiler_fence();
                 let end = AnyTimestamp::now(use_tsc);
                 fence::full_fence();
 
-                // Increase length to mark stored values as initialized so that
-                // they can be dropped.
-                //
-                // SAFETY: All values were initialized in the sample loop.
-                unsafe { drop_store.set_len(sample_size as usize) };
+                // SAFETY: All outputs were initialized in the sample loop.
+                unsafe { defer_store.drop_outputs() };
 
                 [start, end]
             } else {
@@ -214,7 +213,10 @@ impl Context {
                 fence::compiler_fence();
 
                 // Sample loop:
-                for input in inputs {
+                for DeferEntry { input, .. } in defer_entries {
+                    // SAFETY: All inputs in `defer_store` were initialized.
+                    let input = unsafe { input.assume_init_read() };
+
                     _ = black_box(benched(input));
                 }
 
