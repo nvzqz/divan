@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
+#![allow(clippy::needless_doctest_main)]
 
 // Used by generated code. Not public API and thus not subject to SemVer.
 #[doc(hidden)]
@@ -102,13 +103,13 @@ pub use std::hint::black_box;
 ///
 /// - `#[divan::bench(name = "...")]`
 ///
-///   The benchmark uses the same name as the function. It can be overridden via
-///   the `name` option:
+///   By default, the benchmark uses the function's name. It can be overridden
+///   via the `name` option:
 ///
 ///   ```
 ///   #[divan::bench(name = "my_add")]
 ///   fn add() -> i32 {
-///       // ...
+///       // Will appear as "crate_name::my_add".
 ///       # 0
 ///   }
 ///   ```
@@ -173,6 +174,177 @@ pub use std::hint::black_box;
 ///   # #[cfg(not(miri))] divan::main();
 ///   ```
 pub use divan_macros::bench;
+
+/// Registers a benchmarking group.
+///
+/// # Examples
+///
+/// This is used for setting [options] shared across
+/// [`#[divan::bench]`](macro@bench) functions in the same module:
+///
+/// ```
+/// #[divan::bench_group(
+///     sample_count = 100,
+///     sample_size = 500,
+/// )]
+/// mod math {
+///     use divan::black_box;
+///
+///     #[divan::bench]
+///     fn add() -> i32 {
+///         black_box(1) + black_box(42)
+///     }
+///
+///     #[divan::bench]
+///     fn div() -> i32 {
+///         black_box(1) / black_box(42)
+///     }
+/// }
+///
+/// fn main() {
+///     // Run `math::add` and `math::div` benchmarks:
+///     # #[cfg(not(miri))]
+///     divan::main();
+/// }
+/// ```
+///
+/// Benchmarking [options] set on parent groups cascade into child groups and
+/// their benchmarks:
+///
+/// ```
+/// #[divan::bench_group(
+///     sample_count = 100,
+///     sample_size = 500,
+/// )]
+/// mod parent {
+///     #[divan::bench_group(sample_size = 1)]
+///     mod child1 {
+///         #[divan::bench]
+///         fn bench() {
+///             // Will be sampled 100 times with 1 iteration per sample.
+///         }
+///     }
+///
+///     #[divan::bench_group(sample_count = 42)]
+///     mod child2 {
+///         #[divan::bench]
+///         fn bench() {
+///             // Will be sampled 42 times with 500 iterations per sample.
+///         }
+///     }
+///
+///     mod child3 {
+///         #[divan::bench(sample_count = 1)]
+///         fn bench() {
+///             // Will be sampled 1 time with 500 iterations per sample.
+///         }
+///     }
+/// }
+/// ```
+///
+/// Applying this attribute multiple times to the same item will cause a compile
+/// error:
+///
+/// ```compile_fail
+/// #[divan::bench_group]
+/// #[divan::bench_group]
+/// mod math {
+///     // ...
+/// }
+/// ```
+///
+/// # Options
+/// [options]: #options
+///
+/// - `#[divan::bench_group(name = "...")]`
+///
+///   By default, the benchmark group uses the module's name. It can be
+///   overridden via the `name` option:
+///
+///   ```
+///   #[divan::bench_group(name = "my_math")]
+///   mod math {
+///       #[divan::bench(name = "my_add")]
+///       fn add() -> i32 {
+///           // Will appear as "crate_name::my_math::my_add".
+///           # 0
+///       }
+///   }
+///   ```
+///
+/// - `#[divan::bench_group(crate = path::to::divan)]`
+///
+///   The path to the specific `divan` crate instance used by this macro's
+///   generated code can be specified via the `crate` option. This is applicable
+///   when using `divan` via a macro from your own crate.
+///
+///   ```
+///   extern crate divan as sofa;
+///
+///   #[::sofa::bench_group(crate = ::sofa)]
+///   mod math {
+///       #[::sofa::bench(crate = ::sofa)]
+///       fn add() -> i32 {
+///           // ...
+///           # 0
+///       }
+///   }
+///   ```
+///
+/// - `#[divan::bench_group(sample_count = 1000)]`
+///
+///   The number of statistical sample recordings can be set to a predetermined
+///   [`u32`] value via the `sample_count` option. This may be overridden at
+///   runtime using either the `DIVAN_SAMPLE_COUNT` environment variable or
+///   `--sample-count` CLI argument.
+///
+///   ```
+///   #[divan::bench_group(sample_count = 1000)]
+///   mod math {
+///       #[divan::bench]
+///       fn add() -> i32 {
+///           // ...
+///           # 0
+///       }
+///   }
+///   ```
+///
+/// - `#[divan::bench_group(sample_size = 1000)]`
+///
+///   The number iterations within each statistical sample can be set to a
+///   predetermined [`u32`] value via the `sample_size` option. This may be
+///   overridden at runtime using either the `DIVAN_SAMPLE_SIZE` environment
+///   variable or `--sample-size` CLI argument.
+///
+///   ```
+///   #[divan::bench_group(sample_size = 1000)]
+///   mod math {
+///       #[divan::bench]
+///       fn add() -> i32 {
+///           // ...
+///           # 0
+///       }
+///   }
+///   ```
+///
+/// - [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute)
+///
+///   Like [`#[test]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-test-attribute)
+///   and [`#[divan::bench]`](macro@bench), `#[divan::bench_group]` functions
+///   can be ignored:
+///
+///   ```
+///   #[divan::bench_group]
+///   #[ignore]
+///   mod math {
+///       #[divan::bench]
+///       fn todo() {
+///           unimplemented!();
+///       }
+///   }
+///   # #[cfg(not(miri))] divan::main();
+///   ```
+pub use divan_macros::bench_group;
 
 #[doc(inline)]
 pub use crate::{bench::Bencher, divan::Divan};

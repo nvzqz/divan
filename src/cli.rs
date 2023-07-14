@@ -1,6 +1,6 @@
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
-use crate::config::{OutputFormat, Timer};
+use crate::config::{FormatStyle, Timer};
 
 pub fn command() -> Command {
     fn option(name: &'static str) -> Arg {
@@ -55,7 +55,7 @@ pub fn command() -> Command {
             option("format")
                 .help("Configure formatting of output")
                 .value_name("pretty|terse")
-                .value_parser(value_parser!(OutputFormat))
+                .value_parser(value_parser!(FormatStyle))
                 .default_value("pretty"),
         )
         .arg(
@@ -95,7 +95,7 @@ impl ValueEnum for Timer {
     }
 }
 
-impl ValueEnum for OutputFormat {
+impl ValueEnum for FormatStyle {
     fn value_variants<'a>() -> &'a [Self] {
         &[Self::Pretty, Self::Terse]
     }

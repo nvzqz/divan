@@ -90,17 +90,29 @@ impl Bencher<'_> {
     }
 }
 
-/// Options set directly by the user in `#[divan::bench]`.
+/// Benchmarking options set directly by the user in `#[divan::bench]` and
+/// `#[divan::bench_group]`.
 ///
-/// Changes to fields must be reflected in the "Options" section in the
-/// `#[divan::bench]` documentation.
-#[derive(Default)]
+/// Changes to fields must be reflected in the "Options" sections of the docs
+/// for `#[divan::bench]` and `#[divan::bench_group]`.
+#[derive(Clone, Default)]
 pub struct BenchOptions {
     /// The number of sample recordings.
     pub sample_count: Option<u32>,
 
     /// The number of iterations inside a single sample.
     pub sample_size: Option<u32>,
+}
+
+impl BenchOptions {
+    /// Overwrites `other` with values set in `self`.
+    #[must_use]
+    pub(crate) fn overwrite(self, other: &Self) -> Self {
+        Self {
+            sample_count: self.sample_count.or(other.sample_count),
+            sample_size: self.sample_size.or(other.sample_size),
+        }
+    }
 }
 
 /// `#[divan::bench]` loop context.

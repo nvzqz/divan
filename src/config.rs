@@ -15,6 +15,7 @@ pub(crate) enum Action {
     List,
 }
 
+#[allow(dead_code)]
 impl Action {
     pub fn is_bench(&self) -> bool {
         matches!(self, Self::Bench)
@@ -88,14 +89,22 @@ impl RunIgnored {
     }
 }
 
+/// The style with which to format output.
 #[derive(Clone, Copy, Default)]
-pub enum OutputFormat {
+pub enum FormatStyle {
+    /// Benchmarks are formatted as a tree.
     #[default]
     Pretty,
+
+    /// Each benchmark is printed on its own line.
     Terse,
 }
 
-impl OutputFormat {
+impl FormatStyle {
+    pub fn is_pretty(&self) -> bool {
+        matches!(self, Self::Pretty)
+    }
+
     pub fn is_terse(&self) -> bool {
         matches!(self, Self::Terse)
     }

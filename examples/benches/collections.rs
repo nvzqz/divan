@@ -14,6 +14,7 @@ mod util {
     }
 }
 
+#[divan::bench_group(name = "Vec")]
 mod vec {
     use super::*;
 
@@ -44,6 +45,7 @@ mod vec {
     }
 }
 
+#[divan::bench_group(name = "VecDeque")]
 mod vec_deque {
     use super::*;
 
@@ -66,6 +68,7 @@ mod vec_deque {
     }
 }
 
+#[divan::bench_group(name = "LinkedList")]
 mod linked_list {
     use super::*;
 
@@ -81,6 +84,7 @@ mod linked_list {
     }
 }
 
+#[divan::bench_group(name = "BinaryHeap")]
 mod binary_heap {
     use super::*;
 
@@ -103,6 +107,7 @@ mod binary_heap {
     }
 }
 
+#[divan::bench_group(name = "HashSet")]
 mod hash_set {
     use super::*;
 
@@ -125,6 +130,7 @@ mod hash_set {
     }
 }
 
+#[divan::bench_group(name = "BTreeSet")]
 mod btree_set {
     use super::*;
 

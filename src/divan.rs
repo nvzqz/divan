@@ -4,8 +4,8 @@ use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
-    bench::Bencher,
-    config::{Action, Filter, OutputFormat, RunIgnored, Timer},
+    bench::{BenchOptions, Bencher},
+    config::{Action, Filter, FormatStyle, RunIgnored, Timer},
     entry::{Entry, EntryTree},
 };
 
@@ -15,7 +15,7 @@ pub struct Divan {
     action: Action,
     timer: Timer,
     color: ColorChoice,
-    format: OutputFormat,
+    format_style: FormatStyle,
     filter: Option<Filter>,
     skip_filters: Vec<Filter>,
     run_ignored: RunIgnored,
@@ -44,40 +44,41 @@ impl Divan {
         self.run_action(self.action)
     }
 
-    /// Returns the entries that should be considered for running.
-    fn get_entries(&self) -> Vec<&'static Entry> {
-        let mut entries: Vec<&_> =
-            crate::entry::ENTRIES.iter().filter(|entry| self.filter(entry)).collect();
-
-        // Run benchmarks in order.
-        entries.sort_unstable_by_key(|e| e.sorting_key());
-
-        entries
-    }
-
-    /// Returns `true` if `entry` should be considered for running.
+    /// Returns `true` if an entry at the given path should be considered for
+    /// running.
     ///
     /// This does not take into account `entry.ignored` because that is handled
     /// separately.
-    fn filter(&self, entry: &Entry) -> bool {
+    fn filter(&self, entry_path: &str) -> bool {
         if let Some(filter) = &self.filter {
-            if !filter.is_match(entry.full_path) {
+            if !filter.is_match(entry_path) {
                 return false;
             }
         }
 
-        !self.skip_filters.iter().any(|filter| filter.is_match(entry.full_path))
+        !self.skip_filters.iter().any(|filter| filter.is_match(entry_path))
     }
 
-    pub(crate) fn should_ignore(&self, entry: &Entry) -> bool {
-        !self.run_ignored.should_run(entry.ignore)
+    pub(crate) fn should_ignore(&self, ignored: bool) -> bool {
+        !self.run_ignored.should_run(ignored)
     }
 
     pub(crate) fn run_action(&self, action: Action) {
-        let entries = self.get_entries();
+        let mut tree = EntryTree::from_entries(crate::entry::ENTRIES);
+
+        for group in crate::entry::ENTRY_GROUPS {
+            EntryTree::insert_group(&mut tree, group);
+        }
+
+        // Filter after inserting groups so that we can properly use groups'
+        // display names.
+        EntryTree::retain(&mut tree, |entry_path| self.filter(entry_path));
+
+        // Sorting is after filtering to compare fewer elements.
+        EntryTree::sort_by_kind(&mut tree);
 
         // Quick exit without setting CPU affinity.
-        if entries.is_empty() {
+        if tree.is_empty() {
             return;
         }
 
@@ -91,96 +92,139 @@ impl Divan {
             }
         }
 
-        match self.format {
-            OutputFormat::Pretty => {
-                let mut tree = EntryTree::from_entries(entries.iter().copied());
-                EntryTree::sort_by_kind(&mut tree);
-
-                self.run_tree(
-                    action,
-                    &tree,
-                    TreeFormat {
-                        parent_prefix: None,
-                        max_name_span: EntryTree::max_name_span(&tree, 0),
-                    },
-                );
-                return;
-            }
-            OutputFormat::Terse => {}
-        }
-
-        if action.is_list() {
-            for Entry { file, name, line, .. } in entries {
-                println!("{file} - {name} (line {line}): bench");
-            }
-            return;
-        }
-
-        for entry in entries {
-            self.run_entry(action, entry);
-        }
+        self.run_tree(
+            &tree,
+            action,
+            false,
+            &BenchOptions::default(),
+            match self.format_style {
+                FormatStyle::Pretty => FormatContext::Pretty(TreeFormat {
+                    parent_prefix: None,
+                    max_name_span: EntryTree::max_name_span(&tree, 0),
+                }),
+                FormatStyle::Terse => FormatContext::Terse { parent_path: String::new() },
+            },
+        );
     }
 
-    fn run_tree(&self, action: Action, children: &[EntryTree], fmt: TreeFormat) {
-        for (i, child) in children.iter().enumerate() {
-            let is_last = i == children.len() - 1;
+    fn run_tree(
+        &self,
+        tree: &[EntryTree],
+        action: Action,
+        parent_ignored: bool,
+        parent_options: &BenchOptions,
+        fmt_ctx: FormatContext,
+    ) {
+        for (i, child) in tree.iter().enumerate() {
+            let is_last = i == tree.len() - 1;
 
-            let current_prefix = fmt.current_prefix(is_last);
-            let name_pad_len = fmt.max_name_span.saturating_sub(current_prefix.chars().count());
+            let list_format = || match &fmt_ctx {
+                FormatContext::Pretty(tree_fmt) => {
+                    let current_prefix = tree_fmt.current_prefix(is_last);
+                    let name_pad_len =
+                        tree_fmt.max_name_span.saturating_sub(current_prefix.chars().count());
+                    let display_name = child.display_name();
+                    format!("{current_prefix}{display_name:name_pad_len$}")
+                }
+                FormatContext::Terse { parent_path } => match child {
+                    EntryTree::Leaf(Entry { file, line, .. }) => {
+                        let display_name = child.display_name();
+                        format!("{file} - {parent_path}::{display_name} (line {line}): bench")
+                    }
+                    EntryTree::Parent { .. } => unreachable!(),
+                },
+            };
 
             match child {
-                EntryTree::Leaf(entry) => {
-                    let name = entry.name;
-                    if action.is_list() {
-                        println!("{current_prefix}{name:name_pad_len$}");
-                    } else {
-                        print!("{current_prefix}{name:name_pad_len$} ");
-                        self.run_entry(action, entry);
-                        println!();
+                EntryTree::Leaf(entry) => match (action, self.format_style) {
+                    (Action::List, FormatStyle::Terse | FormatStyle::Pretty) => {
+                        println!("{}", list_format());
                     }
-                }
-                EntryTree::Parent { name, children } => {
-                    println!("{current_prefix}{name:name_pad_len$}");
+                    _ => {
+                        if self.format_style.is_pretty() {
+                            print!("{} ", list_format());
+                        }
+
+                        self.run_entry(entry, action, parent_ignored, parent_options);
+
+                        if self.format_style.is_pretty() {
+                            println!();
+                        }
+                    }
+                },
+                EntryTree::Parent { group, children, .. } => {
+                    let group_options =
+                        group.map(|group| (group.bench_options)().overwrite(parent_options));
+
+                    if self.format_style.is_pretty() {
+                        println!("{}", list_format());
+                    }
+
                     self.run_tree(
-                        action,
                         children,
-                        TreeFormat { parent_prefix: Some(&fmt.child_prefix(is_last)), ..fmt },
+                        action,
+                        parent_ignored || group.map(|g| g.ignore).unwrap_or_default(),
+                        group_options.as_ref().unwrap_or(parent_options),
+                        match &fmt_ctx {
+                            FormatContext::Pretty(tree_fmt) => FormatContext::Pretty(TreeFormat {
+                                parent_prefix: Some(tree_fmt.child_prefix(is_last)),
+                                max_name_span: tree_fmt.max_name_span,
+                            }),
+                            FormatContext::Terse { parent_path } => {
+                                let display_name = child.display_name();
+                                FormatContext::Terse {
+                                    parent_path: if parent_path.is_empty() {
+                                        display_name.to_owned()
+                                    } else {
+                                        format!("{parent_path}::{display_name}")
+                                    },
+                                }
+                            }
+                        },
                     );
                 }
             };
         }
     }
 
-    fn run_entry(&self, action: Action, entry: &Entry) {
+    fn run_entry(
+        &self,
+        entry: &Entry,
+        action: Action,
+        parent_ignored: bool,
+        parent_options: &BenchOptions,
+    ) {
         use crate::bench::Context;
 
-        if self.should_ignore(entry) {
-            match self.format {
-                OutputFormat::Pretty => print!("(ignored)"),
-                OutputFormat::Terse => println!("Ignoring '{}'", entry.full_path),
+        if self.should_ignore(parent_ignored || entry.ignore) {
+            match self.format_style {
+                FormatStyle::Pretty => print!("(ignored)"),
+                FormatStyle::Terse => println!("Ignoring '{}'", entry.full_path),
             }
             return;
         }
 
-        if self.format.is_terse() {
+        if self.format_style.is_terse() {
             println!("Running '{}'", entry.full_path);
         }
 
-        let mut context = Context::new(action.is_test(), self.timer, (entry.bench_options)());
+        let mut options = (entry.bench_options)().overwrite(parent_options);
 
         if let Some(sample_count) = self.sample_count {
-            context.options.sample_count = Some(sample_count);
+            options.sample_count = Some(sample_count);
         }
 
         if let Some(sample_size) = self.sample_size {
-            context.options.sample_size = Some(sample_size);
+            options.sample_size = Some(sample_size);
         }
+
+        let mut context = Context::new(action.is_test(), self.timer, options);
 
         let mut did_run = false;
         (entry.bench)(Bencher { did_run: &mut did_run, context: &mut context });
 
         if !did_run {
-            eprintln!("warning: No benchmark function registered for '{}'", entry.name);
+            eprintln!("warning: No benchmark function registered for '{}'", entry.display_name);
             return;
         }
 
@@ -188,11 +232,11 @@ impl Divan {
             let stats = context.compute_stats();
 
             // TODO: Improve stats formatting.
-            match self.format {
-                OutputFormat::Pretty => {
+            match self.format_style {
+                FormatStyle::Pretty => {
                     print!("{stats:?}");
                 }
-                OutputFormat::Terse => {
+                FormatStyle::Terse => {
                     println!("{stats:#?}");
                     println!();
                 }
@@ -201,13 +245,17 @@ impl Divan {
     }
 }
 
-#[derive(Clone, Copy)]
-struct TreeFormat<'a> {
-    parent_prefix: Option<&'a str>,
+enum FormatContext {
+    Terse { parent_path: String },
+    Pretty(TreeFormat),
+}
+
+struct TreeFormat {
+    parent_prefix: Option<String>,
     max_name_span: usize,
 }
 
-impl TreeFormat<'_> {
+impl TreeFormat {
     fn current_prefix(&self, is_last: bool) -> String {
         let next_part = if self.parent_prefix.is_none() {
             ""
@@ -216,7 +264,7 @@ impl TreeFormat<'_> {
         } else {
             "╰── "
         };
-        let parent_prefix = self.parent_prefix.unwrap_or_default();
+        let parent_prefix = self.parent_prefix.as_deref().unwrap_or_default();
 
         format!("{parent_prefix}{next_part}")
     }
@@ -229,7 +277,7 @@ impl TreeFormat<'_> {
         } else {
             "    "
         };
-        let parent_prefix = self.parent_prefix.unwrap_or_default();
+        let parent_prefix = self.parent_prefix.as_deref().unwrap_or_default();
 
         format!("{parent_prefix}{next_part}")
     }
@@ -285,7 +333,7 @@ impl Divan {
         }
 
         if let Some(&format) = matches.get_one("format") {
-            self.format = format;
+            self.format_style = format;
         }
 
         if matches.get_flag("ignored") {
@@ -325,13 +373,13 @@ impl Divan {
 
     /// Use pretty output formatting.
     pub fn format_pretty(mut self) -> Self {
-        self.format = OutputFormat::Pretty;
+        self.format_style = FormatStyle::Pretty;
         self
     }
 
     /// Use terse output formatting.
     pub fn format_terse(mut self) -> Self {
-        self.format = OutputFormat::Terse;
+        self.format_style = FormatStyle::Terse;
         self
     }
 
