@@ -1,5 +1,8 @@
 // Tests that ensure weird (but valid) usage behave as expected.
 
+// Miri does not work with `linkme`.
+#![cfg(not(miri))]
+
 use divan::{Divan, __private::ENTRIES};
 
 #[divan::bench]
