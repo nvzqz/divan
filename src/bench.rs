@@ -168,15 +168,6 @@ impl Context {
         // introduce extra work in benchmarks just to handle tests. Doing so may
         // worsen measurement quality for real benchmarking.
         for _ in 0..sample_count {
-            // TODO: Skip alloc if not used by the sample loop.
-            let defer_entries = defer_store.prepare(sample_size as usize);
-
-            // Initialize inputs. We do this regardless if `defer_entries` is
-            // used, in case `make_input` updates state used by `benched`.
-            for entry in &mut *defer_entries {
-                entry.input = MaybeUninit::new(gen_input());
-            }
-
             let start: AnyTimestamp;
             let end: AnyTimestamp;
 
@@ -185,6 +176,13 @@ impl Context {
                 // can skip using `defer_store` altogether. This makes the
                 // benchmarking loop cheaper for e.g. `Bencher::bench`, which
                 // uses `()` inputs.
+
+                // Run `gen_input` the expected number of times in case it
+                // updates external state used by `benched`. We `mem::forget`
+                // here because inputs are consumed/dropped later by `benched`.
+                for _ in 0..sample_size {
+                    mem::forget(gen_input());
+                }
 
                 fence::full_fence();
                 start = AnyTimestamp::now(use_tsc);
@@ -202,62 +200,68 @@ impl Context {
                 fence::compiler_fence();
                 end = AnyTimestamp::now(use_tsc);
                 fence::full_fence();
-            } else if mem::needs_drop::<O>() {
-                // If `O` needs to be dropped, we defer drop in the sample loop
-                // by inserting it into `defer_entries`.
-
-                // Create iterator before the sample timing section to reduce
-                // benchmarking overhead.
-                let defer_entries = black_box(defer_entries.iter_mut());
-
-                fence::full_fence();
-                start = AnyTimestamp::now(use_tsc);
-                fence::compiler_fence();
-
-                // Sample loop:
-                for DeferEntry { input, output } in defer_entries {
-                    // SAFETY: All inputs in `defer_store` were initialized.
-                    let input = unsafe { input.assume_init_read() };
-
-                    *output = MaybeUninit::new(benched(input));
-
-                    // PERF: We `black_box` the output's slot address instead of
-                    // the result by-value because `black_box` currently writes
-                    // its input to the stack. Using the slot address reduces
-                    // overhead when `O` is a larger type like `String` since
-                    // then it will write a single word instead of three words.
-                    _ = black_box(output);
-                }
-
-                fence::compiler_fence();
-                end = AnyTimestamp::now(use_tsc);
-                fence::full_fence();
-
-                // SAFETY: All outputs were initialized in the sample loop.
-                unsafe { defer_store.drop_outputs() };
             } else {
-                // Outputs do not need to have deferred drop, but inputs still
-                // need to be retrieved from `defer_entries`.
+                let defer_entries = defer_store.prepare(sample_size as usize);
+
+                // Initialize and store inputs.
+                for entry in &mut *defer_entries {
+                    entry.input = MaybeUninit::new(gen_input());
+                }
 
                 // Create iterator before the sample timing section to reduce
                 // benchmarking overhead.
                 let defer_entries = black_box(defer_entries.iter_mut());
 
-                fence::full_fence();
-                start = AnyTimestamp::now(use_tsc);
-                fence::compiler_fence();
+                if mem::needs_drop::<O>() {
+                    // If output needs to be dropped, we defer drop in the
+                    // sample loop by inserting it into `defer_entries`.
 
-                // Sample loop:
-                for DeferEntry { input, .. } in defer_entries {
-                    // SAFETY: All inputs in `defer_store` were initialized.
-                    let input = unsafe { input.assume_init_read() };
+                    fence::full_fence();
+                    start = AnyTimestamp::now(use_tsc);
+                    fence::compiler_fence();
 
-                    _ = black_box(benched(input));
+                    // Sample loop:
+                    for DeferEntry { input, output } in defer_entries {
+                        // SAFETY: All inputs in `defer_store` were initialized.
+                        let input = unsafe { input.assume_init_read() };
+
+                        *output = MaybeUninit::new(benched(input));
+
+                        // PERF: We `black_box` the output's slot address
+                        // instead of the result by-value because `black_box`
+                        // currently writes its input to the stack. Using the
+                        // slot address reduces overhead when `O` is a larger
+                        // type like `String` since then it will write a single
+                        // word instead of three words.
+                        _ = black_box(output);
+                    }
+
+                    fence::compiler_fence();
+                    end = AnyTimestamp::now(use_tsc);
+                    fence::full_fence();
+
+                    // SAFETY: All outputs were initialized in the sample loop.
+                    unsafe { defer_store.drop_outputs() };
+                } else {
+                    // Outputs do not need to have deferred drop, but inputs
+                    // still need to be retrieved from `defer_entries`.
+
+                    fence::full_fence();
+                    start = AnyTimestamp::now(use_tsc);
+                    fence::compiler_fence();
+
+                    // Sample loop:
+                    for DeferEntry { input, .. } in defer_entries {
+                        // SAFETY: All inputs in `defer_store` were initialized.
+                        let input = unsafe { input.assume_init_read() };
+
+                        _ = black_box(benched(input));
+                    }
+
+                    fence::compiler_fence();
+                    end = AnyTimestamp::now(use_tsc);
+                    fence::full_fence();
                 }
-
-                fence::compiler_fence();
-                end = AnyTimestamp::now(use_tsc);
-                fence::full_fence();
             }
 
             // SAFETY: These values are guaranteed to be the correct variant
