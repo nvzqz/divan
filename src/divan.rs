@@ -96,8 +96,13 @@ impl Divan {
         let timer = match self.timer {
             TimerKind::Os => Timer::Os,
 
-            // TODO: Report unavailable TSC.
-            TimerKind::Tsc => Timer::get_tsc().unwrap_or(Timer::Os),
+            TimerKind::Tsc => match Timer::get_tsc() {
+                Some(tsc) => tsc,
+                None => {
+                    eprintln!("warning: CPU timestamp counter is unavailable, defaulting to OS");
+                    Timer::Os
+                }
+            },
         };
 
         let overhead = if action.is_bench() {
