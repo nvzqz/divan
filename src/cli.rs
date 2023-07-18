@@ -1,6 +1,6 @@
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
-use crate::config::{FormatStyle, Timer};
+use crate::{config::FormatStyle, time::TimerKind};
 
 pub fn command() -> Command {
     fn option(name: &'static str) -> Arg {
@@ -36,7 +36,7 @@ pub fn command() -> Command {
                 .env("DIVAN_TIMER")
                 .value_name("os|tsc")
                 .help("Set the timer used for measuring samples")
-                .value_parser(value_parser!(Timer)),
+                .value_parser(value_parser!(TimerKind)),
         )
         // libtest-supported arguments:
         .arg(
@@ -81,7 +81,7 @@ pub fn command() -> Command {
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])
 }
 
-impl ValueEnum for Timer {
+impl ValueEnum for TimerKind {
     fn value_variants<'a>() -> &'a [Self] {
         &[Self::Os, Self::Tsc]
     }

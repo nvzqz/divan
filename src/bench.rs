@@ -5,10 +5,9 @@ use std::{
 
 use crate::{
     black_box,
-    config::Timer,
     defer::{DeferEntry, DeferStore},
     stats::{Sample, Stats},
-    time::{fence, AnyTimestamp, FineDuration, TscTimestamp},
+    time::{fence, AnyTimestamp, FineDuration, Timer},
 };
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
@@ -126,7 +125,7 @@ pub(crate) struct Context {
     /// count and size are each set to 1.
     is_test: bool,
 
-    tsc_frequency: u64,
+    timer: Timer,
 
     /// Per-iteration overhead.
     overhead: FineDuration,
@@ -141,12 +140,7 @@ pub(crate) struct Context {
 impl Context {
     /// Creates a new benchmarking context.
     pub fn new(is_test: bool, timer: Timer, overhead: FineDuration, options: BenchOptions) -> Self {
-        let tsc_frequency = match timer {
-            // TODO: Report `None` and `Some(0)` TSC frequency.
-            Timer::Tsc => TscTimestamp::frequency().unwrap_or_default(),
-            Timer::Os => 0,
-        };
-        Self { is_test, tsc_frequency, overhead, options, samples: Vec::new() }
+        Self { is_test, timer, overhead, options, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -155,8 +149,8 @@ impl Context {
         mut gen_input: impl FnMut() -> I,
         mut benched: impl FnMut(I) -> O,
     ) {
-        let tsc_frequency = self.tsc_frequency;
-        let use_tsc = tsc_frequency != 0;
+        let use_tsc = self.timer.is_tsc();
+        let tsc_frequency = self.timer.tsc_frequency().unwrap_or_default();
 
         // Defer:
         // - Usage of `gen_input` values.
@@ -355,12 +349,8 @@ impl Context {
 
 /// Attempts to calculate the benchmarking loop overhead.
 pub fn measure_overhead(timer: Timer) -> FineDuration {
-    let tsc_frequency = match timer {
-        // TODO: Report `None` and `Some(0)` TSC frequency.
-        Timer::Tsc => TscTimestamp::frequency().unwrap_or_default(),
-        Timer::Os => 0,
-    };
-    let use_tsc = tsc_frequency > 0;
+    let use_tsc = timer.is_tsc();
+    let tsc_frequency = timer.tsc_frequency().unwrap_or_default();
 
     let sample_count: usize = 100;
     let sample_size: usize = 10_000;
@@ -406,15 +396,13 @@ mod tests {
 
     #[track_caller]
     fn test_bencher(mut test: impl FnMut(Bencher<'_>)) {
-        let timers: &[Timer] = if cfg!(miri) {
-            // Miri does not support inline assembly.
-            &[Timer::Os]
-        } else {
-            &[Timer::Os, Timer::Tsc]
+        let timers = match Timer::get_tsc() {
+            Some(tsc) => vec![Timer::Os, tsc],
+            None => vec![Timer::Os],
         };
 
         for is_test in [true, false] {
-            for &timer in timers {
+            for &timer in &timers {
                 let mut did_run = false;
                 test(Bencher {
                     did_run: &mut did_run,

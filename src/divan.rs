@@ -5,16 +5,16 @@ use regex::Regex;
 
 use crate::{
     bench::{self, BenchOptions, Bencher},
-    config::{Action, Filter, FormatStyle, RunIgnored, Timer},
+    config::{Action, Filter, FormatStyle, RunIgnored},
     entry::{Entry, EntryTree},
-    time::FineDuration,
+    time::{FineDuration, Timer, TimerKind},
 };
 
 /// The benchmark runner.
 #[derive(Default)]
 pub struct Divan {
     action: Action,
-    timer: Timer,
+    timer: TimerKind,
     color: ColorChoice,
     format_style: FormatStyle,
     filter: Option<Filter>,
@@ -93,8 +93,15 @@ impl Divan {
             }
         }
 
+        let timer = match self.timer {
+            TimerKind::Os => Timer::Os,
+
+            // TODO: Report unavailable TSC.
+            TimerKind::Tsc => Timer::get_tsc().unwrap_or(Timer::Os),
+        };
+
         let overhead = if action.is_bench() {
-            bench::measure_overhead(self.timer)
+            bench::measure_overhead(timer)
         } else {
             FineDuration::default()
         };
@@ -102,6 +109,7 @@ impl Divan {
         self.run_tree(
             &tree,
             action,
+            timer,
             overhead,
             false,
             &BenchOptions::default(),
@@ -115,10 +123,12 @@ impl Divan {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn run_tree(
         &self,
         tree: &[EntryTree],
         action: Action,
+        timer: Timer,
         overhead: FineDuration,
         parent_ignored: bool,
         parent_options: &BenchOptions,
@@ -154,7 +164,14 @@ impl Divan {
                             print!("{} ", list_format());
                         }
 
-                        self.run_entry(entry, action, overhead, parent_ignored, parent_options);
+                        self.run_entry(
+                            entry,
+                            action,
+                            timer,
+                            overhead,
+                            parent_ignored,
+                            parent_options,
+                        );
 
                         if self.format_style.is_pretty() {
                             println!();
@@ -172,6 +189,7 @@ impl Divan {
                     self.run_tree(
                         children,
                         action,
+                        timer,
                         overhead,
                         parent_ignored || group.map(|g| g.ignore).unwrap_or_default(),
                         group_options.as_ref().unwrap_or(parent_options),
@@ -201,6 +219,7 @@ impl Divan {
         &self,
         entry: &Entry,
         action: Action,
+        timer: Timer,
         overhead: FineDuration,
         parent_ignored: bool,
         parent_options: &BenchOptions,
@@ -229,7 +248,7 @@ impl Divan {
             options.sample_size = Some(sample_size);
         }
 
-        let mut context = Context::new(action.is_test(), self.timer, overhead, options);
+        let mut context = Context::new(action.is_test(), timer, overhead, options);
 
         let mut did_run = false;
         (entry.bench)(Bencher { did_run: &mut did_run, context: &mut context });
