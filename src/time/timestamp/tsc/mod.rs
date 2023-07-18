@@ -6,14 +6,14 @@ use crate::time::FineDuration;
 #[path = "aarch64.rs"]
 mod arch;
 
-/// [Timestamp counter](https://en.wikipedia.org/wiki/Time_Stamp_Counter).
+/// [CPU timestamp counter](https://en.wikipedia.org/wiki/Time_Stamp_Counter).
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct Tsc {
+pub struct TscTimestamp {
     pub value: u64,
 }
 
-impl Tsc {
+impl TscTimestamp {
     /// Reads the timestamp frequency.
     #[inline]
     pub fn frequency() -> Option<u64> {

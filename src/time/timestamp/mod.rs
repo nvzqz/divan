@@ -1,6 +1,10 @@
 use std::time::Instant;
 
-use crate::time::{FineDuration, Tsc};
+use crate::time::FineDuration;
+
+mod tsc;
+
+pub use tsc::*;
 
 /// A measurement timestamp.
 #[derive(Clone, Copy)]
@@ -8,8 +12,8 @@ pub enum Timestamp {
     /// Time provided by the operating system.
     Os(Instant),
 
-    /// [Timestamp counter](https://en.wikipedia.org/wiki/Time_Stamp_Counter).
-    Tsc(Tsc),
+    /// [CPU timestamp counter](https://en.wikipedia.org/wiki/Time_Stamp_Counter).
+    Tsc(TscTimestamp),
 }
 
 impl Timestamp {
@@ -35,14 +39,14 @@ pub union AnyTimestamp {
     pub os: Instant,
 
     /// [`Timestamp::Tsc`].
-    pub tsc: Tsc,
+    pub tsc: TscTimestamp,
 }
 
 impl AnyTimestamp {
     #[inline(always)]
     pub fn now(use_tsc: bool) -> Self {
         if use_tsc {
-            Self { tsc: Tsc::now() }
+            Self { tsc: TscTimestamp::now() }
         } else {
             Self { os: Instant::now() }
         }

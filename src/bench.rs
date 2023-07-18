@@ -8,7 +8,7 @@ use crate::{
     config::Timer,
     defer::{DeferEntry, DeferStore},
     stats::{Sample, Stats},
-    time::{fence, AnyTimestamp, FineDuration, Tsc},
+    time::{fence, AnyTimestamp, FineDuration, TscTimestamp},
 };
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
@@ -140,7 +140,7 @@ impl Context {
     pub fn new(is_test: bool, timer: Timer, options: BenchOptions) -> Self {
         let tsc_frequency = match timer {
             // TODO: Report `None` and `Some(0)` TSC frequency.
-            Timer::Tsc => Tsc::frequency().unwrap_or_default(),
+            Timer::Tsc => TscTimestamp::frequency().unwrap_or_default(),
             Timer::Os => 0,
         };
         Self { is_test, tsc_frequency, options, samples: Vec::new() }
