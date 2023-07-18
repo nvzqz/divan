@@ -355,7 +355,8 @@ pub fn measure_overhead(timer: Timer) -> FineDuration {
     let sample_count: usize = 100;
     let sample_size: usize = 10_000;
 
-    let mut samples = Vec::<FineDuration>::with_capacity(sample_count);
+    // The minimum non-zero sample.
+    let mut min_sample = FineDuration::default();
 
     for _ in 0..sample_count {
         fence::full_fence();
@@ -378,11 +379,14 @@ pub fn measure_overhead(timer: Timer) -> FineDuration {
         let mut sample = end.duration_since(start, tsc_frequency);
         sample.picos /= sample_size as u128;
 
-        samples.push(sample);
+        if min_sample.picos == 0 {
+            min_sample = sample;
+        } else if sample.picos > 0 {
+            min_sample = min_sample.min(sample);
+        }
     }
 
-    // Return the minimum non-zero sample.
-    samples.into_iter().filter(|sample| sample.picos > 0).min().unwrap_or_default()
+    min_sample
 }
 
 /// Tests every benchmarking loop combination in `Bencher`. When run under Miri,
