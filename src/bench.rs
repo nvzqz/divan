@@ -128,6 +128,9 @@ pub(crate) struct Context {
 
     tsc_frequency: u64,
 
+    /// Per-iteration overhead.
+    overhead: FineDuration,
+
     /// User-configured options.
     pub options: BenchOptions,
 
@@ -137,13 +140,13 @@ pub(crate) struct Context {
 
 impl Context {
     /// Creates a new benchmarking context.
-    pub fn new(is_test: bool, timer: Timer, options: BenchOptions) -> Self {
+    pub fn new(is_test: bool, timer: Timer, overhead: FineDuration, options: BenchOptions) -> Self {
         let tsc_frequency = match timer {
             // TODO: Report `None` and `Some(0)` TSC frequency.
             Timer::Tsc => TscTimestamp::frequency().unwrap_or_default(),
             Timer::Os => 0,
         };
-        Self { is_test, tsc_frequency, options, samples: Vec::new() }
+        Self { is_test, tsc_frequency, overhead, options, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -172,6 +175,10 @@ impl Context {
         if sample_count == 0 || sample_size == 0 {
             return;
         }
+
+        // The per-sample benchmarking overhead.
+        let sample_overhead =
+            FineDuration { picos: self.overhead.picos.saturating_mul(sample_size as u128) };
 
         self.samples.reserve_exact(sample_count as usize);
 
@@ -281,11 +288,17 @@ impl Context {
             let [start, end] =
                 unsafe { [start.into_timestamp(use_tsc), end.into_timestamp(use_tsc)] };
 
+            let raw_duration = end.duration_since(start, tsc_frequency);
+
+            // Account for the per-sample benchmarking overhead.
+            let adjusted_duration =
+                FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead.picos) };
+
             self.samples.push(Sample {
                 start,
                 end,
                 size: sample_size,
-                total_duration: end.duration_since(start, tsc_frequency),
+                total_duration: adjusted_duration,
             });
         }
     }
@@ -340,6 +353,47 @@ impl Context {
     }
 }
 
+/// Attempts to calculate the benchmarking loop overhead.
+pub fn measure_overhead(timer: Timer) -> FineDuration {
+    let tsc_frequency = match timer {
+        // TODO: Report `None` and `Some(0)` TSC frequency.
+        Timer::Tsc => TscTimestamp::frequency().unwrap_or_default(),
+        Timer::Os => 0,
+    };
+    let use_tsc = tsc_frequency > 0;
+
+    let sample_count: usize = 100;
+    let sample_size: usize = 10_000;
+
+    let mut samples = Vec::<FineDuration>::with_capacity(sample_count);
+
+    for _ in 0..sample_count {
+        fence::full_fence();
+        let start = AnyTimestamp::now(use_tsc);
+        fence::compiler_fence();
+
+        for i in 0..sample_size {
+            _ = black_box(i);
+        }
+
+        fence::compiler_fence();
+        let end = AnyTimestamp::now(use_tsc);
+        fence::full_fence();
+
+        // SAFETY: These values are guaranteed to be the correct variant because
+        // they were created from the same `use_tsc`.
+        let [start, end] = unsafe { [start.into_timestamp(use_tsc), end.into_timestamp(use_tsc)] };
+
+        let mut sample = end.duration_since(start, tsc_frequency);
+        sample.picos /= sample_size as u128;
+
+        samples.push(sample);
+    }
+
+    // Return the minimum non-zero sample.
+    samples.into_iter().filter(|sample| sample.picos > 0).min().unwrap_or_default()
+}
+
 /// Tests every benchmarking loop combination in `Bencher`. When run under Miri,
 /// this catches memory leaks and UB in `unsafe` code.
 #[cfg(test)]
@@ -367,6 +421,7 @@ mod tests {
                     context: &mut Context::new(
                         is_test,
                         timer,
+                        FineDuration::default(),
                         BenchOptions {
                             sample_count: Some(SAMPLE_COUNT),
                             sample_size: Some(SAMPLE_SIZE),

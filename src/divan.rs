@@ -4,9 +4,10 @@ use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
-    bench::{BenchOptions, Bencher},
+    bench::{self, BenchOptions, Bencher},
     config::{Action, Filter, FormatStyle, RunIgnored, Timer},
     entry::{Entry, EntryTree},
+    time::FineDuration,
 };
 
 /// The benchmark runner.
@@ -77,7 +78,7 @@ impl Divan {
         // Sorting is after filtering to compare fewer elements.
         EntryTree::sort_by_kind(&mut tree);
 
-        // Quick exit without setting CPU affinity.
+        // Quick exit without setting CPU affinity or measuring overhead.
         if tree.is_empty() {
             return;
         }
@@ -92,9 +93,16 @@ impl Divan {
             }
         }
 
+        let overhead = if action.is_bench() {
+            bench::measure_overhead(self.timer)
+        } else {
+            FineDuration::default()
+        };
+
         self.run_tree(
             &tree,
             action,
+            overhead,
             false,
             &BenchOptions::default(),
             match self.format_style {
@@ -111,6 +119,7 @@ impl Divan {
         &self,
         tree: &[EntryTree],
         action: Action,
+        overhead: FineDuration,
         parent_ignored: bool,
         parent_options: &BenchOptions,
         fmt_ctx: FormatContext,
@@ -145,7 +154,7 @@ impl Divan {
                             print!("{} ", list_format());
                         }
 
-                        self.run_entry(entry, action, parent_ignored, parent_options);
+                        self.run_entry(entry, action, overhead, parent_ignored, parent_options);
 
                         if self.format_style.is_pretty() {
                             println!();
@@ -163,6 +172,7 @@ impl Divan {
                     self.run_tree(
                         children,
                         action,
+                        overhead,
                         parent_ignored || group.map(|g| g.ignore).unwrap_or_default(),
                         group_options.as_ref().unwrap_or(parent_options),
                         match &fmt_ctx {
@@ -191,6 +201,7 @@ impl Divan {
         &self,
         entry: &Entry,
         action: Action,
+        overhead: FineDuration,
         parent_ignored: bool,
         parent_options: &BenchOptions,
     ) {
@@ -218,7 +229,7 @@ impl Divan {
             options.sample_size = Some(sample_size);
         }
 
-        let mut context = Context::new(action.is_test(), self.timer, options);
+        let mut context = Context::new(action.is_test(), self.timer, overhead, options);
 
         let mut did_run = false;
         (entry.bench)(Bencher { did_run: &mut did_run, context: &mut context });
