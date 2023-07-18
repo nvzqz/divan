@@ -149,7 +149,7 @@ impl Context {
         mut gen_input: impl FnMut() -> I,
         mut benched: impl FnMut(I) -> O,
     ) {
-        let use_tsc = self.timer.is_tsc();
+        let timer_kind = self.timer.kind();
         let tsc_frequency = self.timer.tsc_frequency().unwrap_or_default();
 
         // Defer:
@@ -198,7 +198,7 @@ impl Context {
                 }
 
                 fence::full_fence();
-                start = AnyTimestamp::now(use_tsc);
+                start = AnyTimestamp::now(timer_kind);
                 fence::compiler_fence();
 
                 // Sample loop:
@@ -211,7 +211,7 @@ impl Context {
                 }
 
                 fence::compiler_fence();
-                end = AnyTimestamp::now(use_tsc);
+                end = AnyTimestamp::now(timer_kind);
                 fence::full_fence();
             } else {
                 let defer_entries = defer_store.prepare(sample_size as usize);
@@ -230,7 +230,7 @@ impl Context {
                     // sample loop by inserting it into `defer_entries`.
 
                     fence::full_fence();
-                    start = AnyTimestamp::now(use_tsc);
+                    start = AnyTimestamp::now(timer_kind);
                     fence::compiler_fence();
 
                     // Sample loop:
@@ -250,7 +250,7 @@ impl Context {
                     }
 
                     fence::compiler_fence();
-                    end = AnyTimestamp::now(use_tsc);
+                    end = AnyTimestamp::now(timer_kind);
                     fence::full_fence();
 
                     // SAFETY: All outputs were initialized in the sample loop.
@@ -260,7 +260,7 @@ impl Context {
                     // still need to be retrieved from `defer_entries`.
 
                     fence::full_fence();
-                    start = AnyTimestamp::now(use_tsc);
+                    start = AnyTimestamp::now(timer_kind);
                     fence::compiler_fence();
 
                     // Sample loop:
@@ -272,15 +272,15 @@ impl Context {
                     }
 
                     fence::compiler_fence();
-                    end = AnyTimestamp::now(use_tsc);
+                    end = AnyTimestamp::now(timer_kind);
                     fence::full_fence();
                 }
             }
 
             // SAFETY: These values are guaranteed to be the correct variant
-            // because they were created from the same `use_tsc`.
+            // because they were created from the same `timer_kind`.
             let [start, end] =
-                unsafe { [start.into_timestamp(use_tsc), end.into_timestamp(use_tsc)] };
+                unsafe { [start.into_timestamp(timer_kind), end.into_timestamp(timer_kind)] };
 
             let raw_duration = end.duration_since(start, tsc_frequency);
 
@@ -349,7 +349,7 @@ impl Context {
 
 /// Attempts to calculate the benchmarking loop overhead.
 pub fn measure_overhead(timer: Timer) -> FineDuration {
-    let use_tsc = timer.is_tsc();
+    let timer_kind = timer.kind();
     let tsc_frequency = timer.tsc_frequency().unwrap_or_default();
 
     let sample_count: usize = 100;
@@ -359,7 +359,7 @@ pub fn measure_overhead(timer: Timer) -> FineDuration {
 
     for _ in 0..sample_count {
         fence::full_fence();
-        let start = AnyTimestamp::now(use_tsc);
+        let start = AnyTimestamp::now(timer_kind);
         fence::compiler_fence();
 
         for i in 0..sample_size {
@@ -367,12 +367,13 @@ pub fn measure_overhead(timer: Timer) -> FineDuration {
         }
 
         fence::compiler_fence();
-        let end = AnyTimestamp::now(use_tsc);
+        let end = AnyTimestamp::now(timer_kind);
         fence::full_fence();
 
         // SAFETY: These values are guaranteed to be the correct variant because
-        // they were created from the same `use_tsc`.
-        let [start, end] = unsafe { [start.into_timestamp(use_tsc), end.into_timestamp(use_tsc)] };
+        // they were created from the same `timer_kind`.
+        let [start, end] =
+            unsafe { [start.into_timestamp(timer_kind), end.into_timestamp(timer_kind)] };
 
         let mut sample = end.duration_since(start, tsc_frequency);
         sample.picos /= sample_size as u128;

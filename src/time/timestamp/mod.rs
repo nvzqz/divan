@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::time::FineDuration;
+use crate::time::{FineDuration, TimerKind};
 
 mod tsc;
 
@@ -44,20 +44,18 @@ pub union AnyTimestamp {
 
 impl AnyTimestamp {
     #[inline(always)]
-    pub fn now(use_tsc: bool) -> Self {
-        if use_tsc {
-            Self { tsc: TscTimestamp::now() }
-        } else {
-            Self { os: Instant::now() }
+    pub fn now(timer_kind: TimerKind) -> Self {
+        match timer_kind {
+            TimerKind::Os => Self { os: Instant::now() },
+            TimerKind::Tsc => Self { tsc: TscTimestamp::now() },
         }
     }
 
     #[inline(always)]
-    pub unsafe fn into_timestamp(self, is_tsc: bool) -> Timestamp {
-        if is_tsc {
-            Timestamp::Tsc(self.tsc)
-        } else {
-            Timestamp::Os(self.os)
+    pub unsafe fn into_timestamp(self, timer_kind: TimerKind) -> Timestamp {
+        match timer_kind {
+            TimerKind::Os => Timestamp::Os(self.os),
+            TimerKind::Tsc => Timestamp::Tsc(self.tsc),
         }
     }
 }

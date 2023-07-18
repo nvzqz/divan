@@ -29,8 +29,11 @@ impl Timer {
     }
 
     #[inline]
-    pub fn is_tsc(self) -> bool {
-        matches!(self, Self::Tsc { .. })
+    pub fn kind(self) -> TimerKind {
+        match self {
+            Self::Os => TimerKind::Os,
+            Self::Tsc { .. } => TimerKind::Tsc,
+        }
     }
 
     #[inline]
