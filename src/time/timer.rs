@@ -30,14 +30,6 @@ impl Timer {
             Self::Tsc { .. } => TimerKind::Tsc,
         }
     }
-
-    #[inline]
-    pub fn tsc_frequency(self) -> Option<u64> {
-        match self {
-            Self::Os => None,
-            Self::Tsc { frequency } => Some(frequency.get()),
-        }
-    }
 }
 
 /// [`Timer`] kind.

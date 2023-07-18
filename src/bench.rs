@@ -150,7 +150,6 @@ impl Context {
         mut benched: impl FnMut(I) -> O,
     ) {
         let timer_kind = self.timer.kind();
-        let tsc_frequency = self.timer.tsc_frequency().unwrap_or_default();
 
         // Defer:
         // - Usage of `gen_input` values.
@@ -282,7 +281,7 @@ impl Context {
             let [start, end] =
                 unsafe { [start.into_timestamp(timer_kind), end.into_timestamp(timer_kind)] };
 
-            let raw_duration = end.duration_since(start, tsc_frequency);
+            let raw_duration = end.duration_since(start, self.timer);
 
             // Account for the per-sample benchmarking overhead.
             let adjusted_duration =
@@ -350,7 +349,6 @@ impl Context {
 /// Attempts to calculate the benchmarking loop overhead.
 pub fn measure_overhead(timer: Timer) -> FineDuration {
     let timer_kind = timer.kind();
-    let tsc_frequency = timer.tsc_frequency().unwrap_or_default();
 
     let sample_count: usize = 100;
     let sample_size: usize = 10_000;
@@ -376,7 +374,7 @@ pub fn measure_overhead(timer: Timer) -> FineDuration {
         let [start, end] =
             unsafe { [start.into_timestamp(timer_kind), end.into_timestamp(timer_kind)] };
 
-        let mut sample = end.duration_since(start, tsc_frequency);
+        let mut sample = end.duration_since(start, timer);
         sample.picos /= sample_size as u128;
 
         if min_sample.picos == 0 {

@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::time::{FineDuration, TimerKind};
+use crate::time::{FineDuration, Timer, TimerKind};
 
 mod tsc;
 
@@ -17,10 +17,12 @@ pub enum Timestamp {
 }
 
 impl Timestamp {
-    pub fn duration_since(self, earlier: Self, tsc_frequency: u64) -> FineDuration {
-        match (self, earlier) {
-            (Self::Os(this), Self::Os(earlier)) => this.duration_since(earlier).into(),
-            (Self::Tsc(this), Self::Tsc(earlier)) => this.duration_since(earlier, tsc_frequency),
+    pub fn duration_since(self, earlier: Self, timer: Timer) -> FineDuration {
+        match (self, earlier, timer) {
+            (Self::Os(this), Self::Os(earlier), Timer::Os) => this.duration_since(earlier).into(),
+            (Self::Tsc(this), Self::Tsc(earlier), Timer::Tsc { frequency }) => {
+                this.duration_since(earlier, frequency.get())
+            }
             _ => unreachable!(),
         }
     }
