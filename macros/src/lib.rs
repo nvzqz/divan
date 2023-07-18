@@ -42,41 +42,34 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
-    let fn_dup_ident =
-        syn::Ident::new(&format!("__divan_{fn_name_pretty}_bench_is_duplicate"), fn_ident.span());
+    let static_ident = syn::Ident::new(
+        &format!("__DIVAN_ENTRY_{}", fn_name_pretty.to_uppercase()),
+        fn_ident.span(),
+    );
 
     let bench_options_fn = options.bench_options_fn();
 
     let generated_items = quote! {
-        // Causes a compile error if this attribute is used multiple times on
-        // the same function.
+        // The static is local to intentionally cause a compile error if this
+        // attribute is used multiple times on the same function.
+        #[#linkme_crate::distributed_slice(#private_mod::ENTRIES)]
+        #[linkme(crate = #linkme_crate)]
         #[doc(hidden)]
-        #[allow(warnings, clippy::all)]
-        fn #fn_dup_ident() {}
+        static #static_ident: #private_mod::Entry = #private_mod::Entry {
+            display_name: #name_expr,
+            raw_name: #fn_name,
 
-        // This `const _` prevents collisions in the current scope by giving us
-        // an anonymous scope to place our static in. As a result, this macro
-        // can be used multiple times within the same scope.
-        #[doc(hidden)]
-        const _: () = {
-            #[#linkme_crate::distributed_slice(#private_mod::ENTRIES)]
-            #[linkme(crate = #linkme_crate)]
-            static __DIVAN_BENCH_ENTRY: #private_mod::Entry = #private_mod::Entry {
-                display_name: #name_expr,
-                raw_name: #fn_name,
+            module_path: #std_crate::module_path!(),
+            full_path: #std_crate::concat!(#std_crate::module_path!(), "::", #name_expr),
 
-                module_path: #std_crate::module_path!(),
-                full_path: #std_crate::concat!(#std_crate::module_path!(), "::", #name_expr),
+            // `Span` location info is nightly-only, so use macros.
+            file: #std_crate::file!(),
+            line: #std_crate::line!(),
 
-                // `Span` location info is nightly-only, so use macros.
-                file: #std_crate::file!(),
-                line: #std_crate::line!(),
+            ignore: #ignore,
 
-                ignore: #ignore,
-
-                bench_options: #bench_options_fn,
-                bench: #bench_fn,
-            };
+            bench_options: #bench_options_fn,
+            bench: #bench_fn,
         };
     };
 
@@ -113,40 +106,33 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     let ignore = mod_item.attrs.iter().any(|attr| attr.meta.path().is_ident("ignore"));
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
-    let fn_dup_ident =
-        syn::Ident::new(&format!("__divan_{mod_name_pretty}_group_is_duplicate"), mod_ident.span());
+    let static_ident = syn::Ident::new(
+        &format!("__DIVAN_GROUP_{}", mod_name_pretty.to_uppercase()),
+        mod_ident.span(),
+    );
 
     let bench_options_fn = options.bench_options_fn();
 
     let generated_items = quote! {
-        // Causes a compile error if this attribute is used multiple times on
-        // the same function.
+        // By having the static be local, we cause a compile error if this
+        // attribute is used multiple times on the same function.
+        #[#linkme_crate::distributed_slice(#private_mod::ENTRY_GROUPS)]
+        #[linkme(crate = #linkme_crate)]
         #[doc(hidden)]
-        #[allow(warnings, clippy::all)]
-        fn #fn_dup_ident() {}
+        static #static_ident: #private_mod::EntryGroup = #private_mod::EntryGroup {
+            display_name: #name_expr,
+            raw_name: #mod_name,
 
-        // This `const _` prevents collisions in the current scope by giving us
-        // an anonymous scope to place our static in. As a result, this macro
-        // can be used multiple times within the same scope.
-        #[doc(hidden)]
-        const _: () = {
-            #[#linkme_crate::distributed_slice(#private_mod::ENTRY_GROUPS)]
-            #[linkme(crate = #linkme_crate)]
-            static __DIVAN_GROUP_ENTRY: #private_mod::EntryGroup = #private_mod::EntryGroup {
-                display_name: #name_expr,
-                raw_name: #mod_name,
+            module_path: #std_crate::module_path!(),
+            full_path: #std_crate::concat!(#std_crate::module_path!(), "::", #mod_name),
 
-                module_path: #std_crate::module_path!(),
-                full_path: #std_crate::concat!(#std_crate::module_path!(), "::", #mod_name),
+            // `Span` location info is nightly-only, so use macros.
+            file: #std_crate::file!(),
+            line: #std_crate::line!(),
 
-                // `Span` location info is nightly-only, so use macros.
-                file: #std_crate::file!(),
-                line: #std_crate::line!(),
+            ignore: #ignore,
 
-                ignore: #ignore,
-
-                bench_options: #bench_options_fn,
-            };
+            bench_options: #bench_options_fn,
         };
     };
 
