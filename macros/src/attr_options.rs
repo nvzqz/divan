@@ -93,21 +93,19 @@ impl AttrOptions {
         // benefit of Rust Analyzer recognizing fields and emitting suggestions
         // with docs and type info.
         if self.bench_options.is_empty() {
-            // Use the `Default` impl function to slightly reduce code
-            // generation in the common case where there's no options set.
-            quote! { #private_mod::Default::default }
+            quote! { #private_mod::None }
         } else {
             let options_iter = self.bench_options.iter().map(|(option, value)| {
                 quote! { #option: #private_mod::Some(#value), }
             });
             quote! {
-                || {
+                #private_mod::Some(|| {
                     #[allow(clippy::needless_update)]
                     #private_mod::BenchOptions {
                         #(#options_iter)*
                         ..#private_mod::Default::default()
                     }
-                }
+                })
             }
         }
     }

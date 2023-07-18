@@ -34,7 +34,7 @@ pub struct Entry {
     pub ignore: bool,
 
     /// Configures the benchmarker via attribute options.
-    pub bench_options: fn() -> BenchOptions,
+    pub bench_options: Option<fn() -> BenchOptions>,
 
     /// The benchmarking function.
     pub bench: fn(Bencher),
@@ -66,7 +66,7 @@ pub struct EntryGroup {
     pub ignore: bool,
 
     /// Configures the benchmarker via attribute options.
-    pub bench_options: fn() -> BenchOptions,
+    pub bench_options: Option<fn() -> BenchOptions>,
 }
 
 type PathComponents = Split<'static, &'static str>;

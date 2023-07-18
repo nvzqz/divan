@@ -184,8 +184,11 @@ impl Divan {
                     }
                 },
                 EntryTree::Parent { group, children, .. } => {
-                    let group_options =
-                        group.map(|group| (group.bench_options)().overwrite(parent_options));
+                    let group_options = group.and_then(|group| {
+                        group
+                            .bench_options
+                            .map(|bench_options| bench_options().overwrite(parent_options))
+                    });
 
                     if self.format_style.is_pretty() {
                         println!("{}", list_format());
@@ -243,7 +246,11 @@ impl Divan {
             println!("Running '{}'", entry.full_path);
         }
 
-        let mut options = (entry.bench_options)().overwrite(parent_options);
+        let mut options = entry
+            .bench_options
+            .map(|bench_options| bench_options())
+            .unwrap_or_default()
+            .overwrite(parent_options);
 
         if let Some(sample_count) = self.sample_count {
             options.sample_count = Some(sample_count);
