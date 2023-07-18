@@ -16,11 +16,15 @@ pub struct TscTimestamp {
 impl TscTimestamp {
     /// Reads the timestamp frequency.
     #[inline]
+    #[allow(unreachable_code)]
     pub fn frequency() -> Option<u64> {
+        // Miri does not support inline assembly.
+        #[cfg(miri)]
+        return None;
+
         #[cfg(target_arch = "aarch64")]
         return Some(arch::frequency());
 
-        #[allow(unreachable_code)]
         None
     }
 

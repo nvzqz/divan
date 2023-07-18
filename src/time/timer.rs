@@ -20,11 +20,6 @@ impl Timer {
     /// Attempts to get the CPU timestamp counter.
     #[inline]
     pub fn get_tsc() -> Option<Self> {
-        if cfg!(miri) {
-            // Miri does not support inline assembly.
-            return None;
-        }
-
         Some(Self::Tsc { frequency: NonZeroU64::new(TscTimestamp::frequency()?)? })
     }
 
