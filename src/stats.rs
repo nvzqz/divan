@@ -11,9 +11,6 @@ pub struct Stats {
     /// Total number of iterations (currently `sample_count * `sample_size`).
     pub total_count: u64,
 
-    /// The total amount of time spent benchmarking.
-    pub total_duration: FineDuration,
-
     /// Mean time taken by all iterations.
     pub avg_duration: FineDuration,
 

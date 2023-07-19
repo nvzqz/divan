@@ -337,7 +337,6 @@ impl Context {
         Stats {
             sample_count: sample_count as u32,
             total_count,
-            total_duration,
             avg_duration,
             min_duration,
             max_duration,
