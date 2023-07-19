@@ -79,15 +79,6 @@ impl fmt::Debug for FineDuration {
     }
 }
 
-impl FineDuration {
-    /// Equal to [`Duration::MAX`].
-    #[cfg(test)]
-    pub const MAX: Self = match Duration::MAX.as_nanos().checked_mul(1_000) {
-        Some(picos) => Self { picos },
-        None => panic!("Cannot represent `Duration::MAX`"),
-    };
-}
-
 mod picos {
     pub const NANOS: u128 = 1_000;
     pub const MICROS: u128 = 1_000 * NANOS;
@@ -111,9 +102,6 @@ enum TimeScale {
 }
 
 impl TimeScale {
-    #[cfg(test)]
-    const MAX: Self = Self::Day;
-
     /// Determines the scale of time for representing a number of picoseconds.
     fn from_picos(picos: u128) -> Self {
         use picos::*;
@@ -171,11 +159,6 @@ impl TimeScale {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn max_time_scale() {
-        assert_eq!(TimeScale::from_picos(FineDuration::MAX.picos), TimeScale::MAX);
-    }
 
     #[allow(clippy::zero_prefixed_literal)]
     mod fmt {
