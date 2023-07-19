@@ -10,7 +10,12 @@ pub struct FineDuration {
 impl From<Duration> for FineDuration {
     #[inline]
     fn from(duration: Duration) -> Self {
-        Self { picos: duration.as_nanos() * 1_000 }
+        Self {
+            picos: duration
+                .as_nanos()
+                .checked_mul(1_000)
+                .unwrap_or_else(|| panic!("{duration:?} is too large to fit in `FineDuration`")),
+        }
     }
 }
 
