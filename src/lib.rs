@@ -37,7 +37,6 @@ pub use std::hint::black_box;
 ///
 /// fn main() {
 ///     // Run `add` benchmark:
-///     # #[cfg(not(miri))]
 ///     divan::main();
 /// }
 /// ```
@@ -172,7 +171,7 @@ pub use std::hint::black_box;
 ///   fn todo() {
 ///       unimplemented!();
 ///   }
-///   # #[cfg(not(miri))] divan::main();
+///   # divan::main();
 ///   ```
 pub use divan_macros::bench;
 
@@ -204,7 +203,6 @@ pub use divan_macros::bench;
 ///
 /// fn main() {
 ///     // Run `math::add` and `math::div` benchmarks:
-///     # #[cfg(not(miri))]
 ///     divan::main();
 /// }
 /// ```
@@ -343,7 +341,7 @@ pub use divan_macros::bench;
 ///           unimplemented!();
 ///       }
 ///   }
-///   # #[cfg(not(miri))] divan::main();
+///   # divan::main();
 ///   ```
 pub use divan_macros::bench_group;
 
@@ -363,7 +361,6 @@ pub use crate::{bench::Bencher, divan::Divan};
 ///
 /// fn main() {
 ///     // Run `add` benchmark:
-///     # #[cfg(not(miri))]
 ///     divan::main();
 /// }
 /// ```

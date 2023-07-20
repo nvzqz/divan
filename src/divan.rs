@@ -65,11 +65,18 @@ impl Divan {
     }
 
     pub(crate) fn run_action(&self, action: Action) {
-        let mut tree = EntryTree::from_entries(crate::entry::ENTRIES);
+        let mut tree: Vec<EntryTree> = if cfg!(miri) {
+            // Miri does not work with `linkme`.
+            Vec::new()
+        } else {
+            let mut tree = EntryTree::from_entries(crate::entry::ENTRIES);
 
-        for group in crate::entry::ENTRY_GROUPS {
-            EntryTree::insert_group(&mut tree, group);
-        }
+            for group in crate::entry::ENTRY_GROUPS {
+                EntryTree::insert_group(&mut tree, group);
+            }
+
+            tree
+        };
 
         // Filter after inserting groups so that we can properly use groups'
         // display names.
