@@ -43,6 +43,11 @@ mod vec {
 
         bencher.bench(|| black_box(&mut dst).copy_from_slice(black_box(&src)))
     }
+
+    #[divan::bench]
+    fn clear(bencher: Bencher) {
+        bencher.bench_with_refs(from_iter, Vec::clear);
+    }
 }
 
 #[divan::bench_group(name = "VecDeque")]
@@ -66,6 +71,11 @@ mod vec_deque {
         // TODO: Make size be a provided value.
         util::collect_nums()
     }
+
+    #[divan::bench]
+    fn clear(bencher: Bencher) {
+        bencher.bench_with_refs(from_iter, VecDeque::clear);
+    }
 }
 
 #[divan::bench_group(name = "LinkedList")]
@@ -81,6 +91,11 @@ mod linked_list {
     fn from_iter() -> LinkedList<i32> {
         // TODO: Make size be a provided value.
         util::collect_nums()
+    }
+
+    #[divan::bench]
+    fn clear(bencher: Bencher) {
+        bencher.bench_with_refs(from_iter, LinkedList::clear);
     }
 }
 
@@ -105,6 +120,11 @@ mod binary_heap {
         // TODO: Make size be a provided value.
         util::collect_nums()
     }
+
+    #[divan::bench]
+    fn clear(bencher: Bencher) {
+        bencher.bench_with_refs(from_iter, BinaryHeap::clear);
+    }
 }
 
 #[divan::bench_group(name = "HashSet")]
@@ -128,6 +148,11 @@ mod hash_set {
         // TODO: Make size be a provided value.
         util::collect_nums()
     }
+
+    #[divan::bench]
+    fn clear(bencher: Bencher) {
+        bencher.bench_with_refs(from_iter, HashSet::clear);
+    }
 }
 
 #[divan::bench_group(name = "BTreeSet")]
@@ -143,5 +168,10 @@ mod btree_set {
     fn from_iter() -> BTreeSet<i32> {
         // TODO: Make size be a provided value.
         util::collect_nums()
+    }
+
+    #[divan::bench]
+    fn clear(bencher: Bencher) {
+        bencher.bench_with_refs(from_iter, BTreeSet::clear);
     }
 }

@@ -27,6 +27,12 @@ mod unicode {
     use super::*;
 
     #[divan::bench]
+    fn clear(bencher: Bencher) {
+        let mut rng = gen::rng();
+        bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.clear());
+    }
+
+    #[divan::bench]
     fn to_lowercase(bencher: Bencher) {
         let mut rng = gen::rng();
         bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.to_lowercase());
@@ -65,6 +71,12 @@ mod unicode {
 
 mod ascii {
     use super::*;
+
+    #[divan::bench]
+    fn clear(bencher: Bencher) {
+        let mut rng = gen::rng();
+        bencher.bench_with_refs(|| gen::alphanumeric(&mut rng), |s| s.clear());
+    }
 
     #[divan::bench]
     fn to_lowercase(bencher: Bencher) {
