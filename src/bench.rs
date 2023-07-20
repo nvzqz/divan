@@ -390,6 +390,8 @@ pub fn measure_overhead(timer: Timer) -> FineDuration {
 /// this catches memory leaks and UB in `unsafe` code.
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+
     use super::*;
 
     // We use a small number of runs because Miri is very slow.
@@ -427,6 +429,20 @@ mod tests {
         ('a'..='z').collect()
     }
 
+    mod no_input {
+        use super::*;
+
+        #[test]
+        fn string_output() {
+            test_bencher(|b| b.bench(make_string));
+        }
+
+        #[test]
+        fn no_output() {
+            test_bencher(|b| b.bench(|| _ = black_box(make_string())));
+        }
+    }
+
     mod string_input {
         use super::*;
 
@@ -441,17 +457,59 @@ mod tests {
         }
     }
 
-    mod no_input {
+    mod zst_input {
         use super::*;
 
         #[test]
-        fn string_output() {
-            test_bencher(|b| b.bench(make_string));
+        fn zst_output() {
+            struct Zst;
+
+            // Each test has its own `ZST_COUNT` global because tests are run
+            // independently in parallel.
+            static ZST_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+            impl Drop for Zst {
+                fn drop(&mut self) {
+                    ZST_COUNT.fetch_sub(1, SeqCst);
+                }
+            }
+
+            test_bencher(|b| {
+                b.bench_with_values(
+                    || {
+                        ZST_COUNT.fetch_add(1, SeqCst);
+                        Zst
+                    },
+                    black_box,
+                )
+            });
+
+            assert_eq!(ZST_COUNT.load(SeqCst), 0);
         }
 
         #[test]
         fn no_output() {
-            test_bencher(|b| b.bench(|| _ = black_box(make_string())));
+            struct Zst;
+
+            static ZST_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+            impl Drop for Zst {
+                fn drop(&mut self) {
+                    ZST_COUNT.fetch_sub(1, SeqCst);
+                }
+            }
+
+            test_bencher(|b| {
+                b.bench_with_values(
+                    || {
+                        ZST_COUNT.fetch_add(1, SeqCst);
+                        Zst
+                    },
+                    drop,
+                )
+            });
+
+            assert_eq!(ZST_COUNT.load(SeqCst), 0);
         }
     }
 }
