@@ -367,5 +367,5 @@ pub use crate::{bench::Bencher, divan::Divan};
 ///
 /// See [`#[divan::bench]`](macro@bench) for more examples.
 pub fn main() {
-    Divan::default().config_with_args().run();
+    Divan::from_args().main();
 }

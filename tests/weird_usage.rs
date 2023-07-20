@@ -24,7 +24,7 @@ fn r#raw_ident() {}
 
 #[test]
 fn test_fn() {
-    Divan::default().test();
+    Divan::default().test_benches();
 }
 
 // Test that each function appears the expected number of times.

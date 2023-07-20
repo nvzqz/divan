@@ -31,18 +31,29 @@ impl fmt::Debug for Divan {
 }
 
 impl Divan {
+    /// Perform the configured action.
+    ///
+    /// By default, this will be [`Divan::run_benches`].
+    pub fn main(&self) {
+        self.run_action(self.action);
+    }
+
     /// Benchmark registered functions.
-    pub fn bench(&self) {
-        self.run_action(Action::Bench)
+    pub fn run_benches(&self) {
+        self.run_action(Action::Bench);
     }
 
-    /// Test registered functions.
-    pub fn test(&self) {
-        self.run_action(Action::Test)
+    /// Test registered functions as if the `--test` flag was used.
+    ///
+    /// Unlike [`Divan::run_benches`], this runs each benchmarked function only
+    /// once.
+    pub fn test_benches(&self) {
+        self.run_action(Action::Test);
     }
 
-    pub(crate) fn run(&self) {
-        self.run_action(self.action)
+    /// Print registered functions as if the `--list` flag was used.
+    pub fn list_benches(&self) {
+        self.run_action(Action::Test);
     }
 
     /// Returns `true` if an entry at the given path should be considered for
@@ -339,6 +350,11 @@ pub trait SkipRegex {
 
 /// Configuration options.
 impl Divan {
+    /// Creates an instance with options set by parsing CLI arguments.
+    pub fn from_args() -> Self {
+        Self::default().config_with_args()
+    }
+
     /// Sets options by parsing CLI arguments.
     ///
     /// This may override any previously-set options.

@@ -50,7 +50,7 @@ mod parent {
 
 #[test]
 fn iter_count() {
-    Divan::default().bench();
+    Divan::default().run_benches();
 
     assert_eq!(CHILD1_ITERS.load(SeqCst), 10);
     assert_eq!(CHILD2_ITERS.load(SeqCst), 2100);
