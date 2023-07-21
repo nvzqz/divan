@@ -43,12 +43,11 @@ impl fmt::Display for FineDuration {
                 // Multiply to allow `sig_figs` digits of fractional precision.
                 let val = (((picos * multiple) / scale.picos()) as f64) / multiple as f64;
 
-                let int_digits = 1 + val.trunc().log10() as usize;
-                let fract_digits = sig_figs.saturating_sub(int_digits);
-
                 let mut str = val.to_string();
 
                 if let Some(dot_index) = str.find('.') {
+                    let fract_digits = sig_figs.saturating_sub(dot_index);
+
                     if fract_digits == 0 {
                         str.truncate(dot_index);
                     } else {
