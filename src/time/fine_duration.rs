@@ -21,60 +21,78 @@ impl From<Duration> for FineDuration {
 
 impl fmt::Display for FineDuration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // We only care about 4 significant digits for now.
-        const SIG_FIGS: usize = 4;
+        let sig_figs = f.precision().unwrap_or(4);
 
         let picos = self.picos;
         let scale = TimeScale::from_picos(picos);
 
+        let multiple: u128 = {
+            let sig_figs = u32::try_from(sig_figs).unwrap_or(u32::MAX);
+            10_u128.saturating_pow(sig_figs)
+        };
+
         // TODO: Format without heap allocation.
-        let mut str: String = if picos >= picos::DAY * 1000 {
-            // Format using integer representation to not lose precision.
-            (picos / picos::DAY).to_string()
-        } else {
-            // Format using floating point representation.
+        let mut str: String = match picos::DAY.checked_mul(multiple) {
+            Some(int_day) if picos >= int_day => {
+                // Format using integer representation to not lose precision.
+                (picos / picos::DAY).to_string()
+            }
+            _ => {
+                // Format using floating point representation.
 
-            // Multiply by 1000 to allow 4 digits of fractional precision.
-            let val = (((picos * 1000) / scale.picos()) as f64) / 1000.0;
+                // Multiply to allow `sig_figs` digits of fractional precision.
+                let val = (((picos * multiple) / scale.picos()) as f64) / multiple as f64;
 
-            let int_digits = 1 + val.trunc().log10() as usize;
-            let fract_digits = SIG_FIGS.saturating_sub(int_digits);
+                let int_digits = 1 + val.trunc().log10() as usize;
+                let fract_digits = sig_figs.saturating_sub(int_digits);
 
-            let mut str = val.to_string();
+                let mut str = val.to_string();
 
-            if let Some(dot_index) = str.find('.') {
-                if fract_digits == 0 {
-                    str.truncate(dot_index);
-                } else {
-                    let fract_start = dot_index + 1;
-                    let fract_end = fract_start + fract_digits;
-                    let fract_range = fract_start..fract_end;
+                if let Some(dot_index) = str.find('.') {
+                    if fract_digits == 0 {
+                        str.truncate(dot_index);
+                    } else {
+                        let fract_start = dot_index + 1;
+                        let fract_end = fract_start + fract_digits;
+                        let fract_range = fract_start..fract_end;
 
-                    if let Some(fract_str) = str.get(fract_range) {
-                        // Get the offset from the end before all 0s.
-                        let pre_zero = fract_str.bytes().rev().enumerate().find_map(|(i, b)| {
-                            if b != b'0' {
-                                Some(i)
+                        if let Some(fract_str) = str.get(fract_range) {
+                            // Get the offset from the end before all 0s.
+                            let pre_zero =
+                                fract_str.bytes().rev().enumerate().find_map(|(i, b)| {
+                                    if b != b'0' {
+                                        Some(i)
+                                    } else {
+                                        None
+                                    }
+                                });
+
+                            if let Some(pre_zero) = pre_zero {
+                                str.truncate(fract_end - pre_zero);
                             } else {
-                                None
+                                str.truncate(dot_index);
                             }
-                        });
-
-                        if let Some(pre_zero) = pre_zero {
-                            str.truncate(fract_end - pre_zero);
-                        } else {
-                            str.truncate(dot_index);
                         }
                     }
                 }
-            }
 
-            str
+                str
+            }
         };
 
         str.push_str(scale.suffix());
 
-        f.pad(&str)
+        // Fill up to specified width.
+        if let Some(fill_len) = f.width().and_then(|width| width.checked_sub(str.len())) {
+            match f.align() {
+                None | Some(fmt::Alignment::Left) => {
+                    str.extend(std::iter::repeat(f.fill()).take(fill_len));
+                }
+                _ => return Err(fmt::Error),
+            }
+        }
+
+        f.write_str(&str)
     }
 }
 
@@ -107,6 +125,18 @@ enum TimeScale {
 }
 
 impl TimeScale {
+    #[cfg(test)]
+    const ALL: &[Self] = &[
+        Self::PicoSec,
+        Self::NanoSec,
+        Self::MicroSec,
+        Self::MilliSec,
+        Self::Sec,
+        Self::Min,
+        Self::Hour,
+        Self::Day,
+    ];
+
     /// Determines the scale of time for representing a number of picoseconds.
     fn from_picos(picos: u128) -> Self {
         use picos::*;
@@ -171,7 +201,47 @@ mod tests {
 
         #[track_caller]
         fn test(picos: u128, expected: &str) {
-            assert_eq!(FineDuration { picos }.to_string(), expected);
+            let duration = FineDuration { picos };
+            assert_eq!(duration.to_string(), expected);
+            assert_eq!(format!("{duration:.4}"), expected);
+            assert_eq!(format!("{duration:<0}"), expected);
+        }
+
+        macro_rules! assert_fmt_eq {
+            ($input:literal, $expected:literal) => {
+                assert_eq!(format!($input), format!($expected));
+            };
+        }
+
+        #[test]
+        fn precision() {
+            for &scale in TimeScale::ALL {
+                let base_duration = FineDuration { picos: scale.picos() };
+                let incr_duration = FineDuration { picos: scale.picos() + 1 };
+
+                let base_string = base_duration.to_string();
+
+                // Integer format.
+                assert_eq!(format!("{base_duration:.0}"), base_string);
+
+                if scale == TimeScale::PicoSec {
+                    assert_eq!(format!("{incr_duration:.0}"), "2ps");
+                } else {
+                    assert_eq!(format!("{incr_duration:.0}"), base_string);
+                }
+            }
+        }
+
+        #[test]
+        fn fill() {
+            for scale in TimeScale::ALL {
+                let duration = FineDuration { picos: scale.picos() };
+                let suffix = scale.suffix();
+                let pad = " ".repeat(9 - suffix.len());
+
+                assert_fmt_eq!("{duration:<2}", "1{suffix}");
+                assert_fmt_eq!("{duration:<10}", "1{suffix}{pad}");
+            }
         }
 
         #[test]
