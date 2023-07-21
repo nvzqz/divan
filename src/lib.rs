@@ -58,36 +58,6 @@ pub use std::hint::black_box;
 /// }
 /// ```
 ///
-/// If values constructed in the benchmarked function implement [`Drop`], the
-/// drop code can be deferred until after the sample measurement is taken. This
-/// is done by simply returning the value. The following benchmarks will only
-/// measure [`String`] construction and not measure [`Drop`]:
-///
-/// ```
-/// # use divan::Bencher;
-/// #[divan::bench]
-/// fn make_string_1() -> String {
-///     // Drop for `s` will not run in `make_string_1`:
-///     let s: String = // ...
-///     # String::new();
-///     // ...
-///     s
-/// }
-///
-/// #[divan::bench]
-/// fn make_string_2(bencher: Bencher) {
-///     // Setup...
-///
-///     bencher.bench(|| -> String {
-///         // Drop for `s` will not run in this closure:
-///         let s: String = // ...
-///         # String::new();
-///         // ...
-///         s
-///     });
-/// }
-/// ```
-///
 /// Applying this attribute multiple times to the same item will cause a compile
 /// error:
 ///
@@ -96,6 +66,58 @@ pub use std::hint::black_box;
 /// #[divan::bench]
 /// fn bench() {
 ///     // ...
+/// }
+/// ```
+///
+/// # Drop
+///
+/// When a benchmarked function returns a value, it will not be [dropped][Drop]
+/// until after the current sample loop is finished. This allows for more
+/// precise timing measurements.
+///
+/// Note that there is an inherent memory cost to defer drop, including
+/// allocations inside not-yet-dropped values. Also, if the benchmark
+/// [panics](macro@std::panic), the values will never be dropped.
+///
+/// The following example benchmarks will only measure [`String`] construction
+/// time, but not deallocation time:
+///
+/// ```
+/// use divan::{Bencher, black_box};
+///
+/// #[divan::bench]
+/// fn freestanding() -> String {
+///     black_box("hello").to_uppercase()
+/// }
+///
+/// #[divan::bench]
+/// fn contextual(bencher: Bencher) {
+///     // Setup:
+///     let s: String = // ...
+///     # String::new();
+///
+///     bencher.bench(|| -> String {
+///         black_box(&s).to_lowercase()
+///     });
+/// }
+/// ```
+///
+/// If the returned value *does not* need to be dropped, there is no memory
+/// cost. Because of this, the following example benchmarks are equivalent:
+///
+/// ```
+/// #[divan::bench]
+/// fn with_return() -> i32 {
+///     let n: i32 = // ...
+///     # 0;
+///     n
+/// }
+///
+/// #[divan::bench]
+/// fn without_return() {
+///     let n: i32 = // ...
+///     # 0;
+///     divan::black_box(n);
 /// }
 /// ```
 ///
