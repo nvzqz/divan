@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::time::{FineDuration, Timer, TimerKind};
+use crate::time::{fence, FineDuration, Timer, TimerKind};
 
 mod tsc;
 
@@ -46,11 +46,25 @@ pub union AnyTimestamp {
 
 impl AnyTimestamp {
     #[inline(always)]
-    pub fn now(timer_kind: TimerKind) -> Self {
-        match timer_kind {
+    pub fn start(timer_kind: TimerKind) -> Self {
+        fence::full_fence();
+        let value = match timer_kind {
             TimerKind::Os => Self { os: Instant::now() },
             TimerKind::Tsc => Self { tsc: TscTimestamp::now() },
-        }
+        };
+        fence::compiler_fence();
+        value
+    }
+
+    #[inline(always)]
+    pub fn end(timer_kind: TimerKind) -> Self {
+        fence::compiler_fence();
+        let value = match timer_kind {
+            TimerKind::Os => Self { os: Instant::now() },
+            TimerKind::Tsc => Self { tsc: TscTimestamp::now() },
+        };
+        fence::full_fence();
+        value
     }
 
     #[inline(always)]

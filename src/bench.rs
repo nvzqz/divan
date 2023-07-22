@@ -7,7 +7,7 @@ use crate::{
     black_box,
     defer::{DeferEntry, DeferStore},
     stats::{Sample, Stats},
-    time::{fence, AnyTimestamp, FineDuration, Timer},
+    time::{AnyTimestamp, FineDuration, Timer},
 };
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
@@ -196,9 +196,7 @@ impl Context {
                     mem::forget(gen_input());
                 }
 
-                fence::full_fence();
-                start = AnyTimestamp::now(timer_kind);
-                fence::compiler_fence();
+                start = AnyTimestamp::start(timer_kind);
 
                 // Sample loop:
                 for _ in 0..sample_size {
@@ -209,9 +207,7 @@ impl Context {
                     _ = black_box(benched(input));
                 }
 
-                fence::compiler_fence();
-                end = AnyTimestamp::now(timer_kind);
-                fence::full_fence();
+                end = AnyTimestamp::end(timer_kind);
             } else {
                 let defer_entries = defer_store.prepare(sample_size as usize);
 
@@ -228,9 +224,7 @@ impl Context {
                     // If output needs to be dropped, we defer drop in the
                     // sample loop by inserting it into `defer_entries`.
 
-                    fence::full_fence();
-                    start = AnyTimestamp::now(timer_kind);
-                    fence::compiler_fence();
+                    start = AnyTimestamp::start(timer_kind);
 
                     // Sample loop:
                     for DeferEntry { input, output } in defer_entries {
@@ -248,9 +242,7 @@ impl Context {
                         _ = black_box(output);
                     }
 
-                    fence::compiler_fence();
-                    end = AnyTimestamp::now(timer_kind);
-                    fence::full_fence();
+                    end = AnyTimestamp::end(timer_kind);
 
                     // SAFETY: All outputs were initialized in the sample loop.
                     unsafe { defer_store.drop_outputs() };
@@ -258,9 +250,7 @@ impl Context {
                     // Outputs do not need to have deferred drop, but inputs
                     // still need to be retrieved from `defer_entries`.
 
-                    fence::full_fence();
-                    start = AnyTimestamp::now(timer_kind);
-                    fence::compiler_fence();
+                    start = AnyTimestamp::start(timer_kind);
 
                     // Sample loop:
                     for DeferEntry { input, .. } in defer_entries {
@@ -270,9 +260,7 @@ impl Context {
                         _ = black_box(benched(input));
                     }
 
-                    fence::compiler_fence();
-                    end = AnyTimestamp::now(timer_kind);
-                    fence::full_fence();
+                    end = AnyTimestamp::end(timer_kind);
                 }
             }
 
@@ -356,17 +344,13 @@ pub fn measure_overhead(timer: Timer) -> FineDuration {
     let mut min_sample = FineDuration::default();
 
     for _ in 0..sample_count {
-        fence::full_fence();
-        let start = AnyTimestamp::now(timer_kind);
-        fence::compiler_fence();
+        let start = AnyTimestamp::start(timer_kind);
 
         for i in 0..sample_size {
             _ = black_box(i);
         }
 
-        fence::compiler_fence();
-        let end = AnyTimestamp::now(timer_kind);
-        fence::full_fence();
+        let end = AnyTimestamp::end(timer_kind);
 
         // SAFETY: These values are guaranteed to be the correct variant because
         // they were created from the same `timer_kind`.
