@@ -50,7 +50,7 @@ impl AnyTimestamp {
         fence::full_fence();
         let value = match timer_kind {
             TimerKind::Os => Self { os: Instant::now() },
-            TimerKind::Tsc => Self { tsc: TscTimestamp::now() },
+            TimerKind::Tsc => Self { tsc: TscTimestamp::start() },
         };
         fence::compiler_fence();
         value
@@ -61,7 +61,7 @@ impl AnyTimestamp {
         fence::compiler_fence();
         let value = match timer_kind {
             TimerKind::Os => Self { os: Instant::now() },
-            TimerKind::Tsc => Self { tsc: TscTimestamp::now() },
+            TimerKind::Tsc => Self { tsc: TscTimestamp::end() },
         };
         fence::full_fence();
         value

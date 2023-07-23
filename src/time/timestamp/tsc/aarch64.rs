@@ -6,7 +6,7 @@ use std::arch::asm;
 /// This value is set on system initialization and thus does not change between
 /// reads.
 #[inline]
-pub fn frequency() -> u64 {
+pub fn frequency() -> Option<u64> {
     unsafe {
         let frequency: u64;
         asm!(
@@ -14,7 +14,7 @@ pub fn frequency() -> u64 {
             out(reg) frequency,
             options(nomem, nostack, preserves_flags, pure),
         );
-        frequency
+        Some(frequency)
     }
 }
 

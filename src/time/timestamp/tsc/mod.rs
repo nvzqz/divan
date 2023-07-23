@@ -1,9 +1,11 @@
 use crate::time::FineDuration;
 
-// TODO: x86_64 via `rdtsc`.
-
 #[cfg(target_arch = "aarch64")]
 #[path = "aarch64.rs"]
+mod arch;
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[path = "x86.rs"]
 mod arch;
 
 /// [CPU timestamp counter](https://en.wikipedia.org/wiki/Time_Stamp_Counter).
@@ -14,7 +16,10 @@ pub struct TscTimestamp {
 }
 
 impl TscTimestamp {
-    /// Reads the timestamp frequency.
+    /// Gets the timestamp frequency.
+    ///
+    /// On AArch64, this simply reads `cntfrq_el0`. On x86, this measures the
+    /// TSC frequency.
     #[inline]
     #[allow(unreachable_code)]
     pub fn frequency() -> Option<u64> {
@@ -22,20 +27,38 @@ impl TscTimestamp {
         #[cfg(miri)]
         return None;
 
-        #[cfg(target_arch = "aarch64")]
-        return Some(arch::frequency());
+        #[cfg(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"))]
+        return arch::frequency();
 
         None
     }
 
     /// Reads the timestamp counter.
     #[inline(always)]
-    pub fn now() -> Self {
+    pub fn start() -> Self {
         #[allow(unused)]
         let value = 0;
 
         #[cfg(target_arch = "aarch64")]
         let value = arch::timestamp();
+
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        let value = arch::start_timestamp();
+
+        Self { value }
+    }
+
+    /// Reads the timestamp counter.
+    #[inline(always)]
+    pub fn end() -> Self {
+        #[allow(unused)]
+        let value = 0;
+
+        #[cfg(target_arch = "aarch64")]
+        let value = arch::timestamp();
+
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        let value = arch::end_timestamp();
 
         Self { value }
     }
