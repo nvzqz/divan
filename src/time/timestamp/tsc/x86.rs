@@ -34,7 +34,7 @@ pub fn end_timestamp() -> u64 {
 }
 
 pub fn frequency() -> Option<u64> {
-    if !util::tsc_is_invariant() {
+    if !util::tsc_is_available() || !util::tsc_is_invariant() {
         return None;
     }
 
@@ -136,6 +136,18 @@ mod util {
     #[inline]
     fn cpuid_has_leaf(leaf: u32) -> bool {
         cpuid(0x8000_0000).eax >= leaf
+    }
+
+    /// Returns `true` if CPUID indicates that the `rdtsc` and `rdtscp`
+    /// instructions are available.
+    #[inline]
+    pub fn tsc_is_available() -> bool {
+        let bits = cpuid(0x8000_0001).edx;
+
+        let rdtsc = 1 << 4;
+        let rdtscp = 1 << 27;
+
+        bits & (rdtsc | rdtscp) != 0
     }
 
     /// Returns `true` if CPUID indicates that the timestamp counter has a
