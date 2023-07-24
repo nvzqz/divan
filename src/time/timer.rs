@@ -1,6 +1,6 @@
 use std::num::NonZeroU64;
 
-use crate::time::TscTimestamp;
+use crate::time::{TscTimestamp, TscUnavailable};
 
 /// Measures time.
 #[derive(Clone, Copy, Default)]
@@ -19,8 +19,8 @@ pub enum Timer {
 impl Timer {
     /// Attempts to get the CPU timestamp counter.
     #[inline]
-    pub fn get_tsc() -> Option<Self> {
-        Some(Self::Tsc { frequency: NonZeroU64::new(TscTimestamp::frequency()?)? })
+    pub fn get_tsc() -> Result<Self, TscUnavailable> {
+        Ok(Self::Tsc { frequency: TscTimestamp::frequency()? })
     }
 
     #[inline]

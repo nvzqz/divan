@@ -1,3 +1,5 @@
+use std::{fmt, num::NonZeroU64};
+
 use crate::time::FineDuration;
 
 #[cfg(target_arch = "aarch64")]
@@ -22,15 +24,15 @@ impl TscTimestamp {
     /// TSC frequency.
     #[inline]
     #[allow(unreachable_code)]
-    pub fn frequency() -> Option<u64> {
+    pub fn frequency() -> Result<NonZeroU64, TscUnavailable> {
         // Miri does not support inline assembly.
         #[cfg(miri)]
-        return None;
+        return Err(TscUnavailable::Unimplemented);
 
         #[cfg(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"))]
-        return arch::frequency();
+        return NonZeroU64::new(arch::frequency()?).ok_or(TscUnavailable::ZeroFrequency);
 
-        None
+        Err(TscUnavailable::Unimplemented)
     }
 
     /// Reads the timestamp counter.
@@ -73,5 +75,40 @@ impl TscTimestamp {
         let diff = self.value as u128 - earlier.value as u128;
 
         FineDuration { picos: (diff * PICOS) / frequency as u128 }
+    }
+}
+
+/// Reason for why the timestamp counter cannot be used.
+#[derive(Clone, Copy)]
+pub enum TscUnavailable {
+    /// Not yet implemented for this platform.
+    Unimplemented,
+
+    /// Got a frequency of 0.
+    ZeroFrequency,
+
+    /// Missing the appropriate instructions.
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    MissingInstructions,
+
+    /// The timestamp counter is not guaranteed to be constant.
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    VariableFrequency,
+}
+
+impl fmt::Display for TscUnavailable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let reason = match self {
+            Self::Unimplemented => "unimplemented",
+            Self::ZeroFrequency => "zero TSC frequency",
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            Self::MissingInstructions => "missing instructions",
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            Self::VariableFrequency => "variable TSC frequency",
+        };
+
+        f.write_str(reason)
     }
 }

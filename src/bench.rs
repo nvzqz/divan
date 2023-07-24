@@ -385,8 +385,8 @@ mod tests {
     #[track_caller]
     fn test_bencher(mut test: impl FnMut(Bencher<'_>)) {
         let timers = match Timer::get_tsc() {
-            Some(tsc) => vec![Timer::Os, tsc],
-            None => vec![Timer::Os],
+            Ok(tsc) => vec![Timer::Os, tsc],
+            Err(_) => vec![Timer::Os],
         };
 
         for is_test in [true, false] {

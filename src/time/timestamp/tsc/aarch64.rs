@@ -1,12 +1,14 @@
 use std::arch::asm;
 
+use crate::time::TscUnavailable;
+
 /// Reads the [`cntfrq_el0`](https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/CNTFRQ-EL0--Counter-timer-Frequency-register?lang=en)
 /// register.
 ///
 /// This value is set on system initialization and thus does not change between
 /// reads.
 #[inline]
-pub fn frequency() -> Option<u64> {
+pub fn frequency() -> Result<u64, TscUnavailable> {
     unsafe {
         let frequency: u64;
         asm!(
@@ -14,7 +16,7 @@ pub fn frequency() -> Option<u64> {
             out(reg) frequency,
             options(nomem, nostack, preserves_flags, pure),
         );
-        Some(frequency)
+        Ok(frequency)
     }
 }
 

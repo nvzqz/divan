@@ -6,7 +6,7 @@ use std::arch::x86_64 as x86;
 
 use std::time::{Duration, Instant};
 
-use crate::time::fence;
+use crate::time::{fence, TscUnavailable};
 
 #[inline(always)]
 pub fn start_timestamp() -> u64 {
@@ -33,9 +33,13 @@ pub fn end_timestamp() -> u64 {
     tsc
 }
 
-pub fn frequency() -> Option<u64> {
-    if !util::tsc_is_available() || !util::tsc_is_invariant() {
-        return None;
+pub fn frequency() -> Result<u64, TscUnavailable> {
+    if !util::tsc_is_available() {
+        return Err(TscUnavailable::MissingInstructions);
+    }
+
+    if !util::tsc_is_invariant() {
+        return Err(TscUnavailable::VariableFrequency);
     }
 
     let measured = measure::measure_frequency();
@@ -47,11 +51,11 @@ pub fn frequency() -> Option<u64> {
     // match the TSC frequency.
     if let Some(nominal) = nominal_frequency() {
         if measured * 0.999 < nominal && nominal < measured * 1.001 {
-            return Some(nominal.round() as u64);
+            return Ok(nominal.round() as u64);
         }
     }
 
-    Some(measured.round() as u64)
+    Ok(measured.round() as u64)
 }
 
 /// Parses the CPU frequency in the brand name, e.g. "2.50GHz".
