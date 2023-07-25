@@ -32,3 +32,7 @@ harness = false
 [[bench]]
 name = "string"
 harness = false
+
+[[bench]]
+name = "time"
+harness = false
