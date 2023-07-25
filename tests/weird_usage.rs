@@ -22,6 +22,13 @@ fn embedded() {
 #[divan::bench]
 fn r#raw_ident() {}
 
+#[divan::bench]
+extern "system" fn extern_abi_1() {}
+
+#[divan::bench]
+#[allow(improper_ctypes_definitions)]
+extern "C" fn extern_abi_2(_: divan::Bencher) {}
+
 #[test]
 fn test_fn() {
     Divan::default().test_benches();

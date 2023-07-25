@@ -34,11 +34,16 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
     let ignore = fn_item.attrs.iter().any(|attr| attr.meta.path().is_ident("ignore"));
 
+    // If the function is `extern "ABI"`, it is wrapped in a Rust-ABI function.
+    let is_extern_abi = fn_item.sig.abi.is_some();
+
     let fn_args = &fn_item.sig.inputs;
-    let bench_fn = if fn_args.is_empty() {
-        quote! { |divan| divan.bench(#fn_ident) }
-    } else {
-        quote! { #fn_ident }
+
+    let bench_fn = match (is_extern_abi, fn_args.is_empty()) {
+        (false, false) => quote! { #fn_ident },
+        (false, true) => quote! { |divan| divan.bench(#fn_ident) },
+        (true, false) => quote! { |divan| #fn_ident(divan) },
+        (true, true) => quote! { |divan| divan.bench(|| #fn_ident()) },
     };
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
