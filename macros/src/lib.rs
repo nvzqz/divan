@@ -63,9 +63,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         static #static_ident: #private_mod::Entry = #private_mod::Entry {
             display_name: #name_expr,
             raw_name: #fn_name,
-
             module_path: #std_crate::module_path!(),
-            full_path: #std_crate::concat!(#std_crate::module_path!(), "::", #name_expr),
 
             // `Span` location info is nightly-only, so use macros.
             file: #std_crate::file!(),
@@ -127,9 +125,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
         static #static_ident: #private_mod::EntryGroup = #private_mod::EntryGroup {
             display_name: #name_expr,
             raw_name: #mod_name,
-
             module_path: #std_crate::module_path!(),
-            full_path: #std_crate::concat!(#std_crate::module_path!(), "::", #mod_name),
 
             // `Span` location info is nightly-only, so use macros.
             file: #std_crate::file!(),

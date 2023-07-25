@@ -21,9 +21,6 @@ pub struct Entry {
     /// The benchmarked function's raw `module_path!()`.
     pub module_path: &'static str,
 
-    /// `self.module_path + self.name`.
-    pub full_path: &'static str,
-
     /// The file where the benchmarked function was defined.
     pub file: &'static str,
 
@@ -52,9 +49,6 @@ pub struct EntryGroup {
 
     /// The benchmarked group's raw `module_path!()`.
     pub module_path: &'static str,
-
-    /// `self.module_path + self.raw_name`.
-    pub full_path: &'static str,
 
     /// The file where the group was defined.
     pub file: &'static str,
