@@ -27,6 +27,9 @@ pub struct Entry {
     /// The line where the benchmarked function was defined.
     pub line: u32,
 
+    /// The column where the benchmarked function was defined.
+    pub col: u32,
+
     /// Whether this benchmark was marked with [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute).
     pub ignore: bool,
 
@@ -56,6 +59,9 @@ pub struct EntryGroup {
     /// The line where the group was defined.
     pub line: u32,
 
+    /// The column where the group was defined.
+    pub col: u32,
+
     /// Whether this group was marked with [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute).
     pub ignore: bool,
 
@@ -67,6 +73,7 @@ pub struct EntryGroup {
 pub(crate) struct EntryLocation {
     pub file: &'static str,
     pub line: u32,
+    pub col: u32,
 }
 
 type PathComponents = Split<'static, &'static str>;
@@ -77,7 +84,7 @@ impl Entry {
     }
 
     fn location(&self) -> EntryLocation {
-        EntryLocation { file: self.file, line: self.line }
+        EntryLocation { file: self.file, line: self.line, col: self.col }
     }
 }
 
@@ -87,7 +94,7 @@ impl EntryGroup {
     }
 
     fn location(&self) -> EntryLocation {
-        EntryLocation { file: self.file, line: self.line }
+        EntryLocation { file: self.file, line: self.line, col: self.col }
     }
 }
 

@@ -68,6 +68,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             // `Span` location info is nightly-only, so use macros.
             file: #std_crate::file!(),
             line: #std_crate::line!(),
+            col: #std_crate::column!(),
 
             ignore: #ignore,
 
@@ -130,6 +131,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
             // `Span` location info is nightly-only, so use macros.
             file: #std_crate::file!(),
             line: #std_crate::line!(),
+            col: #std_crate::column!(),
 
             ignore: #ignore,
 
