@@ -93,8 +93,4 @@ impl FormatStyle {
     pub fn is_pretty(&self) -> bool {
         matches!(self, Self::Pretty)
     }
-
-    pub fn is_terse(&self) -> bool {
-        matches!(self, Self::Terse)
-    }
 }

@@ -196,6 +196,7 @@ impl Divan {
                             overhead,
                             parent_ignored,
                             parent_options,
+                            &fmt_ctx,
                         );
 
                         if self.format_style.is_pretty() {
@@ -251,19 +252,22 @@ impl Divan {
         overhead: FineDuration,
         parent_ignored: bool,
         parent_options: &BenchOptions,
+        fmt_ctx: &FormatContext,
     ) {
         use crate::bench::Context;
 
         if self.should_ignore(parent_ignored || entry.ignore) {
-            match self.format_style {
-                FormatStyle::Pretty => print!("(ignored)"),
-                FormatStyle::Terse => println!("Ignoring '{}'", entry.full_path),
+            match fmt_ctx {
+                FormatContext::Pretty { .. } => print!("(ignored)"),
+                FormatContext::Terse { parent_path } => {
+                    println!("Ignoring '{parent_path}::{}'", entry.display_name);
+                }
             }
             return;
         }
 
-        if self.format_style.is_terse() {
-            println!("Running '{}'", entry.full_path);
+        if let FormatContext::Terse { parent_path } = fmt_ctx {
+            println!("Running '{parent_path}::{}'", entry.display_name);
         }
 
         let mut options = entry
