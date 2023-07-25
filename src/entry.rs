@@ -63,17 +63,31 @@ pub struct EntryGroup {
     pub bench_options: Option<fn() -> BenchOptions>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct EntryLocation {
+    pub file: &'static str,
+    pub line: u32,
+}
+
 type PathComponents = Split<'static, &'static str>;
 
 impl Entry {
     fn module_path_components(&self) -> PathComponents {
         self.module_path.split("::")
     }
+
+    fn location(&self) -> EntryLocation {
+        EntryLocation { file: self.file, line: self.line }
+    }
 }
 
 impl EntryGroup {
     fn module_path_components(&self) -> PathComponents {
         self.module_path.split("::")
+    }
+
+    fn location(&self) -> EntryLocation {
+        EntryLocation { file: self.file, line: self.line }
     }
 }
 
@@ -187,7 +201,7 @@ impl<'a> EntryTree<'a> {
                 EntryTree::Leaf { .. } => 0,
                 EntryTree::Parent { .. } => 1,
             };
-            (order, tree.display_name())
+            (order, tree.display_name(), tree.location())
         });
 
         tree.iter_mut().for_each(|tree| Self::sort_by_kind(tree.children_mut()));
@@ -236,6 +250,19 @@ impl<'a> EntryTree<'a> {
             Self::Leaf(entry) => entry.display_name,
             Self::Parent { group: Some(group), .. } => group.display_name,
             Self::Parent { raw_name, .. } => raw_name.strip_prefix("r#").unwrap_or(raw_name),
+        }
+    }
+
+    /// Returns the location of this entry, group, or the children's earliest
+    /// location.
+    fn location(&self) -> Option<EntryLocation> {
+        match self {
+            Self::Leaf(entry) => Some(entry.location()),
+            Self::Parent { group: Some(group), .. } => Some(group.location()),
+
+            // Finding the children's earliest location is expensive in theory,
+            // but there are too few entries for it to matter in practice.
+            Self::Parent { children, .. } => children.iter().flat_map(Self::location).min(),
         }
     }
 
