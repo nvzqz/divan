@@ -94,3 +94,17 @@ impl FormatStyle {
         matches!(self, Self::Pretty)
     }
 }
+
+/// How benchmarks should be sorted.
+#[derive(Clone, Copy, Default)]
+pub enum BenchSorting {
+    /// Sort by kind, name, then location.
+    #[default]
+    Kind,
+
+    /// Sort name, location, then kind.
+    Name,
+
+    /// Sort by location, kind, then name.
+    Location,
+}

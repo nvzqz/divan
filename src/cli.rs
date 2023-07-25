@@ -1,6 +1,9 @@
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
-use crate::{config::FormatStyle, time::TimerKind};
+use crate::{
+    config::{BenchSorting, FormatStyle},
+    time::TimerKind,
+};
 
 pub fn command() -> Command {
     fn option(name: &'static str) -> Arg {
@@ -37,6 +40,13 @@ pub fn command() -> Command {
                 .value_name("os|tsc")
                 .help("Set the timer used for measuring samples")
                 .value_parser(value_parser!(TimerKind)),
+        )
+        .arg(
+            option("sort-by")
+                .env("DIVAN_SORT_BY")
+                .help("Sort benchmarks by a certain ordering")
+                .value_parser(value_parser!(BenchSorting))
+                .default_value("kind"),
         )
         // libtest-supported arguments:
         .arg(
@@ -104,6 +114,21 @@ impl ValueEnum for FormatStyle {
         let name = match self {
             Self::Pretty => "pretty",
             Self::Terse => "terse",
+        };
+        Some(PossibleValue::new(name))
+    }
+}
+
+impl ValueEnum for BenchSorting {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Kind, Self::Name, Self::Location]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        let name = match self {
+            Self::Kind => "kind",
+            Self::Name => "name",
+            Self::Location => "location",
         };
         Some(PossibleValue::new(name))
     }

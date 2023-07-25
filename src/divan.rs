@@ -5,7 +5,7 @@ use regex::Regex;
 
 use crate::{
     bench::{self, BenchOptions, Bencher},
-    config::{Action, Filter, FormatStyle, RunIgnored},
+    config::{Action, BenchSorting, Filter, FormatStyle, RunIgnored},
     entry::{Entry, EntryTree},
     time::{FineDuration, Timer, TimerKind},
 };
@@ -15,6 +15,7 @@ use crate::{
 pub struct Divan {
     action: Action,
     timer: TimerKind,
+    sorting: BenchSorting,
     color: ColorChoice,
     format_style: FormatStyle,
     filter: Option<Filter>,
@@ -94,7 +95,7 @@ impl Divan {
         EntryTree::retain(&mut tree, |entry_path| self.filter(entry_path));
 
         // Sorting is after filtering to compare fewer elements.
-        EntryTree::sort_by_kind(&mut tree);
+        EntryTree::sort(&mut tree, self.sorting);
 
         // Quick exit without setting CPU affinity or measuring overhead.
         if tree.is_empty() {
@@ -415,6 +416,10 @@ impl Divan {
 
         if let Some(&timer) = matches.get_one("timer") {
             self.timer = timer;
+        }
+
+        if let Some(&sorting) = matches.get_one("sort-by") {
+            self.sorting = sorting;
         }
 
         if let Some(&sample_count) = matches.get_one("sample-count") {
