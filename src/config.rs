@@ -95,16 +95,30 @@ impl FormatStyle {
     }
 }
 
-/// How benchmarks should be sorted.
+/// The attribute to sort benchmarks by.
 #[derive(Clone, Copy, Default)]
-pub enum BenchSorting {
-    /// Sort by kind, name, then location.
+pub enum SortingAttr {
+    /// Sort by kind, then by name and location.
     #[default]
     Kind,
 
-    /// Sort name, location, then kind.
+    /// Sort by name, then by location and kind.
     Name,
 
-    /// Sort by location, kind, then name.
+    /// Sort by location, then by kind and name.
     Location,
+}
+
+impl SortingAttr {
+    /// Returns an array containing `self` along with other attributes that
+    /// should break ties if attributes are equal.
+    pub fn with_tie_breakers(self) -> [Self; 3] {
+        use SortingAttr::*;
+
+        match self {
+            Kind => [self, Name, Location],
+            Name => [self, Location, Kind],
+            Location => [self, Kind, Name],
+        }
+    }
 }

@@ -1,7 +1,7 @@
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
 use crate::{
-    config::{BenchSorting, FormatStyle},
+    config::{FormatStyle, SortingAttr},
     time::TimerKind,
 };
 
@@ -44,8 +44,9 @@ pub fn command() -> Command {
         .arg(
             option("sort-by")
                 .env("DIVAN_SORT_BY")
+                .value_name("ATTRIBUTE")
                 .help("Sort benchmarks by a certain ordering")
-                .value_parser(value_parser!(BenchSorting))
+                .value_parser(value_parser!(SortingAttr))
                 .default_value("kind"),
         )
         // libtest-supported arguments:
@@ -119,7 +120,7 @@ impl ValueEnum for FormatStyle {
     }
 }
 
-impl ValueEnum for BenchSorting {
+impl ValueEnum for SortingAttr {
     fn value_variants<'a>() -> &'a [Self] {
         &[Self::Kind, Self::Name, Self::Location]
     }
