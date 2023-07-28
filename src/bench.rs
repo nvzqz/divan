@@ -541,15 +541,18 @@ mod tests {
     mod run_count {
         use super::*;
 
-        struct DroppedZst;
-
-        impl Drop for DroppedZst {
-            fn drop(&mut self) {}
+        fn test(run_bench: fn(Bencher, &mut dyn FnMut())) {
+            test_with_drop_counter(&AtomicUsize::new(usize::MAX), run_bench);
         }
 
-        fn test(run_bench: fn(Bencher, &mut dyn FnMut())) {
-            let mut bench_count = 0;
-            let mut test_count = 0;
+        fn test_with_drop_counter(
+            drop_count: &AtomicUsize,
+            run_bench: fn(Bencher, &mut dyn FnMut()),
+        ) {
+            let test_drop_count = drop_count.load(SeqCst) != usize::MAX;
+
+            let mut bench_count: u32 = 0;
+            let mut test_count: u32 = 0;
 
             let mut timer_os = false;
             let mut timer_tsc = false;
@@ -573,6 +576,11 @@ mod tests {
             let total_count = bench_count + test_count;
             assert_ne!(total_count, 0);
 
+            // The drop count should equal the total run count.
+            if test_drop_count {
+                assert_eq!(drop_count.load(SeqCst), total_count as usize);
+            }
+
             let timer_count = timer_os as u32 + timer_tsc as u32;
             assert_eq!(bench_count, timer_count * SAMPLE_COUNT * SAMPLE_SIZE);
             assert_eq!(test_count, timer_count);
@@ -580,6 +588,16 @@ mod tests {
 
         #[test]
         fn bench() {
+            struct DroppedZst;
+
+            static ZST_DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+            impl Drop for DroppedZst {
+                fn drop(&mut self) {
+                    ZST_DROP_COUNT.fetch_add(1, SeqCst);
+                }
+            }
+
             // `()` out.
             test(|b, f| b.bench(f));
 
@@ -600,7 +618,7 @@ mod tests {
             });
 
             // `DroppedZst` out.
-            test(|b, f| {
+            test_with_drop_counter(&ZST_DROP_COUNT, |b, f| {
                 b.bench(|| -> DroppedZst {
                     f();
                     DroppedZst
@@ -610,6 +628,21 @@ mod tests {
 
         #[test]
         fn bench_with_values() {
+            struct DroppedZst;
+
+            static ZST_DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+            impl Drop for DroppedZst {
+                fn drop(&mut self) {
+                    ZST_DROP_COUNT.fetch_add(1, SeqCst);
+                }
+            }
+
+            let test_zst_drop = |run_bench| {
+                ZST_DROP_COUNT.store(0, SeqCst);
+                test_with_drop_counter(&ZST_DROP_COUNT, run_bench);
+            };
+
             // `()` in, `()` out.
             test(|b, f| b.bench_with_values(|| (), |_: ()| -> () { f() }));
 
@@ -636,7 +669,7 @@ mod tests {
             });
 
             // `()` in, `DroppedZst` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_values(
                     || (),
                     |_: ()| -> DroppedZst {
@@ -672,7 +705,7 @@ mod tests {
             });
 
             // `i32` in, `DroppedZst` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_values(
                     || 100i32,
                     |_: i32| -> DroppedZst {
@@ -702,7 +735,7 @@ mod tests {
             });
 
             // `String` in, `DroppedZst` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_values(make_string, |_: String| -> DroppedZst {
                     f();
                     DroppedZst
@@ -710,10 +743,10 @@ mod tests {
             });
 
             // `DroppedZst` in, `()` out.
-            test(|b, f| b.bench_with_values(|| DroppedZst, |_: DroppedZst| -> () { f() }));
+            test_zst_drop(|b, f| b.bench_with_values(|| DroppedZst, |_: DroppedZst| -> () { f() }));
 
             // `DroppedZst` in, `i32` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_values(
                     || DroppedZst,
                     |_: DroppedZst| -> i32 {
@@ -724,7 +757,7 @@ mod tests {
             });
 
             // `DroppedZst` in, `String` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_values(
                     || DroppedZst,
                     |_: DroppedZst| -> String {
@@ -735,7 +768,7 @@ mod tests {
             });
 
             // `DroppedZst` in, `DroppedZst` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_values(
                     || DroppedZst,
                     |value: DroppedZst| -> DroppedZst {
@@ -748,6 +781,21 @@ mod tests {
 
         #[test]
         fn bench_with_refs() {
+            struct DroppedZst;
+
+            static ZST_DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+            impl Drop for DroppedZst {
+                fn drop(&mut self) {
+                    ZST_DROP_COUNT.fetch_add(1, SeqCst);
+                }
+            }
+
+            let test_zst_drop = |run_bench| {
+                ZST_DROP_COUNT.store(0, SeqCst);
+                test_with_drop_counter(&ZST_DROP_COUNT, run_bench);
+            };
+
             // `&mut ()` in, `()` out.
             test(|b, f| b.bench_with_refs(|| (), |_: &mut ()| -> () { f() }));
 
@@ -774,7 +822,7 @@ mod tests {
             });
 
             // `&mut ()` in, `DroppedZst` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_refs(
                     || (),
                     |_: &mut ()| -> DroppedZst {
@@ -810,7 +858,7 @@ mod tests {
             });
 
             // `&mut i32` in, `DroppedZst` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_refs(
                     || 100i32,
                     |_: &mut i32| -> DroppedZst {
@@ -840,7 +888,7 @@ mod tests {
             });
 
             // `&mut String` in, `DroppedZst` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_refs(make_string, |_: &mut String| -> DroppedZst {
                     f();
                     DroppedZst
@@ -848,10 +896,12 @@ mod tests {
             });
 
             // `&mut DroppedZst` in, `()` out.
-            test(|b, f| b.bench_with_refs(|| DroppedZst, |_: &mut DroppedZst| -> () { f() }));
+            test_zst_drop(|b, f| {
+                b.bench_with_refs(|| DroppedZst, |_: &mut DroppedZst| -> () { f() })
+            });
 
             // `&mut DroppedZst` in, `i32` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_refs(
                     || DroppedZst,
                     |_: &mut DroppedZst| -> i32 {
@@ -862,7 +912,7 @@ mod tests {
             });
 
             // `&mut DroppedZst` in, `String` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_refs(
                     || DroppedZst,
                     |_: &mut DroppedZst| -> String {
@@ -873,9 +923,14 @@ mod tests {
             });
 
             // `&mut DroppedZst` in, `DroppedZst` out.
-            test(|b, f| {
+            test_zst_drop(|b, f| {
                 b.bench_with_refs(
-                    || DroppedZst,
+                    || {
+                        // Adjust counter for input ZST.
+                        ZST_DROP_COUNT.fetch_sub(1, SeqCst);
+
+                        DroppedZst
+                    },
                     |_: &mut DroppedZst| -> DroppedZst {
                         f();
                         DroppedZst
