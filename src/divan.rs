@@ -15,6 +15,7 @@ use crate::{
 pub struct Divan {
     action: Action,
     timer: TimerKind,
+    reverse_sort: bool,
     sorting_attr: SortingAttr,
     color: ColorChoice,
     format_style: FormatStyle,
@@ -100,7 +101,7 @@ impl Divan {
         }
 
         // Sorting is after filtering to compare fewer elements.
-        EntryTree::sort_by_attr(&mut tree, self.sorting_attr);
+        EntryTree::sort_by_attr(&mut tree, self.sorting_attr, self.reverse_sort);
 
         if action.is_bench() {
             // Try pinning this thread's execution to the first CPU core to
@@ -418,7 +419,11 @@ impl Divan {
             self.timer = timer;
         }
 
-        if let Some(&sorting_attr) = matches.get_one("sort-by") {
+        if let Some(&sorting_attr) = matches.get_one("sortr") {
+            self.reverse_sort = true;
+            self.sorting_attr = sorting_attr;
+        } else if let Some(&sorting_attr) = matches.get_one("sort") {
+            self.reverse_sort = false;
             self.sorting_attr = sorting_attr;
         }
 

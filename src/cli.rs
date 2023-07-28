@@ -42,12 +42,20 @@ pub fn command() -> Command {
                 .value_parser(value_parser!(TimerKind)),
         )
         .arg(
-            option("sort-by")
-                .env("DIVAN_SORT_BY")
+            option("sort")
+                .env("DIVAN_SORT")
                 .value_name("ATTRIBUTE")
-                .help("Sort benchmarks by a certain ordering")
+                .help("Sort benchmarks in ascending order")
                 .value_parser(value_parser!(SortingAttr))
                 .default_value("kind"),
+        )
+        .arg(
+            option("sortr")
+                .env("DIVAN_SORTR")
+                .value_name("ATTRIBUTE")
+                .help("Sort benchmarks in descending order")
+                .value_parser(value_parser!(SortingAttr))
+                .overrides_with("sort"),
         )
         // libtest-supported arguments:
         .arg(

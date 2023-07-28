@@ -199,9 +199,16 @@ impl<'a> EntryTree<'a> {
     }
 
     /// Sorts the tree by the given ordering.
-    pub fn sort_by_attr(tree: &mut [Self], attr: SortingAttr) {
-        tree.sort_unstable_by(|a, b| a.cmp_by_attr(b, attr));
-        tree.iter_mut().for_each(|tree| Self::sort_by_attr(tree.children_mut(), attr));
+    pub fn sort_by_attr(tree: &mut [Self], attr: SortingAttr, reverse: bool) {
+        tree.sort_unstable_by(|a, b| {
+            let ordering = a.cmp_by_attr(b, attr);
+            if reverse {
+                ordering.reverse()
+            } else {
+                ordering
+            }
+        });
+        tree.iter_mut().for_each(|tree| Self::sort_by_attr(tree.children_mut(), attr, reverse));
     }
 
     fn cmp_by_attr(&self, other: &Self, attr: SortingAttr) -> Ordering {
