@@ -24,6 +24,11 @@ mod vec {
     }
 
     #[divan::bench]
+    fn drop(bencher: Bencher) {
+        bencher.bench_with_values(from_iter, std::mem::drop);
+    }
+
+    #[divan::bench]
     fn with_capacity() -> Vec<i32> {
         // TODO: Make capacity be a provided value.
         let capacity = black_box(100);
@@ -60,6 +65,11 @@ mod vec_deque {
     }
 
     #[divan::bench]
+    fn drop(bencher: Bencher) {
+        bencher.bench_with_values(from_iter, std::mem::drop);
+    }
+
+    #[divan::bench]
     fn with_capacity() -> VecDeque<i32> {
         // TODO: Make capacity be a provided value.
         let capacity = black_box(100);
@@ -88,6 +98,11 @@ mod linked_list {
     }
 
     #[divan::bench]
+    fn drop(bencher: Bencher) {
+        bencher.bench_with_values(from_iter, std::mem::drop);
+    }
+
+    #[divan::bench]
     fn from_iter() -> LinkedList<i32> {
         // TODO: Make size be a provided value.
         util::collect_nums()
@@ -106,6 +121,11 @@ mod binary_heap {
     #[divan::bench]
     fn default() -> BinaryHeap<i32> {
         Default::default()
+    }
+
+    #[divan::bench]
+    fn drop(bencher: Bencher) {
+        bencher.bench_with_values(from_iter, std::mem::drop);
     }
 
     #[divan::bench]
@@ -137,6 +157,11 @@ mod hash_set {
     }
 
     #[divan::bench]
+    fn drop(bencher: Bencher) {
+        bencher.bench_with_values(from_iter, std::mem::drop);
+    }
+
+    #[divan::bench]
     fn with_capacity() -> HashSet<i32> {
         // TODO: Make capacity be a provided value.
         let capacity = black_box(100);
@@ -162,6 +187,11 @@ mod btree_set {
     #[divan::bench]
     fn default() -> BTreeSet<i32> {
         Default::default()
+    }
+
+    #[divan::bench]
+    fn drop(bencher: Bencher) {
+        bencher.bench_with_values(from_iter, std::mem::drop);
     }
 
     #[divan::bench]

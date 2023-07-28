@@ -27,6 +27,12 @@ mod unicode {
     use super::*;
 
     #[divan::bench]
+    fn drop(bencher: Bencher) {
+        let mut rng = gen::rng();
+        bencher.bench_with_values(|| gen::any(&mut rng), std::mem::drop);
+    }
+
+    #[divan::bench]
     fn clear(bencher: Bencher) {
         let mut rng = gen::rng();
         bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.clear());
@@ -71,6 +77,12 @@ mod unicode {
 
 mod ascii {
     use super::*;
+
+    #[divan::bench]
+    fn drop(bencher: Bencher) {
+        let mut rng = gen::rng();
+        bencher.bench_with_values(|| gen::alphanumeric(&mut rng), std::mem::drop);
+    }
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
