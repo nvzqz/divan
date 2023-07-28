@@ -18,51 +18,25 @@ pub fn command() -> Command {
         flag(name).hide(true)
     }
 
+    // Custom arguments not supported by libtest:
+    // - sample-count
+    // - sample-size
+    // - timer
+    // - sort
+    // - sortr
+
     Command::new("divan")
-        // Our custom arguments, which are not supported by libtest:
-        .arg(
-            option("sample-count")
-                .env("DIVAN_SAMPLE_COUNT")
-                .value_name("N")
-                .help("Set the number of sampling iterations")
-                .value_parser(value_parser!(u32)),
-        )
-        .arg(
-            option("sample-size")
-                .env("DIVAN_SAMPLE_SIZE")
-                .value_name("N")
-                .help("Set the number of iterations inside a single sample")
-                .value_parser(value_parser!(u32)),
-        )
-        .arg(
-            option("timer")
-                .env("DIVAN_TIMER")
-                .value_name("os|tsc")
-                .help("Set the timer used for measuring samples")
-                .value_parser(value_parser!(TimerKind)),
-        )
-        .arg(
-            option("sort")
-                .env("DIVAN_SORT")
-                .value_name("ATTRIBUTE")
-                .help("Sort benchmarks in ascending order")
-                .value_parser(value_parser!(SortingAttr))
-                .default_value("kind"),
-        )
-        .arg(
-            option("sortr")
-                .env("DIVAN_SORTR")
-                .value_name("ATTRIBUTE")
-                .help("Sort benchmarks in descending order")
-                .value_parser(value_parser!(SortingAttr))
-                .overrides_with("sort"),
-        )
-        // libtest-supported arguments:
         .arg(
             Arg::new("filter")
                 .value_name("FILTER")
                 .help("Only run benchmarks whose names match this pattern"),
         )
+        .arg(
+            flag("test")
+                .help("Run benchmarks once to ensure they run successfully")
+                .conflicts_with("list"),
+        )
+        .arg(flag("list").help("Lists benchmarks").conflicts_with("test"))
         .arg(
             option("color")
                 .value_name("WHEN")
@@ -84,17 +58,48 @@ pub fn command() -> Command {
                 .action(ArgAction::Append),
         )
         .arg(flag("exact").help("Filter benchmarks by exact name rather than by pattern"))
-        .arg(
-            flag("test")
-                .help("Run benchmarks once to ensure they run successfully")
-                .conflicts_with("list"),
-        )
-        .arg(flag("list").help("Lists benchmarks").conflicts_with("test"))
         .arg(flag("ignored").help("Run only ignored benchmarks").conflicts_with("include-ignored"))
         .arg(
             flag("include-ignored")
                 .help("Run ignored and not-ignored benchmarks")
                 .conflicts_with("ignored"),
+        )
+        .arg(
+            option("sort")
+                .env("DIVAN_SORT")
+                .value_name("ATTRIBUTE")
+                .help("Sort benchmarks in ascending order")
+                .value_parser(value_parser!(SortingAttr))
+                .default_value("kind"),
+        )
+        .arg(
+            option("sortr")
+                .env("DIVAN_SORTR")
+                .value_name("ATTRIBUTE")
+                .help("Sort benchmarks in descending order")
+                .value_parser(value_parser!(SortingAttr))
+                .overrides_with("sort"),
+        )
+        .arg(
+            option("timer")
+                .env("DIVAN_TIMER")
+                .value_name("os|tsc")
+                .help("Set the timer used for measuring samples")
+                .value_parser(value_parser!(TimerKind)),
+        )
+        .arg(
+            option("sample-count")
+                .env("DIVAN_SAMPLE_COUNT")
+                .value_name("N")
+                .help("Set the number of sampling iterations")
+                .value_parser(value_parser!(u32)),
+        )
+        .arg(
+            option("sample-size")
+                .env("DIVAN_SAMPLE_SIZE")
+                .value_name("N")
+                .help("Set the number of iterations inside a single sample")
+                .value_parser(value_parser!(u32)),
         )
         // ignored:
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])
