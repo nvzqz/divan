@@ -4,125 +4,120 @@ fn main() {
     divan::main();
 }
 
-/// Utilities to generate deterministic pseudorandom strings.
-mod gen {
-    pub use fastrand::Rng;
+enum StringEnc {
+    Ascii,
+    Unicode,
+}
 
-    const LEN: usize = 100;
+impl StringEnc {
+    /// Returns a function that generates deterministic pseudorandom strings.
+    pub fn string_generator(self) -> impl FnMut() -> String {
+        let mut rng = fastrand::Rng::with_seed(42);
 
-    pub fn rng() -> Rng {
-        Rng::with_seed(42)
-    }
-
-    pub fn any(rng: &mut Rng) -> String {
-        (0..LEN).map(|_| rng.char(..)).collect()
-    }
-
-    pub fn alphanumeric(rng: &mut Rng) -> String {
-        (0..LEN).map(|_| rng.alphanumeric()).collect()
+        move || {
+            let len = 100;
+            (0..len)
+                .map(|_| match self {
+                    StringEnc::Ascii => rng.alphanumeric(),
+                    StringEnc::Unicode => rng.char(..),
+                })
+                .collect()
+        }
     }
 }
 
 mod unicode {
     use super::*;
 
+    fn string_generator() -> impl FnMut() -> String {
+        StringEnc::Unicode.string_generator()
+    }
+
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_values(|| gen::any(&mut rng), std::mem::drop);
+        bencher.bench_with_values(string_generator(), std::mem::drop);
     }
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.clear());
+        bencher.bench_with_refs(string_generator(), |s| s.clear());
     }
 
     #[divan::bench]
     fn to_lowercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.to_lowercase());
+        bencher.bench_with_refs(string_generator(), |s| s.to_lowercase());
     }
 
     #[divan::bench]
     fn to_uppercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.to_uppercase());
+        bencher.bench_with_refs(string_generator(), |s| s.to_uppercase());
     }
 
     #[divan::bench]
     fn to_ascii_lowercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.to_ascii_lowercase());
+        bencher.bench_with_refs(string_generator(), |s| s.to_ascii_lowercase());
     }
 
     #[divan::bench]
     fn to_ascii_uppercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.to_ascii_uppercase());
+        bencher.bench_with_refs(string_generator(), |s| s.to_ascii_uppercase());
     }
 
     #[divan::bench]
     fn make_ascii_lowercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.make_ascii_lowercase());
+        bencher.bench_with_refs(string_generator(), |s| s.make_ascii_lowercase());
     }
 
     #[divan::bench]
     fn make_ascii_uppercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::any(&mut rng), |s| s.make_ascii_uppercase());
+        bencher.bench_with_refs(string_generator(), |s| s.make_ascii_uppercase());
     }
 }
 
 mod ascii {
     use super::*;
 
+    fn string_generator() -> impl FnMut() -> String {
+        StringEnc::Ascii.string_generator()
+    }
+
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_values(|| gen::alphanumeric(&mut rng), std::mem::drop);
+        bencher.bench_with_values(string_generator(), std::mem::drop);
     }
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::alphanumeric(&mut rng), |s| s.clear());
+        bencher.bench_with_refs(string_generator(), |s| s.clear());
     }
 
     #[divan::bench]
     fn to_lowercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::alphanumeric(&mut rng), |s| s.to_lowercase());
+        bencher.bench_with_refs(string_generator(), |s| s.to_lowercase());
     }
 
     #[divan::bench]
     fn to_uppercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::alphanumeric(&mut rng), |s| s.to_uppercase());
+        bencher.bench_with_refs(string_generator(), |s| s.to_uppercase());
     }
 
     #[divan::bench]
     fn to_ascii_lowercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::alphanumeric(&mut rng), |s| s.to_ascii_lowercase());
+        bencher.bench_with_refs(string_generator(), |s| s.to_ascii_lowercase());
     }
 
     #[divan::bench]
     fn to_ascii_uppercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::alphanumeric(&mut rng), |s| s.to_ascii_uppercase());
+        bencher.bench_with_refs(string_generator(), |s| s.to_ascii_uppercase());
     }
 
     #[divan::bench]
     fn make_ascii_lowercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::alphanumeric(&mut rng), |s| s.make_ascii_lowercase());
+        bencher.bench_with_refs(string_generator(), |s| s.make_ascii_lowercase());
     }
 
     #[divan::bench]
     fn make_ascii_uppercase(bencher: Bencher) {
-        let mut rng = gen::rng();
-        bencher.bench_with_refs(|| gen::alphanumeric(&mut rng), |s| s.make_ascii_uppercase());
+        bencher.bench_with_refs(string_generator(), |s| s.make_ascii_uppercase());
     }
 }
