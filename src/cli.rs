@@ -1,7 +1,7 @@
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
 use crate::{
-    config::{FormatStyle, SortingAttr},
+    config::{FormatStyle, ParsedSeconds, SortingAttr},
     time::TimerKind,
 };
 
@@ -100,6 +100,13 @@ pub fn command() -> Command {
                 .value_name("N")
                 .help("Set the number of iterations inside a single sample")
                 .value_parser(value_parser!(u32)),
+        )
+        .arg(
+            option("max-time")
+                .env("DIVAN_MAX_TIME")
+                .value_name("SECS")
+                .help("Set the maximum seconds spent measuring a single benchmark")
+                .value_parser(value_parser!(ParsedSeconds)),
         )
         // ignored:
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])

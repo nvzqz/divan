@@ -1,11 +1,11 @@
-use std::fmt;
+use std::{fmt, time::Duration};
 
 use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
     bench::{self, BenchOptions, Bencher},
-    config::{Action, Filter, FormatStyle, RunIgnored, SortingAttr},
+    config::{Action, Filter, FormatStyle, ParsedSeconds, RunIgnored, SortingAttr},
     entry::{Entry, EntryTree},
     time::{FineDuration, Timer, TimerKind},
 };
@@ -24,6 +24,7 @@ pub struct Divan {
     run_ignored: RunIgnored,
     sample_size: Option<u32>,
     sample_count: Option<u32>,
+    max_time: Option<Duration>,
 }
 
 impl fmt::Debug for Divan {
@@ -286,7 +287,7 @@ impl Divan {
             options.sample_size = Some(sample_size);
         }
 
-        let mut context = Context::new(action.is_test(), timer, overhead, options);
+        let mut context = Context::new(action.is_test(), timer, overhead, self.max_time, options);
 
         let mut did_run = false;
         (entry.bench)(Bencher { did_run: &mut did_run, context: &mut context });
@@ -433,6 +434,10 @@ impl Divan {
 
         if let Some(&sample_size) = matches.get_one("sample-size") {
             self.sample_size = Some(sample_size);
+        }
+
+        if let Some(&ParsedSeconds(max_time)) = matches.get_one("max-time") {
+            self.max_time = Some(max_time);
         }
 
         self

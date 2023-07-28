@@ -1,5 +1,19 @@
+use std::{error::Error, str::FromStr, time::Duration};
+
 pub use clap::ColorChoice;
 use regex::Regex;
+
+/// `Duration` wrapper for parsing seconds from the CLI.
+#[derive(Clone, Copy)]
+pub(crate) struct ParsedSeconds(pub Duration);
+
+impl FromStr for ParsedSeconds {
+    type Err = Box<dyn Error + Send + Sync>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(Duration::try_from_secs_f64(f64::from_str(s)?)?))
+    }
+}
 
 /// The primary action to perform.
 #[derive(Clone, Copy, Default)]

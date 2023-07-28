@@ -1,6 +1,7 @@
 use std::{
     fmt,
     mem::{self, MaybeUninit},
+    time::Duration,
 };
 
 use crate::{
@@ -130,6 +131,11 @@ pub(crate) struct Context {
     /// Per-iteration overhead.
     overhead: FineDuration,
 
+    /// Benchmarking time budget.
+    ///
+    /// This considers `overhead` to not count as benchmarking time.
+    max_time: Option<Duration>,
+
     /// User-configured options.
     pub options: BenchOptions,
 
@@ -139,8 +145,14 @@ pub(crate) struct Context {
 
 impl Context {
     /// Creates a new benchmarking context.
-    pub fn new(is_test: bool, timer: Timer, overhead: FineDuration, options: BenchOptions) -> Self {
-        Self { is_test, timer, overhead, options, samples: Vec::new() }
+    pub fn new(
+        is_test: bool,
+        timer: Timer,
+        overhead: FineDuration,
+        max_time: Option<Duration>,
+        options: BenchOptions,
+    ) -> Self {
+        Self { is_test, timer, overhead, max_time, options, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -149,6 +161,15 @@ impl Context {
         mut gen_input: impl FnMut() -> I,
         mut benched: impl FnMut(I) -> O,
     ) {
+        // The remaining time left for benchmarking, in picoseconds.
+        let mut rem_picos =
+            self.max_time.map(|max_time| FineDuration::from(max_time).picos).unwrap_or(u128::MAX);
+
+        // Don't bother running if 0 max time is specified.
+        if rem_picos == 0 {
+            return;
+        }
+
         let timer_kind = self.timer.kind();
 
         // Defer:
@@ -281,6 +302,13 @@ impl Context {
                 size: sample_size,
                 total_duration: adjusted_duration,
             });
+
+            match rem_picos.checked_sub(adjusted_duration.picos) {
+                // Depleted the benchmarking time budget.
+                None | Some(0) => return,
+
+                Some(new_rem_picos) => rem_picos = new_rem_picos,
+            }
         }
     }
 
@@ -398,6 +426,7 @@ mod tests {
                         is_test,
                         timer,
                         FineDuration::default(),
+                        None,
                         BenchOptions {
                             sample_count: Some(SAMPLE_COUNT),
                             sample_size: Some(SAMPLE_SIZE),
