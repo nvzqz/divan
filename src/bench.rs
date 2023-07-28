@@ -138,7 +138,7 @@ pub struct BenchOptions {
 impl BenchOptions {
     /// Overwrites `other` with values set in `self`.
     #[must_use]
-    pub(crate) fn overwrite(self, other: &Self) -> Self {
+    pub(crate) fn overwrite(&self, other: &Self) -> Self {
         Self {
             sample_count: self.sample_count.or(other.sample_count),
             sample_size: self.sample_size.or(other.sample_size),

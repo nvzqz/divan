@@ -22,10 +22,7 @@ pub struct Divan {
     filter: Option<Filter>,
     skip_filters: Vec<Filter>,
     run_ignored: RunIgnored,
-    sample_size: Option<u32>,
-    sample_count: Option<u32>,
-    min_time: Option<Duration>,
-    max_time: Option<Duration>,
+    bench_options: BenchOptions,
 }
 
 impl fmt::Debug for Divan {
@@ -280,21 +277,7 @@ impl Divan {
             .unwrap_or_default()
             .overwrite(parent_options);
 
-        if let Some(sample_count) = self.sample_count {
-            options.sample_count = Some(sample_count);
-        }
-
-        if let Some(sample_size) = self.sample_size {
-            options.sample_size = Some(sample_size);
-        }
-
-        if let Some(min_time) = self.min_time {
-            options.min_time = Some(min_time);
-        }
-
-        if let Some(max_time) = self.max_time {
-            options.max_time = Some(max_time);
-        }
+        options = self.bench_options.overwrite(&options);
 
         let mut context = Context::new(action.is_test(), timer, overhead, options);
 
@@ -438,19 +421,19 @@ impl Divan {
         }
 
         if let Some(&sample_count) = matches.get_one("sample-count") {
-            self.sample_count = Some(sample_count);
+            self.bench_options.sample_count = Some(sample_count);
         }
 
         if let Some(&sample_size) = matches.get_one("sample-size") {
-            self.sample_size = Some(sample_size);
+            self.bench_options.sample_size = Some(sample_size);
         }
 
         if let Some(&ParsedSeconds(min_time)) = matches.get_one("min-time") {
-            self.min_time = Some(min_time);
+            self.bench_options.min_time = Some(min_time);
         }
 
         if let Some(&ParsedSeconds(max_time)) = matches.get_one("max-time") {
-            self.max_time = Some(max_time);
+            self.bench_options.max_time = Some(max_time);
         }
 
         self
@@ -594,7 +577,7 @@ impl Divan {
     /// This option is equivalent to the `--sample-count` CLI argument.
     #[inline]
     pub fn sample_count(mut self, count: u32) -> Self {
-        self.sample_count = Some(count);
+        self.bench_options.sample_count = Some(count);
         self
     }
 
@@ -603,7 +586,7 @@ impl Divan {
     /// This option is equivalent to the `--sample-size` CLI argument.
     #[inline]
     pub fn sample_size(mut self, count: u32) -> Self {
-        self.sample_size = Some(count);
+        self.bench_options.sample_size = Some(count);
         self
     }
 
@@ -612,7 +595,7 @@ impl Divan {
     /// This option is equivalent to the `--min-time` CLI argument.
     #[inline]
     pub fn min_time(mut self, time: Duration) -> Self {
-        self.min_time = Some(time);
+        self.bench_options.min_time = Some(time);
         self
     }
 
@@ -621,7 +604,7 @@ impl Divan {
     /// This option is equivalent to the `--max-time` CLI argument.
     #[inline]
     pub fn max_time(mut self, time: Duration) -> Self {
-        self.min_time = Some(time);
+        self.bench_options.min_time = Some(time);
         self
     }
 }
