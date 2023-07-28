@@ -1,4 +1,5 @@
 use std::{
+    cell::UnsafeCell,
     fmt,
     mem::{self, MaybeUninit},
     time::Duration,
@@ -59,13 +60,25 @@ impl Bencher<'_> {
     /// each generated input.
     ///
     /// Time spent generating inputs does not affect benchmark timing.
-    pub fn bench_with_values<I, O, G, B>(self, gen_input: G, benched: B)
+    pub fn bench_with_values<I, O, G, B>(self, gen_input: G, mut benched: B)
     where
         G: FnMut() -> I,
         B: FnMut(I) -> O,
     {
         *self.did_run = true;
-        self.context.bench_loop(gen_input, benched);
+
+        self.context.bench_loop(
+            gen_input,
+            |input| {
+                // SAFETY: Input is guaranteed to be initialized and not
+                // currently referenced by anything else.
+                let input = unsafe { input.get().read().assume_init() };
+
+                benched(input)
+            },
+            // Input ownership is transferred to `benched`.
+            |_input| {},
+        );
     }
 
     /// Benchmarks a function over per-iteration generated inputs, provided
@@ -80,13 +93,25 @@ impl Bencher<'_> {
         G: FnMut() -> I,
         B: FnMut(&mut I) -> O,
     {
-        // TODO: Make this more efficient by referencing the inputs buffer and
-        // not moving inputs out of it. This should also allow `O` to safely
-        // reference `&mut I` as long as `I` outlives `O`.
-        self.bench_with_values(gen_input, |mut input| {
-            let output = benched(&mut input);
-            (input, output)
-        });
+        // TODO: Allow `O` to reference `&mut I` as long as `I` outlives `O`.
+        *self.did_run = true;
+
+        self.context.bench_loop(
+            gen_input,
+            |input| {
+                // SAFETY: Input is guaranteed to be initialized and not
+                // currently referenced by anything else.
+                let input = unsafe { (*input.get()).assume_init_mut() };
+
+                benched(input)
+            },
+            // Input ownership was not transferred to `benched`.
+            |input| {
+                // SAFETY: This function is called after `benched` outputs are
+                // dropped, so we have exclusive access.
+                unsafe { (*input.get()).assume_init_drop() }
+            },
+        );
     }
 }
 
@@ -162,10 +187,22 @@ impl Context {
     }
 
     /// Runs the loop for benchmarking `benched`.
+    ///
+    /// # Safety
+    ///
+    /// When `benched` is called:
+    /// - `I` is guaranteed to be initialized.
+    /// - No external `&I` or `&mut I` exists.
+    ///
+    /// When `drop_input` is called:
+    /// - All instances of `O` returned from `benched` have been dropped.
+    /// - The same guarantees for `I` apply as in `benched`, unless `benched`
+    ///   escaped references to `I`.
     pub fn bench_loop<I, O>(
         &mut self,
         mut gen_input: impl FnMut() -> I,
-        mut benched: impl FnMut(I) -> O,
+        mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
+        drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
     ) {
         // The time spent benchmarking, in picoseconds.
         let mut elapsed_picos: u128 = 0;
@@ -249,23 +286,35 @@ impl Context {
                 for _ in 0..sample_size {
                     // SAFETY: Input is a ZST, so we can construct one out of
                     // thin air.
-                    let input: I = unsafe { mem::zeroed() };
+                    let input = unsafe { UnsafeCell::new(MaybeUninit::<I>::zeroed()) };
 
-                    _ = black_box(benched(input));
+                    _ = black_box(benched(&input));
                 }
 
                 end = AnyTimestamp::end(timer_kind);
+
+                if mem::needs_drop::<I>() {
+                    for _ in 0..sample_size {
+                        // SAFETY: Input is a ZST, so we can construct one out
+                        // of thin air and not worry about aliasing.
+                        unsafe { drop_input(&UnsafeCell::new(MaybeUninit::<I>::zeroed())) }
+                    }
+                }
             } else {
-                let defer_entries = defer_store.prepare(sample_size as usize);
+                defer_store.prepare(sample_size as usize);
+                let defer_entries_slice = defer_store.entries();
 
                 // Initialize and store inputs.
-                for entry in &mut *defer_entries {
-                    entry.input = MaybeUninit::new(gen_input());
+                for entry in defer_entries_slice {
+                    // SAFETY: We have exclusive access to `input`.
+                    let input = unsafe { &mut *entry.input.get() };
+
+                    *input = MaybeUninit::new(gen_input());
                 }
 
                 // Create iterator before the sample timing section to reduce
                 // benchmarking overhead.
-                let defer_entries = black_box(defer_entries.iter_mut());
+                let defer_entries_iter = black_box(defer_entries_slice.iter());
 
                 if mem::needs_drop::<O>() {
                     // If output needs to be dropped, we defer drop in the
@@ -274,11 +323,12 @@ impl Context {
                     start = AnyTimestamp::start(timer_kind);
 
                     // Sample loop:
-                    for DeferEntry { input, output } in defer_entries {
-                        // SAFETY: All inputs in `defer_store` were initialized.
-                        let input = unsafe { input.assume_init_read() };
+                    for DeferEntry { input, output } in defer_entries_iter {
+                        // SAFETY: We have exclusive access to the output slot.
+                        let output = unsafe { &mut *output.get() };
 
-                        *output = MaybeUninit::new(benched(input));
+                        // SAFETY: All inputs in `defer_store` were initialized.
+                        *output = MaybeUninit::new(unsafe { benched(input) });
 
                         // PERF: We `black_box` the output's slot address
                         // instead of the result by-value because `black_box`
@@ -291,8 +341,11 @@ impl Context {
 
                     end = AnyTimestamp::end(timer_kind);
 
-                    // SAFETY: All outputs were initialized in the sample loop.
-                    unsafe { defer_store.drop_outputs() };
+                    // SAFETY: All outputs were initialized in the sample loop
+                    // and we have exclusive access.
+                    for entry in defer_entries_slice {
+                        unsafe { (*entry.output.get()).assume_init_drop() }
+                    }
                 } else {
                     // Outputs do not need to have deferred drop, but inputs
                     // still need to be retrieved from `defer_entries`.
@@ -300,14 +353,20 @@ impl Context {
                     start = AnyTimestamp::start(timer_kind);
 
                     // Sample loop:
-                    for DeferEntry { input, .. } in defer_entries {
+                    for DeferEntry { input, .. } in defer_entries_iter {
                         // SAFETY: All inputs in `defer_store` were initialized.
-                        let input = unsafe { input.assume_init_read() };
-
-                        _ = black_box(benched(input));
+                        _ = black_box(unsafe { benched(input) });
                     }
 
                     end = AnyTimestamp::end(timer_kind);
+                }
+
+                if mem::needs_drop::<I>() {
+                    for entry in defer_entries_slice {
+                        // SAFETY: All outputs were dropped and we thus have
+                        // exclusive access to inputs.
+                        unsafe { drop_input(&entry.input) }
+                    }
                 }
             }
 

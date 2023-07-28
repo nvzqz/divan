@@ -1,7 +1,7 @@
 //! [bench_attr]: attr.bench.html
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
-#![allow(clippy::needless_doctest_main)]
+#![allow(unused_unsafe, clippy::needless_doctest_main)]
 
 // Used by generated code. Not public API and thus not subject to SemVer.
 #[doc(hidden)]
