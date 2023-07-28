@@ -3,7 +3,15 @@
 // Miri does not work with `linkme`.
 #![cfg(not(miri))]
 
+use std::time::Duration;
+
 use divan::{Divan, __private::ENTRIES};
+
+#[divan::bench(min_time = Duration::ZERO)]
+fn min_min() {}
+
+#[divan::bench(max_time = Duration::MAX)]
+fn max_max() {}
 
 #[divan::bench]
 fn lifetime<'a>() -> &'a str {

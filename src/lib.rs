@@ -182,6 +182,43 @@ pub use std::hint::black_box;
 ///   }
 ///   ```
 ///
+/// - <code>#\[divan::bench(min_time = [Duration])\]</code>
+///
+///   The minimum time spent measuring each benchmark can be set to a
+///   predetermined [`Duration`] via the `min_time` option. This may be
+///   overridden at runtime using either the `DIVAN_MIN_TIME` environment
+///   variable or `--min-time` CLI argument.
+///
+///   ```
+///   use std::time::Duration;
+///
+///   #[divan::bench(min_time = Duration::from_secs(3))]
+///   fn add() -> i32 {
+///       // ...
+///       # 0
+///   }
+///   ```
+///
+/// - <code>#\[divan::bench(max_time = [Duration])\]</code>
+///
+///   The maximum time spent measuring each benchmark can be set to a
+///   predetermined [`Duration`] via the `max_time` option. This may be
+///   overridden at runtime using either the `DIVAN_MAX_TIME` environment
+///   variable or `--max-time` CLI argument.
+///
+///   If `min_time > max_time`, then `max_time` has priority and `min_time` will
+///   not be reached.
+///
+///   ```
+///   use std::time::Duration;
+///
+///   #[divan::bench(max_time = Duration::from_secs(5))]
+///   fn add() -> i32 {
+///       // ...
+///       # 0
+///   }
+///   ```
+///
 /// - [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute)
 ///
 ///   Like [`#[test]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-test-attribute),
@@ -195,6 +232,9 @@ pub use std::hint::black_box;
 ///   }
 ///   # divan::main();
 ///   ```
+///
+/// [Duration]: std::time::Duration
+/// [`Duration`]: std::time::Duration
 pub use divan_macros::bench;
 
 /// Registers a benchmarking group.
@@ -348,6 +388,49 @@ pub use divan_macros::bench;
 ///   }
 ///   ```
 ///
+/// - <code>#\[divan::bench_group(min_time = [Duration])\]</code>
+///
+///   The minimum time spent measuring each benchmark can be set to a
+///   predetermined [`Duration`] via the `min_time` option. This may be
+///   overridden at runtime using either the `DIVAN_MIN_TIME` environment
+///   variable or `--min-time` CLI argument.
+///
+///   ```
+///   use std::time::Duration;
+///
+///   #[divan::bench_group(min_time = Duration::from_secs(3))]
+///   mod math {
+///       #[divan::bench]
+///       fn add() -> i32 {
+///           // ...
+///           # 0
+///       }
+///   }
+///   ```
+///
+/// - <code>#\[divan::bench_group(max_time = [Duration])\]</code>
+///
+///   The maximum time spent measuring each benchmark can be set to a
+///   predetermined [`Duration`] via the `max_time` option. This may be
+///   overridden at runtime using either the `DIVAN_MAX_TIME` environment
+///   variable or `--max-time` CLI argument.
+///
+///   If `min_time > max_time`, then `max_time` has priority and `min_time` will
+///   not be reached.
+///
+///   ```
+///   use std::time::Duration;
+///
+///   #[divan::bench_group(max_time = Duration::from_secs(5))]
+///   mod math {
+///       #[divan::bench]
+///       fn add() -> i32 {
+///           // ...
+///           # 0
+///       }
+///   }
+///   ```
+///
 /// - [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute)
 ///
 ///   Like [`#[test]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-test-attribute)
@@ -365,6 +448,9 @@ pub use divan_macros::bench;
 ///   }
 ///   # divan::main();
 ///   ```
+///
+/// [Duration]: std::time::Duration
+/// [`Duration`]: std::time::Duration
 pub use divan_macros::bench_group;
 
 #[doc(inline)]

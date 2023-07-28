@@ -127,6 +127,12 @@ pub struct BenchOptions {
 
     /// The number of iterations inside a single sample.
     pub sample_size: Option<u32>,
+
+    /// The time floor for benchmarking a function.
+    pub min_time: Option<Duration>,
+
+    /// The time ceiling for benchmarking a function.
+    pub max_time: Option<Duration>,
 }
 
 impl BenchOptions {
@@ -136,6 +142,8 @@ impl BenchOptions {
         Self {
             sample_count: self.sample_count.or(other.sample_count),
             sample_size: self.sample_size.or(other.sample_size),
+            min_time: self.min_time.or(other.min_time),
+            max_time: self.max_time.or(other.max_time),
         }
     }
 }
@@ -154,17 +162,10 @@ pub(crate) struct Context {
     timer: Timer,
 
     /// Per-iteration overhead.
+    ///
+    /// `min_time` and `max_time` do not consider `overhead` as benchmarking
+    /// time.
     overhead: FineDuration,
-
-    /// Benchmarking time floor.
-    ///
-    /// This considers `overhead` to not count as benchmarking time.
-    min_time: Option<Duration>,
-
-    /// Benchmarking time ceiling.
-    ///
-    /// This considers `overhead` to not count as benchmarking time.
-    max_time: Option<Duration>,
 
     /// User-configured options.
     pub options: BenchOptions,
@@ -175,15 +176,8 @@ pub(crate) struct Context {
 
 impl Context {
     /// Creates a new benchmarking context.
-    pub fn new(
-        is_test: bool,
-        timer: Timer,
-        overhead: FineDuration,
-        min_time: Option<Duration>,
-        max_time: Option<Duration>,
-        options: BenchOptions,
-    ) -> Self {
-        Self { is_test, timer, overhead, min_time, max_time, options, samples: Vec::new() }
+    pub fn new(is_test: bool, timer: Timer, overhead: FineDuration, options: BenchOptions) -> Self {
+        Self { is_test, timer, overhead, options, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -208,12 +202,18 @@ impl Context {
         let mut elapsed_picos: u128 = 0;
 
         // The minimum time for benchmarking, in picoseconds.
-        let min_picos =
-            self.min_time.map(|min_time| FineDuration::from(min_time).picos).unwrap_or_default();
+        let min_picos = self
+            .options
+            .min_time
+            .map(|min_time| FineDuration::from(min_time).picos)
+            .unwrap_or_default();
 
         // The remaining time left for benchmarking, in picoseconds.
-        let max_picos =
-            self.max_time.map(|max_time| FineDuration::from(max_time).picos).unwrap_or(u128::MAX);
+        let max_picos = self
+            .options
+            .max_time
+            .map(|max_time| FineDuration::from(max_time).picos)
+            .unwrap_or(u128::MAX);
 
         // Don't bother running if 0 max time is specified.
         if max_picos == 0 {
@@ -509,11 +509,11 @@ mod tests {
                         is_test,
                         timer,
                         FineDuration::default(),
-                        None,
-                        None,
                         BenchOptions {
                             sample_count: Some(SAMPLE_COUNT),
                             sample_size: Some(SAMPLE_SIZE),
+                            min_time: None,
+                            max_time: None,
                         },
                     ),
                 });

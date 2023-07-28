@@ -288,8 +288,15 @@ impl Divan {
             options.sample_size = Some(sample_size);
         }
 
-        let mut context =
-            Context::new(action.is_test(), timer, overhead, self.min_time, self.max_time, options);
+        if let Some(min_time) = self.min_time {
+            options.min_time = Some(min_time);
+        }
+
+        if let Some(max_time) = self.max_time {
+            options.max_time = Some(max_time);
+        }
+
+        let mut context = Context::new(action.is_test(), timer, overhead, options);
 
         let mut did_run = false;
         (entry.bench)(Bencher { did_run: &mut did_run, context: &mut context });
@@ -597,6 +604,24 @@ impl Divan {
     #[inline]
     pub fn sample_size(mut self, count: u32) -> Self {
         self.sample_size = Some(count);
+        self
+    }
+
+    /// Sets the time floor for benchmarking a function.
+    ///
+    /// This option is equivalent to the `--min-time` CLI argument.
+    #[inline]
+    pub fn min_time(mut self, time: Duration) -> Self {
+        self.min_time = Some(time);
+        self
+    }
+
+    /// Sets the time ceiling for benchmarking a function.
+    ///
+    /// This option is equivalent to the `--max-time` CLI argument.
+    #[inline]
+    pub fn max_time(mut self, time: Duration) -> Self {
+        self.min_time = Some(time);
         self
     }
 }
