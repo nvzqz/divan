@@ -389,8 +389,8 @@ mod tests {
             Err(_) => vec![Timer::Os],
         };
 
-        for is_test in [true, false] {
-            for &timer in &timers {
+        for timer in timers {
+            for is_test in [true, false] {
                 let mut did_run = false;
                 test(Bencher {
                     did_run: &mut did_run,
