@@ -94,13 +94,13 @@ impl Divan {
         // display names.
         EntryTree::retain(&mut tree, |entry_path| self.filter(entry_path));
 
-        // Sorting is after filtering to compare fewer elements.
-        EntryTree::sort_by_attr(&mut tree, self.sorting_attr);
-
-        // Quick exit without setting CPU affinity or measuring overhead.
+        // Quick exit without doing unnecessary work.
         if tree.is_empty() {
             return;
         }
+
+        // Sorting is after filtering to compare fewer elements.
+        EntryTree::sort_by_attr(&mut tree, self.sorting_attr);
 
         if action.is_bench() {
             // Try pinning this thread's execution to the first CPU core to
