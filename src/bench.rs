@@ -49,7 +49,7 @@ impl Bencher<'_> {
     {
         // Reusing `bench_with_values` for a zero-sized non-drop input type
         // should have no overhead.
-        self.bench_with_values(|| (), |()| benched());
+        self.bench_with_values(|| (), |_: ()| benched());
     }
 
     /// Benchmarks a function over per-iteration generated inputs, provided
@@ -431,11 +431,13 @@ pub fn measure_overhead(timer: Timer) -> FineDuration {
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
+    use crate::time::TimerKind;
+
     use super::*;
 
     // We use a small number of runs because Miri is very slow.
-    const SAMPLE_COUNT: u32 = 5;
-    const SAMPLE_SIZE: u32 = 5;
+    const SAMPLE_COUNT: u32 = 2;
+    const SAMPLE_SIZE: u32 = 2;
 
     #[track_caller]
     fn test_bencher(mut test: impl FnMut(Bencher<'_>)) {
@@ -468,6 +470,365 @@ mod tests {
 
     fn make_string() -> String {
         ('a'..='z').collect()
+    }
+
+    /// Tests that the benchmarked function runs the expected number of times
+    /// when running either in benchmark or test mode.
+    ///
+    /// Tests operate over all input/output combinations of:
+    /// - `()`
+    /// - `i32`
+    /// - `String`
+    /// - Zero sized type (ZST) that implements `Drop`
+    ///
+    /// This ensures that any special handling of `size_of` or `needs_drop` does
+    /// not affect the number of runs.
+    #[allow(clippy::unused_unit)]
+    mod run_count {
+        use super::*;
+
+        struct DroppedZst;
+
+        impl Drop for DroppedZst {
+            fn drop(&mut self) {}
+        }
+
+        fn test(run_bench: fn(Bencher, &mut dyn FnMut())) {
+            let mut bench_count = 0;
+            let mut test_count = 0;
+
+            let mut timer_os = false;
+            let mut timer_tsc = false;
+
+            test_bencher(|b| {
+                match b.context.timer.kind() {
+                    TimerKind::Os => timer_os = true,
+                    TimerKind::Tsc => timer_tsc = true,
+                }
+
+                let is_test = b.context.is_test;
+                run_bench(b, &mut || {
+                    if is_test {
+                        test_count += 1;
+                    } else {
+                        bench_count += 1
+                    }
+                });
+            });
+
+            let total_count = bench_count + test_count;
+            assert_ne!(total_count, 0);
+
+            let timer_count = timer_os as u32 + timer_tsc as u32;
+            assert_eq!(bench_count, timer_count * SAMPLE_COUNT * SAMPLE_SIZE);
+            assert_eq!(test_count, timer_count);
+        }
+
+        #[test]
+        fn bench() {
+            // `()` out.
+            test(|b, f| b.bench(f));
+
+            // `i32` out.
+            test(|b, f| {
+                b.bench(|| -> i32 {
+                    f();
+                    100i32
+                })
+            });
+
+            // `String` out.
+            test(|b, f| {
+                b.bench(|| -> String {
+                    f();
+                    make_string()
+                })
+            });
+
+            // `DroppedZst` out.
+            test(|b, f| {
+                b.bench(|| -> DroppedZst {
+                    f();
+                    DroppedZst
+                })
+            });
+        }
+
+        #[test]
+        fn bench_with_values() {
+            // `()` in, `()` out.
+            test(|b, f| b.bench_with_values(|| (), |_: ()| -> () { f() }));
+
+            // `()` in, `i32` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || (),
+                    |_: ()| -> i32 {
+                        f();
+                        100i32
+                    },
+                )
+            });
+
+            // `()` in, `String` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || (),
+                    |_: ()| -> String {
+                        f();
+                        make_string()
+                    },
+                )
+            });
+
+            // `()` in, `DroppedZst` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || (),
+                    |_: ()| -> DroppedZst {
+                        f();
+                        DroppedZst
+                    },
+                )
+            });
+
+            // `i32` in, `()` out.
+            test(|b, f| b.bench_with_values(|| 100i32, |_: i32| -> () { f() }));
+
+            // `i32` in, `i32` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || 100i32,
+                    |value: i32| -> i32 {
+                        f();
+                        value
+                    },
+                )
+            });
+
+            // `i32` in, `String` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || 100i32,
+                    |_: i32| -> String {
+                        f();
+                        make_string()
+                    },
+                )
+            });
+
+            // `i32` in, `DroppedZst` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || 100i32,
+                    |_: i32| -> DroppedZst {
+                        f();
+                        DroppedZst
+                    },
+                )
+            });
+
+            // `String` in, `()` out.
+            test(|b, f| b.bench_with_values(make_string, |_: String| -> () { f() }));
+
+            // `String` in, `i32` out.
+            test(|b, f| {
+                b.bench_with_values(make_string, |_: String| -> i32 {
+                    f();
+                    100i32
+                })
+            });
+
+            // `String` in, `String` out.
+            test(|b, f| {
+                b.bench_with_values(make_string, |value: String| -> String {
+                    f();
+                    value
+                })
+            });
+
+            // `String` in, `DroppedZst` out.
+            test(|b, f| {
+                b.bench_with_values(make_string, |_: String| -> DroppedZst {
+                    f();
+                    DroppedZst
+                })
+            });
+
+            // `DroppedZst` in, `()` out.
+            test(|b, f| b.bench_with_values(|| DroppedZst, |_: DroppedZst| -> () { f() }));
+
+            // `DroppedZst` in, `i32` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || DroppedZst,
+                    |_: DroppedZst| -> i32 {
+                        f();
+                        100i32
+                    },
+                )
+            });
+
+            // `DroppedZst` in, `String` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || DroppedZst,
+                    |_: DroppedZst| -> String {
+                        f();
+                        make_string()
+                    },
+                )
+            });
+
+            // `DroppedZst` in, `DroppedZst` out.
+            test(|b, f| {
+                b.bench_with_values(
+                    || DroppedZst,
+                    |value: DroppedZst| -> DroppedZst {
+                        f();
+                        value
+                    },
+                )
+            });
+        }
+
+        #[test]
+        fn bench_with_refs() {
+            // `&mut ()` in, `()` out.
+            test(|b, f| b.bench_with_refs(|| (), |_: &mut ()| -> () { f() }));
+
+            // `&mut ()` in, `i32` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || (),
+                    |_: &mut ()| -> i32 {
+                        f();
+                        100i32
+                    },
+                )
+            });
+
+            // `&mut ()` in, `String` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || (),
+                    |_: &mut ()| -> String {
+                        f();
+                        make_string()
+                    },
+                )
+            });
+
+            // `&mut ()` in, `DroppedZst` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || (),
+                    |_: &mut ()| -> DroppedZst {
+                        f();
+                        DroppedZst
+                    },
+                )
+            });
+
+            // `&mut i32` in, `()` out.
+            test(|b, f| b.bench_with_refs(|| 100i32, |_: &mut i32| -> () { f() }));
+
+            // `&mut i32` in, `i32` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || 100i32,
+                    |value: &mut i32| -> i32 {
+                        f();
+                        *value
+                    },
+                )
+            });
+
+            // `&mut i32` in, `String` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || 100i32,
+                    |_: &mut i32| -> String {
+                        f();
+                        make_string()
+                    },
+                )
+            });
+
+            // `&mut i32` in, `DroppedZst` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || 100i32,
+                    |_: &mut i32| -> DroppedZst {
+                        f();
+                        DroppedZst
+                    },
+                )
+            });
+
+            // `&mut String` in, `()` out.
+            test(|b, f| b.bench_with_refs(make_string, |_: &mut String| -> () { f() }));
+
+            // `&mut String` in, `i32` out.
+            test(|b, f| {
+                b.bench_with_refs(make_string, |_: &mut String| -> i32 {
+                    f();
+                    100i32
+                })
+            });
+
+            // `&mut String` in, `String` out.
+            test(|b, f| {
+                b.bench_with_refs(make_string, |value: &mut String| -> String {
+                    f();
+                    value.clone()
+                })
+            });
+
+            // `&mut String` in, `DroppedZst` out.
+            test(|b, f| {
+                b.bench_with_refs(make_string, |_: &mut String| -> DroppedZst {
+                    f();
+                    DroppedZst
+                })
+            });
+
+            // `&mut DroppedZst` in, `()` out.
+            test(|b, f| b.bench_with_refs(|| DroppedZst, |_: &mut DroppedZst| -> () { f() }));
+
+            // `&mut DroppedZst` in, `i32` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || DroppedZst,
+                    |_: &mut DroppedZst| -> i32 {
+                        f();
+                        100i32
+                    },
+                )
+            });
+
+            // `&mut DroppedZst` in, `String` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || DroppedZst,
+                    |_: &mut DroppedZst| -> String {
+                        f();
+                        make_string()
+                    },
+                )
+            });
+
+            // `&mut DroppedZst` in, `DroppedZst` out.
+            test(|b, f| {
+                b.bench_with_refs(
+                    || DroppedZst,
+                    |_: &mut DroppedZst| -> DroppedZst {
+                        f();
+                        DroppedZst
+                    },
+                )
+            });
+        }
     }
 
     mod no_input {
@@ -503,13 +864,13 @@ mod tests {
 
         #[test]
         fn zst_output() {
-            struct Zst;
+            struct DroppedZst;
 
             // Each test has its own `ZST_COUNT` global because tests are run
             // independently in parallel.
             static ZST_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-            impl Drop for Zst {
+            impl Drop for DroppedZst {
                 fn drop(&mut self) {
                     ZST_COUNT.fetch_sub(1, SeqCst);
                 }
@@ -519,7 +880,7 @@ mod tests {
                 b.bench_with_values(
                     || {
                         ZST_COUNT.fetch_add(1, SeqCst);
-                        Zst
+                        DroppedZst
                     },
                     black_box,
                 )
@@ -530,11 +891,11 @@ mod tests {
 
         #[test]
         fn no_output() {
-            struct Zst;
+            struct DroppedZst;
 
             static ZST_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-            impl Drop for Zst {
+            impl Drop for DroppedZst {
                 fn drop(&mut self) {
                     ZST_COUNT.fetch_sub(1, SeqCst);
                 }
@@ -544,7 +905,7 @@ mod tests {
                 b.bench_with_values(
                     || {
                         ZST_COUNT.fetch_add(1, SeqCst);
-                        Zst
+                        DroppedZst
                     },
                     drop,
                 )
