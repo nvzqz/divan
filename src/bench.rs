@@ -441,12 +441,7 @@ mod tests {
 
     #[track_caller]
     fn test_bencher(test: &mut dyn FnMut(Bencher)) {
-        let timers = match Timer::get_tsc() {
-            Ok(tsc) => vec![Timer::Os, tsc],
-            Err(_) => vec![Timer::Os],
-        };
-
-        for timer in timers {
+        for timer in Timer::available() {
             for is_test in [true, false] {
                 let mut did_run = false;
                 test(Bencher {

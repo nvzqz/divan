@@ -17,6 +17,18 @@ pub enum Timer {
 }
 
 impl Timer {
+    /// Returns all available timers.
+    #[cfg(test)]
+    pub fn available() -> Vec<Self> {
+        let mut timers = vec![Self::Os];
+
+        if let Ok(tsc) = Self::get_tsc() {
+            timers.push(tsc);
+        }
+
+        timers
+    }
+
     /// Attempts to get the CPU timestamp counter.
     #[inline]
     pub fn get_tsc() -> Result<Self, TscUnavailable> {
