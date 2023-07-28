@@ -24,6 +24,7 @@ pub struct Divan {
     run_ignored: RunIgnored,
     sample_size: Option<u32>,
     sample_count: Option<u32>,
+    min_time: Option<Duration>,
     max_time: Option<Duration>,
 }
 
@@ -287,7 +288,8 @@ impl Divan {
             options.sample_size = Some(sample_size);
         }
 
-        let mut context = Context::new(action.is_test(), timer, overhead, self.max_time, options);
+        let mut context =
+            Context::new(action.is_test(), timer, overhead, self.min_time, self.max_time, options);
 
         let mut did_run = false;
         (entry.bench)(Bencher { did_run: &mut did_run, context: &mut context });
@@ -434,6 +436,10 @@ impl Divan {
 
         if let Some(&sample_size) = matches.get_one("sample-size") {
             self.sample_size = Some(sample_size);
+        }
+
+        if let Some(&ParsedSeconds(min_time)) = matches.get_one("min-time") {
+            self.min_time = Some(min_time);
         }
 
         if let Some(&ParsedSeconds(max_time)) = matches.get_one("max-time") {

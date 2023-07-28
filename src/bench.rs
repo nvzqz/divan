@@ -131,7 +131,12 @@ pub(crate) struct Context {
     /// Per-iteration overhead.
     overhead: FineDuration,
 
-    /// Benchmarking time budget.
+    /// Benchmarking time floor.
+    ///
+    /// This considers `overhead` to not count as benchmarking time.
+    min_time: Option<Duration>,
+
+    /// Benchmarking time ceiling.
     ///
     /// This considers `overhead` to not count as benchmarking time.
     max_time: Option<Duration>,
@@ -149,10 +154,11 @@ impl Context {
         is_test: bool,
         timer: Timer,
         overhead: FineDuration,
+        min_time: Option<Duration>,
         max_time: Option<Duration>,
         options: BenchOptions,
     ) -> Self {
-        Self { is_test, timer, overhead, max_time, options, samples: Vec::new() }
+        Self { is_test, timer, overhead, min_time, max_time, options, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -161,12 +167,19 @@ impl Context {
         mut gen_input: impl FnMut() -> I,
         mut benched: impl FnMut(I) -> O,
     ) {
+        // The time spent benchmarking, in picoseconds.
+        let mut elapsed_picos: u128 = 0;
+
+        // The minimum time for benchmarking, in picoseconds.
+        let min_picos =
+            self.min_time.map(|min_time| FineDuration::from(min_time).picos).unwrap_or_default();
+
         // The remaining time left for benchmarking, in picoseconds.
-        let mut rem_picos =
+        let max_picos =
             self.max_time.map(|max_time| FineDuration::from(max_time).picos).unwrap_or(u128::MAX);
 
         // Don't bother running if 0 max time is specified.
-        if rem_picos == 0 {
+        if max_picos == 0 {
             return;
         }
 
@@ -181,12 +194,12 @@ impl Context {
         let mut defer_store: DeferStore<I, O> = DeferStore::default();
 
         // TODO: Set sample count and size dynamically if not set by the user.
-        let sample_count =
+        let mut rem_samples =
             if self.is_test { 1 } else { self.options.sample_count.unwrap_or(1_000) };
 
         let sample_size = if self.is_test { 1 } else { self.options.sample_size.unwrap_or(1_000) };
 
-        if sample_count == 0 || sample_size == 0 {
+        if rem_samples == 0 || sample_size == 0 {
             return;
         }
 
@@ -194,13 +207,26 @@ impl Context {
         let sample_overhead =
             FineDuration { picos: self.overhead.picos.saturating_mul(sample_size as u128) };
 
-        self.samples.reserve_exact(sample_count as usize);
+        self.samples.reserve_exact(rem_samples as usize);
 
         // NOTE: Aside from handling sample count and size, testing and
         // benchmarking should behave exactly the same since we don't want to
         // introduce extra work in benchmarks just to handle tests. Doing so may
         // worsen measurement quality for real benchmarking.
-        for _ in 0..sample_count {
+        while {
+            // Conditions for when sampling is over:
+            if elapsed_picos >= max_picos {
+                // Depleted the benchmarking time budget. This is a strict
+                // condition regardless of sample count and minimum time.
+                false
+            } else if rem_samples > 0 {
+                // More samples expected.
+                true
+            } else {
+                // Continue if we haven't reached the time floor.
+                elapsed_picos < min_picos
+            }
+        } {
             let start: AnyTimestamp;
             let end: AnyTimestamp;
 
@@ -303,11 +329,12 @@ impl Context {
                 total_duration: adjusted_duration,
             });
 
-            match rem_picos.checked_sub(adjusted_duration.picos) {
-                // Depleted the benchmarking time budget.
-                None | Some(0) => return,
-
-                Some(new_rem_picos) => rem_picos = new_rem_picos,
+            if self.is_test {
+                elapsed_picos = u128::MAX;
+                rem_samples = 0;
+            } else {
+                elapsed_picos = elapsed_picos.saturating_add(adjusted_duration.picos);
+                rem_samples = rem_samples.saturating_sub(1);
             }
         }
     }
@@ -426,6 +453,7 @@ mod tests {
                         is_test,
                         timer,
                         FineDuration::default(),
+                        None,
                         None,
                         BenchOptions {
                             sample_count: Some(SAMPLE_COUNT),
