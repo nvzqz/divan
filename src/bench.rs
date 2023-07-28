@@ -440,7 +440,7 @@ mod tests {
     const SAMPLE_SIZE: u32 = 2;
 
     #[track_caller]
-    fn test_bencher(mut test: impl FnMut(Bencher<'_>)) {
+    fn test_bencher(test: &mut dyn FnMut(Bencher)) {
         let timers = match Timer::get_tsc() {
             Ok(tsc) => vec![Timer::Os, tsc],
             Err(_) => vec![Timer::Os],
@@ -500,7 +500,7 @@ mod tests {
             let mut timer_os = false;
             let mut timer_tsc = false;
 
-            test_bencher(|b| {
+            test_bencher(&mut |b| {
                 match b.context.timer.kind() {
                     TimerKind::Os => timer_os = true,
                     TimerKind::Tsc => timer_tsc = true,
@@ -836,12 +836,12 @@ mod tests {
 
         #[test]
         fn string_output() {
-            test_bencher(|b| b.bench(make_string));
+            test_bencher(&mut |b| b.bench(make_string));
         }
 
         #[test]
         fn no_output() {
-            test_bencher(|b| b.bench(|| _ = black_box(make_string())));
+            test_bencher(&mut |b| b.bench(|| _ = black_box(make_string())));
         }
     }
 
@@ -850,12 +850,12 @@ mod tests {
 
         #[test]
         fn string_output() {
-            test_bencher(|b| b.bench_with_values(make_string, |s| s.to_ascii_uppercase()));
+            test_bencher(&mut |b| b.bench_with_values(make_string, |s| s.to_ascii_uppercase()));
         }
 
         #[test]
         fn no_output() {
-            test_bencher(|b| b.bench_with_refs(make_string, |s| s.make_ascii_uppercase()));
+            test_bencher(&mut |b| b.bench_with_refs(make_string, |s| s.make_ascii_uppercase()));
         }
     }
 
@@ -876,7 +876,7 @@ mod tests {
                 }
             }
 
-            test_bencher(|b| {
+            test_bencher(&mut |b| {
                 b.bench_with_values(
                     || {
                         ZST_COUNT.fetch_add(1, SeqCst);
@@ -901,7 +901,7 @@ mod tests {
                 }
             }
 
-            test_bencher(|b| {
+            test_bencher(&mut |b| {
                 b.bench_with_values(
                     || {
                         ZST_COUNT.fetch_add(1, SeqCst);
