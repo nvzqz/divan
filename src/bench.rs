@@ -392,7 +392,11 @@ impl Context {
                 elapsed_picos = u128::MAX;
                 rem_samples = 0;
             } else {
-                elapsed_picos = elapsed_picos.saturating_add(adjusted_duration.picos);
+                // Progress by at least 1ns to prevent extremely fast functions
+                // from taking forever when `min_time` is set.
+                let progress_picos = raw_duration.picos.max(1_000);
+
+                elapsed_picos = elapsed_picos.saturating_add(progress_picos);
                 rem_samples = rem_samples.saturating_sub(1);
             }
         }
