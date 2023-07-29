@@ -17,6 +17,17 @@ pub enum Timestamp {
 }
 
 impl Timestamp {
+    #[inline(always)]
+    pub fn start(timer_kind: TimerKind) -> Self {
+        fence::full_fence();
+        let value = match timer_kind {
+            TimerKind::Os => Self::Os(Instant::now()),
+            TimerKind::Tsc => Self::Tsc(TscTimestamp::start()),
+        };
+        fence::compiler_fence();
+        value
+    }
+
     pub fn duration_since(self, earlier: Self, timer: Timer) -> FineDuration {
         match (self, earlier, timer) {
             (Self::Os(this), Self::Os(earlier), Timer::Os) => this.duration_since(earlier).into(),

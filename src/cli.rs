@@ -115,6 +115,14 @@ pub fn command() -> Command {
                 .help("Set the maximum seconds spent measuring a single benchmark, with priority over '--min-time'")
                 .value_parser(value_parser!(ParsedSeconds)),
         )
+        .arg(
+            option("skip-input-time")
+                .env("DIVAN_SKIP_INPUT_TIME")
+                .value_name("true|false")
+                .help("When '--min-time' or '--max-time' is set, skip input generation time")
+                .value_parser(value_parser!(bool))
+                .num_args(0..=1),
+        )
         // ignored:
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])
 }

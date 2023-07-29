@@ -9,7 +9,7 @@ use crate::{
     black_box,
     defer::{DeferEntry, DeferStore},
     stats::{Sample, Stats},
-    time::{AnyTimestamp, FineDuration, Timer},
+    time::{AnyTimestamp, FineDuration, Timer, Timestamp},
 };
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
@@ -133,6 +133,10 @@ pub struct BenchOptions {
 
     /// The time ceiling for benchmarking a function.
     pub max_time: Option<Duration>,
+
+    /// Skip time spent generating inputs when accounting for `min_time` or
+    /// `max_time`.
+    pub skip_input_time: Option<bool>,
 }
 
 impl BenchOptions {
@@ -144,6 +148,7 @@ impl BenchOptions {
             sample_size: self.sample_size.or(other.sample_size),
             min_time: self.min_time.or(other.min_time),
             max_time: self.max_time.or(other.max_time),
+            skip_input_time: self.skip_input_time.or(other.skip_input_time),
         }
     }
 }
@@ -199,6 +204,9 @@ impl Context {
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
     ) {
         // The time spent benchmarking, in picoseconds.
+        //
+        // This includes input generation time, unless `skip_input_time` is
+        // `true`.
         let mut elapsed_picos: u128 = 0;
 
         // The minimum time for benchmarking, in picoseconds.
@@ -245,6 +253,9 @@ impl Context {
             FineDuration { picos: self.overhead.picos.saturating_mul(sample_size as u128) };
 
         self.samples.reserve_exact(rem_samples as usize);
+
+        let skip_input_time = self.options.skip_input_time.unwrap_or_default();
+        let initial_start = if skip_input_time { None } else { Some(Timestamp::start(timer_kind)) };
 
         // NOTE: Aside from handling sample count and size, testing and
         // benchmarking should behave exactly the same since we don't want to
@@ -392,12 +403,16 @@ impl Context {
                 elapsed_picos = u128::MAX;
                 rem_samples = 0;
             } else {
-                // Progress by at least 1ns to prevent extremely fast functions
-                // from taking forever when `min_time` is set.
-                let progress_picos = raw_duration.picos.max(1_000);
-
-                elapsed_picos = elapsed_picos.saturating_add(progress_picos);
                 rem_samples = rem_samples.saturating_sub(1);
+
+                if let Some(initial_start) = initial_start {
+                    elapsed_picos = end.duration_since(initial_start, self.timer).picos;
+                } else {
+                    // Progress by at least 1ns to prevent extremely fast
+                    // functions from taking forever when `min_time` is set.
+                    let progress_picos = raw_duration.picos.max(1_000);
+                    elapsed_picos = elapsed_picos.saturating_add(progress_picos);
+                }
             }
         }
     }
@@ -518,6 +533,7 @@ mod tests {
                             sample_size: Some(SAMPLE_SIZE),
                             min_time: None,
                             max_time: None,
+                            skip_input_time: None,
                         },
                     ),
                 });

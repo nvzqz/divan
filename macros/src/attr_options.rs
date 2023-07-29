@@ -96,15 +96,20 @@ impl AttrOptions {
             quote! { #private_mod::None }
         } else {
             let options_iter = self.bench_options.iter().map(|(option, value)| {
-                let wrapped_value: proc_macro2::TokenStream;
+                let option_name = option.to_string();
+                let option_name = option_name.strip_prefix("r#").unwrap_or(&option_name);
 
-                let value: &dyn ToTokens = if option.to_string().ends_with("time") {
-                    // If the option ends with time, we use `IntoDuration` to be
+                let wrapped_value: proc_macro2::TokenStream;
+                let value: &dyn ToTokens = match option_name {
+                    // If the option is a `Duration`, use `IntoDuration` to be
                     // polymorphic over `Duration` or `u64`/`f64` seconds.
-                    wrapped_value = quote! { #private_mod::IntoDuration::into_duration(#value) };
-                    &wrapped_value
-                } else {
-                    value
+                    "min_time" | "max_time" => {
+                        wrapped_value =
+                            quote! { #private_mod::IntoDuration::into_duration(#value) };
+                        &wrapped_value
+                    }
+
+                    _ => value,
                 };
 
                 quote! { #option: #private_mod::Some(#value), }

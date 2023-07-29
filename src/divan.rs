@@ -436,6 +436,12 @@ impl Divan {
             self.bench_options.max_time = Some(max_time);
         }
 
+        if let Some(mut skip_input_time) = matches.get_many::<bool>("skip-input-time") {
+            // If the option is present without a value, then it's `true`.
+            self.bench_options.skip_input_time =
+                Some(matches!(skip_input_time.next(), Some(true) | None));
+        }
+
         self
     }
 
@@ -605,6 +611,16 @@ impl Divan {
     #[inline]
     pub fn max_time(mut self, time: Duration) -> Self {
         self.bench_options.min_time = Some(time);
+        self
+    }
+
+    /// Skip time spent generating inputs when accounting for `min_time` or
+    /// `max_time`.
+    ///
+    /// This option is equivalent to the `--skip-input-time` CLI argument.
+    #[inline]
+    pub fn skip_input_time(mut self, skip: bool) -> Self {
+        self.bench_options.skip_input_time = Some(skip);
         self
     }
 }

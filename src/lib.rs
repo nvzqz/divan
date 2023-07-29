@@ -253,6 +253,29 @@ pub use std::hint::black_box;
 ///   }
 ///   ```
 ///
+/// - `#[divan::bench(skip_input_time = true)]`
+///
+///   When `min_time` or `max_time` is set, time spent generating inputs is
+///   included by default. Enabling the `skip_input_time` option will make only
+///   the time spent actually running the benchmarked function be considered.
+///   This may be overridden at runtime using either the `DIVAN_SKIP_INPUT_TIME`
+///   environment variable or `--skip-input-time` CLI argument.
+///
+///   In the following example, `max_time` will only consider the time spent
+///   running `measured_function`:
+///
+///   ```
+///   # fn generate_input() {}
+///   # fn measured_function(_: ()) {}
+///   #[divan::bench(max_time = 5, skip_input_time = true)]
+///   fn bench(bencher: divan::Bencher) {
+///       bencher.bench_with_values(
+///           || generate_input(),
+///           |input| measured_function(input),
+///       );
+///   }
+///   ```
+///
 /// - [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute)
 ///
 ///   Like [`#[test]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-test-attribute),
@@ -492,6 +515,32 @@ pub use divan_macros::bench;
 ///   #[divan::bench_group(max_time = 9.5)]
 ///   mod float_secs {
 ///       // ...
+///   }
+///   ```
+///
+/// - `#[divan::bench_group(skip_input_time = true)]`
+///
+///   When `min_time` or `max_time` is set, time spent generating inputs is
+///   included by default. Enabling the `skip_input_time` option will make only
+///   the time spent actually running the benchmarked function be considered.
+///   This may be overridden at runtime using either the `DIVAN_SKIP_INPUT_TIME`
+///   environment variable or `--skip-input-time` CLI argument.
+///
+///   In the following example, `max_time` will only consider the time spent
+///   running `measured_function`:
+///
+///   ```
+///   #[divan::bench_group(skip_input_time = true)]
+///   mod group {
+///       # fn generate_input() {}
+///       # fn measured_function(_: ()) {}
+///       #[divan::bench(max_time = 5)]
+///       fn bench(bencher: divan::Bencher) {
+///           bencher.bench_with_values(
+///               || generate_input(),
+///               |input| measured_function(input),
+///           );
+///       }
 ///   }
 ///   ```
 ///
