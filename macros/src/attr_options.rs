@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{parse::Parser, Expr, Ident};
 
 /// Values from parsed options shared between `#[divan::bench]` and
@@ -96,6 +96,17 @@ impl AttrOptions {
             quote! { #private_mod::None }
         } else {
             let options_iter = self.bench_options.iter().map(|(option, value)| {
+                let wrapped_value: proc_macro2::TokenStream;
+
+                let value: &dyn ToTokens = if option.to_string().ends_with("time") {
+                    // If the option ends with time, we use `IntoDuration` to be
+                    // polymorphic over `Duration` or `u64`/`f64` seconds.
+                    wrapped_value = quote! { #private_mod::IntoDuration::into_duration(#value) };
+                    &wrapped_value
+                } else {
+                    value
+                };
+
                 quote! { #option: #private_mod::Some(#value), }
             });
             quote! {

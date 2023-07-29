@@ -182,7 +182,7 @@ pub use std::hint::black_box;
 ///   }
 ///   ```
 ///
-/// - <code>#\[divan::bench(min_time = [Duration])\]</code>
+/// - <code>#\[divan::bench(min_time = [Duration] | [u64] | [f64])\]</code>
 ///
 ///   The minimum time spent measuring each benchmark can be set to a
 ///   predetermined [`Duration`] via the `min_time` option. This may be
@@ -199,7 +199,24 @@ pub use std::hint::black_box;
 ///   }
 ///   ```
 ///
-/// - <code>#\[divan::bench(max_time = [Duration])\]</code>
+///   For convenience, `min_time` can also be set with seconds as [`u64`] or
+///   [`f64`]. Invalid values will cause a panic at runtime.
+///
+///   ```
+///   #[divan::bench(min_time = 2)]
+///   fn int_secs() -> i32 {
+///       // ...
+///       # 0
+///   }
+///
+///   #[divan::bench(min_time = 1.5)]
+///   fn float_secs() -> i32 {
+///       // ...
+///       # 0
+///   }
+///   ```
+///
+/// - <code>#\[divan::bench(max_time = [Duration] | [u64] | [f64])\]</code>
 ///
 ///   The maximum time spent measuring each benchmark can be set to a
 ///   predetermined [`Duration`] via the `max_time` option. This may be
@@ -214,6 +231,23 @@ pub use std::hint::black_box;
 ///
 ///   #[divan::bench(max_time = Duration::from_secs(5))]
 ///   fn add() -> i32 {
+///       // ...
+///       # 0
+///   }
+///   ```
+///
+///   For convenience, like `min_time`, `max_time` can also be set with seconds
+///   as [`u64`] or [`f64`]. Invalid values will cause a panic at runtime.
+///
+///   ```
+///   #[divan::bench(max_time = 8)]
+///   fn int_secs() -> i32 {
+///       // ...
+///       # 0
+///   }
+///
+///   #[divan::bench(max_time = 9.5)]
+///   fn float_secs() -> i32 {
 ///       // ...
 ///       # 0
 ///   }
@@ -388,7 +422,7 @@ pub use divan_macros::bench;
 ///   }
 ///   ```
 ///
-/// - <code>#\[divan::bench_group(min_time = [Duration])\]</code>
+/// - <code>#\[divan::bench_group(min_time = [Duration] | [u64] | [f64])\]</code>
 ///
 ///   The minimum time spent measuring each benchmark can be set to a
 ///   predetermined [`Duration`] via the `min_time` option. This may be
@@ -408,7 +442,22 @@ pub use divan_macros::bench;
 ///   }
 ///   ```
 ///
-/// - <code>#\[divan::bench_group(max_time = [Duration])\]</code>
+///   For convenience, `min_time` can also be set with seconds as [`u64`] or
+///   [`f64`]. Invalid values will cause a panic at runtime.
+///
+///   ```
+///   #[divan::bench_group(min_time = 2)]
+///   mod int_secs {
+///       // ...
+///   }
+///
+///   #[divan::bench_group(min_time = 1.5)]
+///   mod float_secs {
+///       // ...
+///   }
+///   ```
+///
+/// - <code>#\[divan::bench_group(max_time = [Duration] | [u64] | [f64])\]</code>
 ///
 ///   The maximum time spent measuring each benchmark can be set to a
 ///   predetermined [`Duration`] via the `max_time` option. This may be
@@ -428,6 +477,21 @@ pub use divan_macros::bench;
 ///           // ...
 ///           # 0
 ///       }
+///   }
+///   ```
+///
+///   For convenience, like `min_time`, `max_time` can also be set with seconds
+///   as [`u64`] or [`f64`]. Invalid values will cause a panic at runtime.
+///
+///   ```
+///   #[divan::bench_group(max_time = 8)]
+///   mod int_secs {
+///       // ...
+///   }
+///
+///   #[divan::bench_group(max_time = 9.5)]
+///   mod float_secs {
+///       // ...
 ///   }
 ///   ```
 ///
