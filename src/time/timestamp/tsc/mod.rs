@@ -65,16 +65,14 @@ impl TscTimestamp {
         Self { value }
     }
 
-    pub fn duration_since(self, earlier: Self, frequency: u64) -> FineDuration {
-        if earlier.value > self.value {
-            return Default::default();
-        }
-
+    pub fn duration_since(self, earlier: Self, frequency: NonZeroU64) -> FineDuration {
         const PICOS: u128 = 1_000_000_000_000;
 
-        let diff = self.value as u128 - earlier.value as u128;
+        let Some(diff) = self.value.checked_sub(earlier.value) else {
+            return Default::default();
+        };
 
-        FineDuration { picos: (diff * PICOS) / frequency as u128 }
+        FineDuration { picos: (diff as u128 * PICOS) / frequency.get() as u128 }
     }
 }
 
