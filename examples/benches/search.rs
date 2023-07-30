@@ -3,9 +3,12 @@ use std::{
     hash::BuildHasher,
 };
 
-use divan::{black_box_drop, Bencher};
+use divan::{black_box_drop, AllocProfiler, Bencher};
 use fastrand::Rng;
 use ordsearch::OrderedCollection;
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::Divan::from_args()

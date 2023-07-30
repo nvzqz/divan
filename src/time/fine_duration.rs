@@ -52,7 +52,7 @@ impl fmt::Display for FineDuration {
                 // Multiply to allow `sig_figs` digits of fractional precision.
                 let val = (((picos * multiple) / scale.picos()) as f64) / multiple as f64;
 
-                util::format_f64(val, sig_figs)
+                util::fmt::format_f64(val, sig_figs)
             }
         };
 

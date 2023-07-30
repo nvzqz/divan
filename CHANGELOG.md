@@ -8,6 +8,11 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- [`AllocProfiler`](https://docs.rs/divan/0.1.6/divan/struct.AllocProfiler.html)
+  allocator that tracks allocation counts and sizes during benchmarks.
+
 ## [0.1.5] - 2023-12-05
 
 ### Added

@@ -6,8 +6,11 @@
 //! cargo bench -q -p examples --bench image --features image
 //! ```
 
-use divan::{black_box, counter::BytesCount, Bencher};
+use divan::{black_box, counter::BytesCount, AllocProfiler, Bencher};
 use image::{GenericImage, ImageBuffer, Rgba};
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::main();

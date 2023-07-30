@@ -6,7 +6,10 @@
 
 use std::time::{Instant, SystemTime};
 
-use divan::Bencher;
+use divan::{AllocProfiler, Bencher};
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::main();

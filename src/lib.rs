@@ -10,6 +10,7 @@
 #[path = "private.rs"]
 pub mod __private;
 
+mod alloc;
 mod bench;
 mod cli;
 mod compile_fail;
@@ -27,7 +28,7 @@ pub mod counter;
 pub use std::hint::black_box;
 
 #[doc(inline)]
-pub use crate::{bench::Bencher, divan::Divan};
+pub use crate::{alloc::AllocProfiler, bench::Bencher, divan::Divan};
 
 /// Runs all registered benchmarks.
 ///

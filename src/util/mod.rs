@@ -5,6 +5,17 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering::Relaxed},
 };
 
+// Use 64-bit atomic counts if available.
+#[cfg(target_has_atomic = "64")]
+pub use {std::sync::atomic::AtomicU64 as SharedCount, u64 as LocalCount};
+
+// Otherwise use atomic `usize`, which is likely available.
+#[cfg(not(target_has_atomic = "64"))]
+pub use {std::sync::atomic::AtomicUsize as SharedCount, usize as LocalCount};
+
+pub mod fmt;
+pub mod miri;
+
 /// Public-in-private type like `()` but meant to be externally-unreachable.
 ///
 /// Using this in place of `()` for `GenI` prevents `Bencher::with_inputs` from
@@ -66,42 +77,6 @@ pub(crate) fn slice_middle<T>(slice: &[T]) -> &[T] {
     } else {
         &slice[len / 2..][..1]
     }
-}
-
-/// Formats an `f64` to the given number of significant figures.
-pub(crate) fn format_f64(val: f64, sig_figs: usize) -> String {
-    let mut str = val.to_string();
-
-    if let Some(dot_index) = str.find('.') {
-        let fract_digits = sig_figs.saturating_sub(dot_index);
-
-        if fract_digits == 0 {
-            str.truncate(dot_index);
-        } else {
-            let fract_start = dot_index + 1;
-            let fract_end = fract_start + fract_digits;
-            let fract_range = fract_start..fract_end;
-
-            if let Some(fract_str) = str.get(fract_range) {
-                // Get the offset from the end before all 0s.
-                let pre_zero = fract_str.bytes().rev().enumerate().find_map(|(i, b)| {
-                    if b != b'0' {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                });
-
-                if let Some(pre_zero) = pre_zero {
-                    str.truncate(fract_end - pre_zero);
-                } else {
-                    str.truncate(dot_index);
-                }
-            }
-        }
-    }
-
-    str
 }
 
 /// Cached [`std::thread::available_parallelism`].

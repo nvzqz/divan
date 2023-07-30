@@ -1,9 +1,9 @@
-use std::{any::TypeId, fmt};
+use std::any::TypeId;
 
 use crate::{
     counter::{BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt},
     time::FineDuration,
-    util,
+    util::{self, fmt::DisplayThroughput},
 };
 
 /// Type-erased `Counter`.
@@ -12,7 +12,7 @@ use crate::{
 /// user-defined counters.
 #[derive(Clone)]
 pub(crate) struct AnyCounter {
-    kind: KnownCounterKind,
+    pub kind: KnownCounterKind,
     count: MaxCountUInt,
 }
 
@@ -100,109 +100,6 @@ impl KnownCounterKind {
             unreachable!()
         }
     }
-}
-
-pub(crate) struct DisplayThroughput<'a> {
-    counter: &'a AnyCounter,
-    picos: f64,
-    bytes_format: BytesFormat,
-}
-
-impl fmt::Debug for DisplayThroughput<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl fmt::Display for DisplayThroughput<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let picos = self.picos;
-        let count = self.counter.count();
-        let count_per_sec = if count == 0 { 0. } else { count as f64 * (1e12 / picos) };
-
-        let (scales, suffixes) = match self.counter.kind {
-            KnownCounterKind::Bytes => match self.bytes_format {
-                BytesFormat::Binary => (scale::BINARY_SCALES, scale::BYTES_BINARY_SUFFIXES),
-                BytesFormat::Decimal => (scale::DECIMAL_SCALES, scale::BYTES_DECIMAL_SUFFIXES),
-            },
-            KnownCounterKind::Chars => (scale::DECIMAL_SCALES, scale::CHARS_SUFFIXES),
-            KnownCounterKind::Items => (scale::DECIMAL_SCALES, scale::ITEMS_SUFFIXES),
-        };
-
-        let (val, suffix) = scale_throughput(count_per_sec, scales, suffixes);
-
-        let sig_figs = f.precision().unwrap_or(4);
-
-        let mut str = util::format_f64(val, sig_figs);
-        str.push(' ');
-        str.push_str(suffix);
-
-        // Fill up to specified width.
-        if let Some(fill_len) = f.width().and_then(|width| width.checked_sub(str.len())) {
-            match f.align() {
-                None | Some(fmt::Alignment::Left) => {
-                    str.extend(std::iter::repeat(f.fill()).take(fill_len));
-                }
-                _ => return Err(fmt::Error),
-            }
-        }
-
-        f.write_str(&str)
-    }
-}
-
-/// Returns throughput at the appropriate scale along with the scale's suffix.
-fn scale_throughput(
-    count_per_sec: f64,
-    scales: &scale::Scales,
-    suffixes: &scale::Suffixes,
-) -> (f64, &'static str) {
-    let (scale, suffix) = if count_per_sec.is_infinite() || count_per_sec < scales[0] {
-        (1., suffixes[0])
-    } else if count_per_sec < scales[1] {
-        (scales[0], suffixes[1])
-    } else if count_per_sec < scales[2] {
-        (scales[1], suffixes[2])
-    } else if count_per_sec < scales[3] {
-        (scales[2], suffixes[3])
-    } else if count_per_sec < scales[4] {
-        (scales[3], suffixes[4])
-    } else {
-        (scales[4], suffixes[5])
-    };
-
-    (count_per_sec / scale, suffix)
-}
-
-mod scale {
-    /// Scales increasing in powers of 1000 (decimal) or 1024 (binary).
-    pub type Scales = [f64; 5];
-
-    /// Throughput suffixes.
-    pub type Suffixes = [&'static str; 6];
-
-    // Stop at peta because bytes stops at pebibyte.
-    pub const DECIMAL_SCALES: &Scales = &[1e3, 1e6, 1e9, 1e12, 1e15];
-
-    // Stop at pebibyte because `f64` cannot represent exibyte exactly.
-    pub const BINARY_SCALES: &Scales = &[
-        1024., // KiB
-        1024u64.pow(2) as f64,
-        1024u64.pow(3) as f64,
-        1024u64.pow(4) as f64,
-        1024u64.pow(5) as f64, // PiB
-    ];
-
-    pub const BYTES_BINARY_SUFFIXES: &Suffixes =
-        &["B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s", "PiB/s"];
-
-    pub const BYTES_DECIMAL_SUFFIXES: &Suffixes = &["B/s", "KB/s", "MB/s", "GB/s", "TB/s", "PB/s"];
-
-    pub const CHARS_SUFFIXES: &Suffixes =
-        &["char/s", "Kchar/s", "Mchar/s", "Gchar/s", "Tchar/s", "Pchar/s"];
-
-    pub const ITEMS_SUFFIXES: &Suffixes =
-        &["item/s", "Kitem/s", "Mitem/s", "Gitem/s", "Titem/s", "Pitem/s"];
 }
 
 #[cfg(test)]
