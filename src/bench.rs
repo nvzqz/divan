@@ -334,20 +334,23 @@ impl Context {
                     start = AnyTimestamp::start(timer_kind);
 
                     // Sample loop:
-                    for DeferEntry { input, output } in defer_entries_iter {
-                        // SAFETY: We have exclusive access to the output slot.
-                        let output = unsafe { &mut *output.get() };
+                    for entry in defer_entries_iter {
+                        // SAFETY: All inputs in `defer_store` were initialized
+                        // and we have exclusive access to the output slot.
+                        unsafe {
+                            let output = benched(&entry.input);
+                            *entry.output.get() = MaybeUninit::new(output);
+                        }
 
-                        // SAFETY: All inputs in `defer_store` were initialized.
-                        *output = MaybeUninit::new(unsafe { benched(input) });
-
-                        // PERF: We `black_box` the output's slot address
-                        // instead of the result by-value because `black_box`
-                        // currently writes its input to the stack. Using the
-                        // slot address reduces overhead when `O` is a larger
-                        // type like `String` since then it will write a single
-                        // word instead of three words.
-                        _ = black_box(output);
+                        // PERF: `black_box` the entry's slot address because:
+                        // - It prevents `input` mutation from being optimized
+                        //   out.
+                        // - `black_box` writes its input to the stack. Using
+                        //   the slot address instead of the output by-value
+                        //   reduces overhead when `O` is a larger type like
+                        //   `String` since then it will write a single word
+                        //   instead of three words.
+                        _ = black_box(entry);
                     }
 
                     end = AnyTimestamp::end(timer_kind);
