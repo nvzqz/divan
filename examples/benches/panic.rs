@@ -6,7 +6,10 @@
 
 use std::panic;
 
-use divan::{black_box, black_box_drop};
+use divan::{black_box, black_box_drop, AllocProfiler};
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     // Silence panics.

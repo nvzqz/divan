@@ -7,8 +7,11 @@
 use divan::{
     black_box, black_box_drop,
     counter::{BytesCount, CharsCount},
-    Bencher,
+    AllocProfiler, Bencher,
 };
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::main();

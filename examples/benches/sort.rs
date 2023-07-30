@@ -4,8 +4,11 @@
 //! cargo bench -q -p examples --bench sort
 //! ```
 
-use divan::Bencher;
+use divan::{AllocProfiler, Bencher};
 use rayon::slice::ParallelSliceMut;
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::main();

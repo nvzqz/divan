@@ -5,6 +5,10 @@
 //! ```
 
 use digest::Digest;
+use divan::AllocProfiler;
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::main();

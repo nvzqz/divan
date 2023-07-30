@@ -6,9 +6,12 @@
 
 use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
 
-use divan::{black_box, Bencher};
+use divan::{black_box, AllocProfiler, Bencher};
 
 mod util;
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::main();

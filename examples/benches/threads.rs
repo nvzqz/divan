@@ -13,7 +13,10 @@ use std::{
     thread::{Thread, ThreadId},
 };
 
-use divan::{black_box, black_box_drop, Bencher};
+use divan::{black_box, black_box_drop, AllocProfiler, Bencher};
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::main();

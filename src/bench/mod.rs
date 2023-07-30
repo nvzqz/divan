@@ -8,15 +8,19 @@ use std::{
 };
 
 use crate::{
+    alloc::{
+        AllocOp, AllocOpMap, AllocTally, LocalAllocTally, LocalAllocTallyMap, ThreadAllocInfo,
+        TotalAllocTallyMap,
+    },
     black_box, black_box_drop,
     counter::{
         AnyCounter, AsCountUInt, BytesCount, CharsCount, Counter, CounterCollection, IntoCounter,
         ItemsCount, KnownCounterKind, MaxCountUInt,
     },
     divan::SharedContext,
-    stats::{RawSample, Sample, SampleCollection, Stats, ThreadSample},
+    stats::{RawSample, SampleCollection, Stats, StatsSet, ThreadSample, TimeSample},
     time::{FineDuration, Timestamp, UntaggedTimestamp},
-    util::{self, SyncWrap, Unit},
+    util::{self, LocalCount, SyncWrap, Unit},
 };
 
 #[cfg(test)]
@@ -642,7 +646,7 @@ impl<'a> BenchContext<'a> {
             if current_mode.is_tune() { timer.precision() } else { FineDuration::default() };
 
         if !is_test {
-            self.samples.all.reserve(self.options.sample_count.unwrap_or(1) as usize);
+            self.samples.time_samples.reserve(self.options.sample_count.unwrap_or(1) as usize);
         }
 
         let skip_ext_time = self.options.skip_ext_time.unwrap_or_default();
@@ -687,14 +691,14 @@ impl<'a> BenchContext<'a> {
                 };
 
                 // Sample loop:
-                let [start, end] = record_sample(
+                let ([start, end], alloc_tallies) = record_sample(
                     sample_size as usize,
                     barrier.as_ref(),
                     defer_store,
                     &mut count_input,
                 );
 
-                RawSample { start, end, timer, counter_totals }
+                RawSample { start, end, timer, alloc_tallies, counter_totals }
             };
 
             // Sample loop:
@@ -797,9 +801,17 @@ impl<'a> BenchContext<'a> {
             }
 
             for raw_sample in &raw_samples {
+                let sample_index = self.samples.time_samples.len();
+
                 self.samples
-                    .all
-                    .push(Sample { duration: sub_sample_overhead(raw_sample.duration()) });
+                    .time_samples
+                    .push(TimeSample { duration: sub_sample_overhead(raw_sample.duration()) });
+
+                if !raw_sample.alloc_tallies.is_empty() {
+                    self.samples
+                        .alloc_tallies
+                        .insert(sample_index as u32, raw_sample.alloc_tallies);
+                }
 
                 // Insert per-input counter information.
                 for counter_kind in KnownCounterKind::ALL {
@@ -840,8 +852,12 @@ impl<'a> BenchContext<'a> {
         gen_input: impl Fn() -> I,
         benched: impl Fn(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
-    ) -> impl Fn(usize, Option<&Barrier>, &mut DeferStore<I, O>, &mut dyn FnMut(&I)) -> [Timestamp; 2]
-    {
+    ) -> impl Fn(
+        usize,
+        Option<&Barrier>,
+        &mut DeferStore<I, O>,
+        &mut dyn FnMut(&I),
+    ) -> ([Timestamp; 2], LocalAllocTallyMap) {
         // We defer:
         // - Usage of `gen_input` values.
         // - Drop destructor for `O`, preventing it from affecting sample
@@ -855,13 +871,54 @@ impl<'a> BenchContext<'a> {
               barrier: Option<&Barrier>,
               defer_store: &mut DeferStore<I, O>,
               count_input: &mut dyn FnMut(&I)| {
-            // Ensures:
-            // - All threads start the timed section simultaneously.
-            // - Work external to the timed section does not affect the timing
-            //   of other threads.
-            let sync_threads = || {
-                if let Some(barrier) = barrier {
-                    barrier.wait();
+            let mut alloc_tallies = LocalAllocTallyMap::default();
+            let alloc_info = ThreadAllocInfo::try_current();
+
+            let mut sum_alloc_tallies = || {
+                if let Some(alloc_info) = alloc_info {
+                    alloc_tallies = alloc_info.tallies.load();
+                }
+            };
+
+            // Synchronize all threads to start timed section simultaneously and
+            // clear every thread's memory profiling info.
+            //
+            // This ensures work external to the timed section does not affect
+            // the timing of other threads.
+            let sync_threads = |is_start: bool| {
+                sync_impl(barrier, is_start);
+
+                // Monomorphize implementation to reduce code size.
+                #[inline(never)]
+                fn sync_impl(barrier: Option<&Barrier>, is_start: bool) {
+                    // Ensure benchmarked section has a `ThreadAllocInfo`
+                    // allocated for the current thread.
+                    if is_start {
+                        crate::alloc::init_current_thread_info();
+                    }
+
+                    // Synchronize all threads.
+                    //
+                    // This is the final synchronization point for the end.
+                    let is_leader = match barrier {
+                        // Single thread.
+                        None => true,
+
+                        // Multi thread.
+                        Some(barrier) => barrier.wait().is_leader(),
+                    };
+
+                    // Clear allocation information for all threads before starting.
+                    if is_start {
+                        if is_leader {
+                            ThreadAllocInfo::all().for_each(ThreadAllocInfo::clear);
+                        }
+
+                        // Synchronize all threads.
+                        if let Some(barrier) = barrier {
+                            barrier.wait();
+                        }
+                    }
                 }
             };
 
@@ -890,7 +947,7 @@ impl<'a> BenchContext<'a> {
                     mem::forget(input);
                 }
 
-                sync_threads();
+                sync_threads(true);
                 sample_start = UntaggedTimestamp::start(timer_kind);
 
                 // Sample loop:
@@ -903,7 +960,8 @@ impl<'a> BenchContext<'a> {
                 }
 
                 sample_end = UntaggedTimestamp::end(timer_kind);
-                sync_threads();
+                sync_threads(false);
+                sum_alloc_tallies();
 
                 // Drop outputs and inputs.
                 for _ in 0..sample_size {
@@ -942,7 +1000,7 @@ impl<'a> BenchContext<'a> {
                         // reduce benchmarking overhead.
                         let defer_slots_iter = defer_slots_slice.iter();
 
-                        sync_threads();
+                        sync_threads(true);
                         sample_start = UntaggedTimestamp::start(timer_kind);
 
                         // Sample loop:
@@ -957,7 +1015,8 @@ impl<'a> BenchContext<'a> {
                         }
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
-                        sync_threads();
+                        sync_threads(false);
+                        sum_alloc_tallies();
 
                         // Prevent the optimizer from removing writes to inputs
                         // and outputs in the sample loop.
@@ -994,7 +1053,7 @@ impl<'a> BenchContext<'a> {
                         // reduce benchmarking overhead.
                         let defer_inputs_iter = defer_inputs_slice.iter();
 
-                        sync_threads();
+                        sync_threads(true);
                         sample_start = UntaggedTimestamp::start(timer_kind);
 
                         // Sample loop:
@@ -1005,7 +1064,8 @@ impl<'a> BenchContext<'a> {
                         }
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
-                        sync_threads();
+                        sync_threads(false);
+                        sum_alloc_tallies();
 
                         // Prevent the optimizer from removing writes to inputs
                         // in the sample loop.
@@ -1024,9 +1084,11 @@ impl<'a> BenchContext<'a> {
 
             // SAFETY: These values are guaranteed to be the correct variant
             // because they were created from the same `timer_kind`.
-            unsafe {
+            let interval = unsafe {
                 [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
-            }
+            };
+
+            (interval, alloc_tallies)
         }
     }
 
@@ -1042,10 +1104,10 @@ impl<'a> BenchContext<'a> {
     }
 
     pub fn compute_stats(&self) -> Stats {
-        use crate::stats::StatsSet;
+        let time_samples = &self.samples.time_samples;
+        let alloc_samples = &self.samples.alloc_tallies;
 
-        let samples = &self.samples.all;
-        let sample_count = samples.len();
+        let sample_count = time_samples.len();
         let sample_size = self.samples.sample_size;
 
         let total_count = self.samples.iter_count();
@@ -1059,15 +1121,15 @@ impl<'a> BenchContext<'a> {
         let sorted_samples = self.samples.sorted_samples();
         let median_samples = util::slice_middle(&sorted_samples);
 
-        let index_of_sample = |sample: &Sample| -> usize {
+        let index_of_sample = |sample: &TimeSample| -> usize {
             // Safe pointer `offset_from`.
-            let start = self.samples.all.as_ptr() as usize;
-            let sample = sample as *const Sample as usize;
-            (sample - start) / mem::size_of::<Sample>()
+            let start = self.samples.time_samples.as_ptr() as usize;
+            let sample = sample as *const TimeSample as usize;
+            (sample - start) / mem::size_of::<TimeSample>()
         };
 
         let counter_count_for_sample =
-            |sample: &Sample, counter_kind: KnownCounterKind| -> Option<MaxCountUInt> {
+            |sample: &TimeSample, counter_kind: KnownCounterKind| -> Option<MaxCountUInt> {
                 let counts = self.counters.counts(counter_kind);
 
                 let index = if self.counters.uses_input_counts(counter_kind) {
@@ -1117,16 +1179,97 @@ impl<'a> BenchContext<'a> {
             })
         });
 
+        let sample_alloc_tally = |sample: Option<&TimeSample>, op: AllocOp| -> LocalAllocTally {
+            sample
+                .and_then(|sample| u32::try_from(index_of_sample(sample)).ok())
+                .and_then(|index| self.samples.alloc_tallies.get(&index))
+                .map(|alloc_info| alloc_info.get(op))
+                .copied()
+                .unwrap_or_default()
+        };
+
+        let mut alloc_total_tallies = TotalAllocTallyMap::default();
+        for alloc_info in alloc_samples.values() {
+            alloc_info.add_to_total(&mut alloc_total_tallies);
+        }
+
         Stats {
             sample_count: sample_count as u32,
             iter_count: total_count,
             time: StatsSet {
-                mean: mean_duration,
                 fastest: min_duration,
                 slowest: max_duration,
                 median: median_duration,
+                mean: mean_duration,
+            },
+            alloc_tallies: AllocOpMap {
+                values: AllocOp::ALL
+                    .map(|op| StatsSet {
+                        fastest: {
+                            let fastest = sample_alloc_tally(sorted_samples.first().copied(), op);
+
+                            AllocTally {
+                                count: fastest.count as f64 / f64::from(sample_size),
+                                size: fastest.size as f64 / f64::from(sample_size),
+                            }
+                        },
+                        slowest: {
+                            let slowest = sample_alloc_tally(sorted_samples.last().copied(), op);
+
+                            AllocTally {
+                                count: slowest.count as f64 / f64::from(sample_size),
+                                size: slowest.size as f64 / f64::from(sample_size),
+                            }
+                        },
+                        median: {
+                            let tally_for_median = |index: usize| -> LocalAllocTally {
+                                sample_alloc_tally(median_samples.get(index).copied(), op)
+                            };
+
+                            let a = tally_for_median(0);
+                            let b = tally_for_median(1);
+
+                            let median_count = median_samples.len().max(1) as LocalCount;
+
+                            let total_count = (a.count + b.count) / median_count;
+                            let total_size = (a.size + b.size) / median_count;
+
+                            AllocTally {
+                                count: total_count as f64 / f64::from(sample_size),
+                                size: total_size as f64 / f64::from(sample_size),
+                            }
+                        },
+                        mean: {
+                            let tally = alloc_total_tallies.get(op);
+                            AllocTally {
+                                count: tally.count as f64 / total_count as f64,
+                                size: tally.size as f64 / total_count as f64,
+                            }
+                        },
+                    })
+                    .map(StatsSet::transpose),
             },
             counts,
+        }
+    }
+}
+
+impl<T> StatsSet<AllocTally<T>> {
+    #[inline]
+    pub fn transpose(self) -> AllocTally<StatsSet<T>> {
+        AllocTally {
+            count: StatsSet {
+                fastest: self.fastest.count,
+                slowest: self.slowest.count,
+                median: self.median.count,
+                mean: self.mean.count,
+            },
+            size: StatsSet {
+                fastest: self.fastest.size,
+                slowest: self.slowest.size,
+                median: self.median.size,
+                mean: self.mean.size,
+            },
         }
     }
 }

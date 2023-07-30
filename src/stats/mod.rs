@@ -1,6 +1,7 @@
 //! Measurement statistics.
 
 use crate::{
+    alloc::{AllocOpMap, AllocTally},
     counter::{KnownCounterKind, MaxCountUInt},
     time::FineDuration,
 };
@@ -17,8 +18,14 @@ pub(crate) struct Stats {
     /// Total number of iterations (currently `sample_count * `sample_size`).
     pub iter_count: u64,
 
+    /// Timing statistics.
     pub time: StatsSet<FineDuration>,
 
+    /// Allocation statistics associated with the corresponding samples for
+    /// `time`.
+    pub alloc_tallies: AllocOpMap<AllocTally<StatsSet<f64>>>,
+
+    /// `Counter` counts associated with the corresponding samples for `time`.
     pub counts: [Option<StatsSet<MaxCountUInt>>; KnownCounterKind::COUNT],
 }
 
@@ -41,4 +48,10 @@ pub(crate) struct StatsSet<T> {
 
     /// Associated with average time taken by all iterations.
     pub mean: T,
+}
+
+impl StatsSet<f64> {
+    pub fn is_zero(&self) -> bool {
+        self.fastest == 0.0 && self.slowest == 0.0 && self.median == 0.0 && self.mean == 0.0
+    }
 }
