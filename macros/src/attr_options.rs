@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse::Parser, Expr, Ident};
+use syn::{parse::Parser, spanned::Spanned, Expr, Ident};
 
 /// Values from parsed options shared between `#[divan::bench]` and
 /// `#[divan::bench_group]`.
@@ -63,7 +63,17 @@ impl AttrOptions {
                 "crate" => parse!(divan_crate),
                 "name" => parse!(name_expr),
                 _ => {
-                    bench_options.push((ident.clone(), meta.value()?.parse()?));
+                    let value: Expr = match meta.value() {
+                        Ok(value) => value.parse()?,
+
+                        // If the option is missing `=`, use a `true` literal.
+                        Err(_) => Expr::Lit(syn::ExprLit {
+                            lit: syn::LitBool::new(true, meta.path.span()).into(),
+                            attrs: Vec::new(),
+                        }),
+                    };
+
+                    bench_options.push((ident.clone(), value));
                     Ok(())
                 }
             }

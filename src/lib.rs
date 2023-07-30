@@ -253,7 +253,7 @@ pub use std::hint::black_box;
 ///   }
 ///   ```
 ///
-/// - `#[divan::bench(skip_input_time = true)]`
+/// - `#[divan::bench(skip_input_time)]`
 ///
 ///   When `min_time` or `max_time` is set, time spent generating inputs is
 ///   included by default. Enabling the `skip_input_time` option will make only
@@ -267,12 +267,22 @@ pub use std::hint::black_box;
 ///   ```
 ///   # fn generate_input() {}
 ///   # fn measured_function(_: ()) {}
-///   #[divan::bench(max_time = 5, skip_input_time = true)]
+///   #[divan::bench(max_time = 5, skip_input_time)]
 ///   fn bench(bencher: divan::Bencher) {
 ///       bencher.bench_with_values(
 ///           || generate_input(),
 ///           |input| measured_function(input),
 ///       );
+///   }
+///   ```
+///
+///   This option can be set to an explicit [`bool`] value to override parent
+///   values:
+///
+///   ```
+///   #[divan::bench(max_time = 5, skip_input_time = false)]
+///   fn bench(bencher: divan::Bencher) {
+///       // ...
 ///   }
 ///   ```
 ///
@@ -518,7 +528,7 @@ pub use divan_macros::bench;
 ///   }
 ///   ```
 ///
-/// - `#[divan::bench_group(skip_input_time = true)]`
+/// - `#[divan::bench_group(skip_input_time)]`
 ///
 ///   When `min_time` or `max_time` is set, time spent generating inputs is
 ///   included by default. Enabling the `skip_input_time` option will make only
@@ -530,7 +540,7 @@ pub use divan_macros::bench;
 ///   running `measured_function`:
 ///
 ///   ```
-///   #[divan::bench_group(skip_input_time = true)]
+///   #[divan::bench_group(skip_input_time)]
 ///   mod group {
 ///       # fn generate_input() {}
 ///       # fn measured_function(_: ()) {}
@@ -541,6 +551,16 @@ pub use divan_macros::bench;
 ///               |input| measured_function(input),
 ///           );
 ///       }
+///   }
+///   ```
+///
+///   This option can be set to an explicit [`bool`] value to override parent
+///   values:
+///
+///   ```
+///   #[divan::bench_group(skip_input_time = false)]
+///   mod group {
+///       // ...
 ///   }
 ///   ```
 ///
