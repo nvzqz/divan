@@ -12,6 +12,7 @@ publish = false
 divan = { workspace = true }
 fastrand = "2"
 image = "0.24"
+rayon = "1"
 
 [[bench]]
 name = "collections"
@@ -27,6 +28,10 @@ harness = false
 
 [[bench]]
 name = "panic"
+harness = false
+
+[[bench]]
+name = "sort"
 harness = false
 
 [[bench]]
