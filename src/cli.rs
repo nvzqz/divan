@@ -105,14 +105,14 @@ pub fn command() -> Command {
             option("min-time")
                 .env("DIVAN_MIN_TIME")
                 .value_name("SECS")
-                .help("Set the minimum seconds spent measuring a single benchmark")
+                .help("Set the minimum seconds spent benchmarking a single function")
                 .value_parser(value_parser!(ParsedSeconds)),
         )
         .arg(
             option("max-time")
                 .env("DIVAN_MAX_TIME")
                 .value_name("SECS")
-                .help("Set the maximum seconds spent measuring a single benchmark, with priority over '--min-time'")
+                .help("Set the maximum seconds spent benchmarking a single function, with priority over '--min-time'")
                 .value_parser(value_parser!(ParsedSeconds)),
         )
         .arg(

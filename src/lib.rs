@@ -189,10 +189,12 @@ pub use std::hint::black_box;
 /// ## `min_time`
 /// [`min_time`]: #min_time
 ///
-/// The minimum time spent measuring each benchmark can be set to a
+/// The minimum time spent benchmarking each function can be set to a
 /// predetermined [`Duration`] via the [`min_time`] option. This may be
 /// overridden at runtime using either the `DIVAN_MIN_TIME` environment variable
 /// or `--min-time` CLI argument.
+///
+/// Unless [`skip_input_time`] is set, this includes input generation time.
 ///
 /// ```
 /// use std::time::Duration;
@@ -224,10 +226,12 @@ pub use std::hint::black_box;
 /// ## `max_time`
 /// [`max_time`]: #max_time
 ///
-/// The maximum time spent measuring each benchmark can be set to a
+/// The maximum time spent benchmarking each function can be set to a
 /// predetermined [`Duration`] via the [`max_time`] option. This may be
 /// overridden at runtime using either the `DIVAN_MAX_TIME` environment variable
 /// or `--max-time` CLI argument.
+///
+/// Unless [`skip_input_time`] is set, this includes input generation time.
 ///
 /// If `min_time > max_time`, then [`max_time`] has priority and [`min_time`]
 /// will not be reached.
@@ -469,10 +473,12 @@ pub use divan_macros::bench;
 /// ## `min_time`
 /// [`min_time`]: #min_time
 ///
-/// The minimum time spent measuring each benchmark can be set to a
+/// The minimum time spent benchmarking each function can be set to a
 /// predetermined [`Duration`] via the [`min_time`] option. This may be
 /// overridden at runtime using either the `DIVAN_MIN_TIME` environment variable
 /// or `--min-time` CLI argument.
+///
+/// Unless [`skip_input_time`] is set, this includes input generation time.
 ///
 /// ```
 /// use std::time::Duration;
@@ -505,10 +511,12 @@ pub use divan_macros::bench;
 /// ## `max_time`
 /// [`max_time`]: #max_time
 ///
-/// The maximum time spent measuring each benchmark can be set to a
+/// The maximum time spent benchmarking each function can be set to a
 /// predetermined [`Duration`] via the [`max_time`] option. This may be
 /// overridden at runtime using either the `DIVAN_MAX_TIME` environment variable
 /// or `--max-time` CLI argument.
+///
+/// Unless [`skip_input_time`] is set, this includes input generation time.
 ///
 /// If `min_time > max_time`, then [`max_time`] has priority and [`min_time`]
 /// will not be reached.
