@@ -47,6 +47,20 @@ with your benchmarking code:
 
 3. Run your benchmarks with [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html).
 
+## Examples
+
+Practical example benchmarks can be found in the [`examples/benches`](https://github.com/nvzqz/divan/tree/main/examples/benches)
+directory. These can be benchmarked locally by running:
+
+```sh
+git clone https://github.com/nvzqz/divan.git
+cd divan
+
+cargo bench -p examples
+```
+
+More thorough usage examples can be found in the [`#[divan::bench]` documentation][bench_attr_examples].
+
 ## License
 
 Like the Rust project, this library may be used under either the
@@ -54,3 +68,4 @@ Like the Rust project, this library may be used under either the
 [Apache License (Version 2.0)](https://github.com/nvzqz/divan/blob/main/LICENSE-APACHE).
 
 [bench_attr]: https://docs.rs/divan/latest/divan/attr.bench.html
+[bench_attr_examples]: https://docs.rs/divan/latest/divan/attr.bench.html#examples

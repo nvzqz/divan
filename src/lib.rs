@@ -1,4 +1,5 @@
-//! [bench_attr]: attr.bench.html
+//! [bench_attr]: macro@bench
+//! [bench_attr_examples]: macro@bench#examples
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![allow(unused_unsafe, clippy::needless_doctest_main)]
