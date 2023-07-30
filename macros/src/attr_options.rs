@@ -45,7 +45,8 @@ impl AttrOptions {
             let ident_name = ident.to_string();
             let ident_name = ident_name.strip_prefix("r#").unwrap_or(&ident_name);
 
-            let repeat_error = || Err(meta.error(format_args!("repeated '{macro_name}' option")));
+            let repeat_error =
+                || Err(meta.error(format_args!("repeated '{macro_name}' option '{ident_name}'")));
 
             macro_rules! parse {
                 ($storage:expr) => {
