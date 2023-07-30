@@ -38,6 +38,13 @@ impl AttrOptions {
         let mut bench_options = Vec::new();
 
         let attr_parser = syn::meta::parser(|meta| {
+            let Some(ident) = meta.path.get_ident() else {
+                return Err(meta.error(format_args!("unsupported '{macro_name}' option")));
+            };
+
+            let ident_name = ident.to_string();
+            let ident_name = ident_name.strip_prefix("r#").unwrap_or(&ident_name);
+
             let repeat_error = || Err(meta.error(format_args!("repeated '{macro_name}' option")));
 
             macro_rules! parse {
@@ -51,15 +58,13 @@ impl AttrOptions {
                 };
             }
 
-            if meta.path.is_ident("crate") {
-                parse!(divan_crate)
-            } else if meta.path.is_ident("name") {
-                parse!(name_expr)
-            } else if let Some(ident) = meta.path.get_ident() {
-                bench_options.push((ident.clone(), meta.value()?.parse()?));
-                Ok(())
-            } else {
-                Err(meta.error(format_args!("unsupported '{macro_name}' option")))
+            match ident_name {
+                "crate" => parse!(divan_crate),
+                "name" => parse!(name_expr),
+                _ => {
+                    bench_options.push((ident.clone(), meta.value()?.parse()?));
+                    Ok(())
+                }
             }
         });
 

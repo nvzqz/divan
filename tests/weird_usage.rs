@@ -30,6 +30,9 @@ fn embedded() {
 #[divan::bench]
 fn r#raw_ident() {}
 
+#[divan::bench(r#name = "raw name ident")]
+fn raw_name_ident() {}
+
 #[divan::bench]
 extern "system" fn extern_abi_1() {}
 
