@@ -123,6 +123,15 @@ pub use std::hint::black_box;
 ///
 /// # Options
 ///
+/// - [`name`]
+/// - [`crate`]
+/// - [`sample_count`]
+/// - [`sample_size`]
+/// - [`min_time`]
+/// - [`max_time`]
+/// - [`skip_input_time`]
+/// - [`ignore`]
+///
 /// ## `name`
 /// [`name`]: #name
 ///
@@ -394,6 +403,15 @@ pub use divan_macros::bench;
 ///
 /// # Options
 /// [options]: #options
+///
+/// - [`name`]
+/// - [`crate`]
+/// - [`sample_count`]
+/// - [`sample_size`]
+/// - [`min_time`]
+/// - [`max_time`]
+/// - [`skip_input_time`]
+/// - [`ignore`]
 ///
 /// ## `name`
 /// [`name`]: #name
