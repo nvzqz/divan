@@ -278,11 +278,48 @@ impl Context {
             let start: AnyTimestamp;
             let end: AnyTimestamp;
 
-            if mem::size_of::<I>() == 0 && !mem::needs_drop::<O>() {
+            if mem::size_of::<I>() == 0 && mem::size_of::<O>() == 0 {
+                // If inputs and outputs are ZSTs, we can skip using
+                // `defer_store` altogether. This makes the benchmarking loop
+                // cheaper for e.g. `Bencher::bench`, which uses `()` inputs and
+                // outputs.
+
+                // Run `gen_input` the expected number of times in case it
+                // updates external state used by `benched`. We `mem::forget`
+                // here because inputs are consumed/dropped later by `benched`.
+                for _ in 0..sample_size {
+                    mem::forget(gen_input());
+                }
+
+                start = AnyTimestamp::start(timer_kind);
+
+                // Sample loop:
+                for _ in 0..sample_size {
+                    // SAFETY: Input is a ZST, so we can construct one out of
+                    // thin air.
+                    let input = unsafe { UnsafeCell::new(MaybeUninit::<I>::zeroed()) };
+
+                    mem::forget(black_box(benched(&input)));
+                }
+
+                end = AnyTimestamp::end(timer_kind);
+
+                // Drop outputs and inputs.
+                for _ in 0..sample_size {
+                    // SAFETY: Output is a ZST, so we can construct one out
+                    // of thin air.
+                    unsafe { _ = mem::zeroed::<O>() }
+
+                    if mem::needs_drop::<I>() {
+                        // SAFETY: Input is a ZST, so we can construct one out
+                        // of thin air and not worry about aliasing.
+                        unsafe { drop_input(&UnsafeCell::new(MaybeUninit::<I>::zeroed())) }
+                    }
+                }
+            } else if mem::size_of::<I>() == 0 && !mem::needs_drop::<O>() {
                 // If inputs are ZSTs and outputs do not need to be dropped, we
                 // can skip using `defer_store` altogether. This makes the
-                // benchmarking loop cheaper for e.g. `Bencher::bench`, which
-                // uses `()` inputs.
+                // benchmarking loop cheaper.
 
                 // Run `gen_input` the expected number of times in case it
                 // updates external state used by `benched`. We `mem::forget`
@@ -304,6 +341,7 @@ impl Context {
 
                 end = AnyTimestamp::end(timer_kind);
 
+                // Drop inputs.
                 if mem::needs_drop::<I>() {
                     for _ in 0..sample_size {
                         // SAFETY: Input is a ZST, so we can construct one out
