@@ -278,8 +278,8 @@ impl Context {
                 elapsed_picos < min_picos
             }
         } {
-            let start: AnyTimestamp;
-            let end: AnyTimestamp;
+            let sample_start: AnyTimestamp;
+            let sample_end: AnyTimestamp;
 
             if mem::size_of::<I>() == 0 && mem::size_of::<O>() == 0 {
                 // If inputs and outputs are ZSTs, we can skip using
@@ -294,7 +294,7 @@ impl Context {
                     mem::forget(gen_input());
                 }
 
-                start = AnyTimestamp::start(timer_kind);
+                sample_start = AnyTimestamp::start(timer_kind);
 
                 // Sample loop:
                 for _ in 0..sample_size {
@@ -305,7 +305,7 @@ impl Context {
                     mem::forget(black_box(benched(&input)));
                 }
 
-                end = AnyTimestamp::end(timer_kind);
+                sample_end = AnyTimestamp::end(timer_kind);
 
                 // Drop outputs and inputs.
                 for _ in 0..sample_size {
@@ -331,7 +331,7 @@ impl Context {
                     mem::forget(gen_input());
                 }
 
-                start = AnyTimestamp::start(timer_kind);
+                sample_start = AnyTimestamp::start(timer_kind);
 
                 // Sample loop:
                 for _ in 0..sample_size {
@@ -342,7 +342,7 @@ impl Context {
                     _ = black_box(benched(&input));
                 }
 
-                end = AnyTimestamp::end(timer_kind);
+                sample_end = AnyTimestamp::end(timer_kind);
 
                 // Drop inputs.
                 if mem::needs_drop::<I>() {
@@ -371,7 +371,7 @@ impl Context {
                         // reduce benchmarking overhead.
                         let defer_slots_iter = black_box(defer_slots_slice.iter());
 
-                        start = AnyTimestamp::start(timer_kind);
+                        sample_start = AnyTimestamp::start(timer_kind);
 
                         // Sample loop:
                         for defer_slot in defer_slots_iter {
@@ -394,7 +394,7 @@ impl Context {
                             _ = black_box(defer_slot);
                         }
 
-                        end = AnyTimestamp::end(timer_kind);
+                        sample_end = AnyTimestamp::end(timer_kind);
 
                         // Drop outputs and inputs.
                         for DeferSlot { input, output } in defer_slots_slice {
@@ -424,7 +424,7 @@ impl Context {
                         // reduce benchmarking overhead.
                         let defer_inputs_iter = black_box(defer_inputs_slice.iter());
 
-                        start = AnyTimestamp::start(timer_kind);
+                        sample_start = AnyTimestamp::start(timer_kind);
 
                         // Sample loop:
                         for input in defer_inputs_iter {
@@ -433,7 +433,7 @@ impl Context {
                             _ = black_box(unsafe { benched(input) });
                         }
 
-                        end = AnyTimestamp::end(timer_kind);
+                        sample_end = AnyTimestamp::end(timer_kind);
 
                         // Drop inputs.
                         if mem::needs_drop::<I>() {
@@ -448,18 +448,19 @@ impl Context {
 
             // SAFETY: These values are guaranteed to be the correct variant
             // because they were created from the same `timer_kind`.
-            let [start, end] =
-                unsafe { [start.into_timestamp(timer_kind), end.into_timestamp(timer_kind)] };
+            let [sample_start, sample_end] = unsafe {
+                [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
+            };
 
-            let raw_duration = end.duration_since(start, self.timer);
+            let raw_duration = sample_end.duration_since(sample_start, self.timer);
 
             // Account for the per-sample benchmarking overhead.
             let adjusted_duration =
                 FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead.picos) };
 
             self.samples.push(Sample {
-                start,
-                end,
+                start: sample_start,
+                end: sample_end,
                 size: sample_size,
                 total_duration: adjusted_duration,
             });
@@ -471,7 +472,7 @@ impl Context {
                 rem_samples = rem_samples.saturating_sub(1);
 
                 if let Some(initial_start) = initial_start {
-                    elapsed_picos = end.duration_since(initial_start, self.timer).picos;
+                    elapsed_picos = sample_end.duration_since(initial_start, self.timer).picos;
                 } else {
                     // Progress by at least 1ns to prevent extremely fast
                     // functions from taking forever when `min_time` is set.
