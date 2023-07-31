@@ -1,46 +1,104 @@
-use std::{cell::UnsafeCell, mem::MaybeUninit};
+use std::{
+    cell::UnsafeCell,
+    mem::{ManuallyDrop, MaybeUninit},
+};
 
-/// Stores input and output values together to defer usage and drop during
-/// benchmarking.
+/// Defers input usage and output drop during benchmarking.
 ///
-/// Inputs are stored are stored contiguously with outputs in memory. This
-/// improves performance by:
-/// - Removing the overhead of `zip` between two separate buffers.
-/// - Improving cache locality and cache prefetching. Input is strategically
-///   placed before output because iteration is from low to high addresses, so
-///   doing this makes memory access patterns very predictable.
-pub(crate) struct DeferStore<I, O> {
-    // TODO: Reduce memory usage by not allocating space for outputs when they
-    // do not need to be dropped.
-    slots: Vec<DeferSlot<I, O>>,
+/// To reduce memory usage, this only allocates storage for inputs if outputs do
+/// not need deferred drop.
+pub(crate) union DeferStore<I, O> {
+    /// The variant used if outputs need to be dropped.
+    ///
+    /// Inputs are stored are stored contiguously with outputs in memory. This
+    /// improves performance by:
+    /// - Removing the overhead of `zip` between two separate buffers.
+    /// - Improving cache locality and cache prefetching. Input is strategically
+    ///   placed before output because iteration is from low to high addresses,
+    ///   so doing this makes memory access patterns very predictable.
+    slots: ManuallyDrop<Vec<DeferSlot<I, O>>>,
+
+    /// The variant used if `Self::ONLY_INPUTS`, i.e. outputs do not need to be
+    /// dropped.
+    inputs: ManuallyDrop<Vec<DeferSlotItem<I>>>,
+}
+
+impl<I, O> Drop for DeferStore<I, O> {
+    #[inline]
+    fn drop(&mut self) {
+        // SAFETY: The correct variant is used based on `ONLY_INPUTS`.
+        unsafe {
+            if Self::ONLY_INPUTS {
+                ManuallyDrop::drop(&mut self.inputs)
+            } else {
+                ManuallyDrop::drop(&mut self.slots)
+            }
+        }
+    }
 }
 
 impl<I, O> Default for DeferStore<I, O> {
     #[inline]
     fn default() -> Self {
-        Self { slots: Vec::new() }
+        // SAFETY: The correct variant is used based on `ONLY_INPUTS`.
+        unsafe {
+            if Self::ONLY_INPUTS {
+                Self { inputs: ManuallyDrop::new(Vec::new()) }
+            } else {
+                Self { slots: ManuallyDrop::new(Vec::new()) }
+            }
+        }
     }
 }
 
 impl<I, O> DeferStore<I, O> {
+    /// Whether only inputs need to be deferred.
+    ///
+    /// If `true`, outputs do not get inserted into `DeferStore`.
+    const ONLY_INPUTS: bool = !std::mem::needs_drop::<O>();
+
     /// Prepares storage for iterating over `DeferSlot`s for a sample.
     #[inline]
     pub fn prepare(&mut self, sample_size: usize) {
-        self.slots.clear();
-        self.slots.reserve_exact(sample_size);
+        // Common implementation regardless of `Vec` item type.
+        macro_rules! imp {
+            ($vec:expr) => {{
+                $vec.clear();
+                $vec.reserve_exact(sample_size);
 
-        // SAFETY: `DeferSlot` only contains `MaybeUninit` fields, so
-        // `MaybeUninit<DeferSlot>` may be safely represented as `DeferSlot`.
-        unsafe { self.slots.set_len(sample_size) }
+                // SAFETY: `Vec` only contains `MaybeUninit` fields, so values
+                // may be safely created from uninitialized memory.
+                unsafe { $vec.set_len(sample_size) }
+            }};
+        }
+
+        // SAFETY: The correct variant is used based on `ONLY_INPUTS`.
+        unsafe {
+            if Self::ONLY_INPUTS {
+                imp!(self.inputs)
+            } else {
+                imp!(self.slots)
+            }
+        }
     }
 
     /// Returns the sample's slots for iteration.
     ///
     /// The caller is expected to use the returned slice to initialize inputs
     /// for the sample loop.
-    #[inline]
-    pub fn slots(&self) -> &[DeferSlot<I, O>] {
-        &self.slots
+    ///
+    /// This returns `Err` containing only input slots if `O` does not need
+    /// deferred drop. Ideally this would be implemented directly on `DeferSlot`
+    /// but there's no way to change its size based on `needs_drop::<O>()`.
+    #[inline(always)]
+    pub fn slots(&self) -> Result<&[DeferSlot<I, O>], &[DeferSlotItem<I>]> {
+        unsafe {
+            if Self::ONLY_INPUTS {
+                Err(&self.inputs)
+            } else {
+                Ok(&self.slots)
+            }
+        }
     }
 }
 
@@ -61,9 +119,11 @@ impl<I, O> DeferStore<I, O> {
 /// length of `Vec<DeferSlot>` within the allocated capacity.
 #[repr(C)]
 pub(crate) struct DeferSlot<I, O> {
-    pub input: UnsafeCell<MaybeUninit<I>>,
-    pub output: UnsafeCell<MaybeUninit<O>>,
+    pub input: DeferSlotItem<I>,
+    pub output: DeferSlotItem<O>,
 }
+
+type DeferSlotItem<T> = UnsafeCell<MaybeUninit<T>>;
 
 #[cfg(test)]
 mod tests {

@@ -313,73 +313,94 @@ impl Context {
                 }
             } else {
                 defer_store.prepare(sample_size as usize);
-                let defer_slots_slice = defer_store.slots();
 
-                // Initialize and store inputs.
-                for defer_slot in defer_slots_slice {
-                    // SAFETY: We have exclusive access to `input`.
-                    let input = unsafe { &mut *defer_slot.input.get() };
+                match defer_store.slots() {
+                    // Output needs to be dropped. We defer drop in the sample
+                    // loop by inserting it into `defer_store`.
+                    Ok(defer_slots_slice) => {
+                        // Initialize and store inputs.
+                        for DeferSlot { input, .. } in defer_slots_slice {
+                            // SAFETY: We have exclusive access to `input`.
+                            let input = unsafe { &mut *input.get() };
 
-                    *input = MaybeUninit::new(gen_input());
-                }
-
-                // Create iterator before the sample timing section to reduce
-                // benchmarking overhead.
-                let defer_slots_iter = black_box(defer_slots_slice.iter());
-
-                if mem::needs_drop::<O>() {
-                    // If output needs to be dropped, we defer drop in the
-                    // sample loop by inserting it into `defer_store`.
-
-                    start = AnyTimestamp::start(timer_kind);
-
-                    // Sample loop:
-                    for defer_slot in defer_slots_iter {
-                        // SAFETY: All inputs in `defer_store` were initialized
-                        // and we have exclusive access to the output slot.
-                        unsafe {
-                            let output = benched(&defer_slot.input);
-                            *defer_slot.output.get() = MaybeUninit::new(output);
+                            *input = MaybeUninit::new(gen_input());
                         }
 
-                        // PERF: `black_box` the defer slot's address because:
-                        // - It prevents `input` mutation from being optimized
-                        //   out.
-                        // - `black_box` writes its input to the stack. Using
-                        //   the slot address instead of the output by-value
-                        //   reduces overhead when `O` is a larger type like
-                        //   `String` since then it will write a single word
-                        //   instead of three words.
-                        _ = black_box(defer_slot);
+                        // Create iterator before the sample timing section to
+                        // reduce benchmarking overhead.
+                        let defer_slots_iter = black_box(defer_slots_slice.iter());
+
+                        start = AnyTimestamp::start(timer_kind);
+
+                        // Sample loop:
+                        for defer_slot in defer_slots_iter {
+                            // SAFETY: All inputs in `defer_store` were
+                            // initialized and we have exclusive access to the
+                            // output slot.
+                            unsafe {
+                                let output = benched(&defer_slot.input);
+                                *defer_slot.output.get() = MaybeUninit::new(output);
+                            }
+
+                            // PERF: `black_box` the slot address because:
+                            // - It prevents `input` mutation from being
+                            //   optimized out.
+                            // - `black_box` writes its input to the stack.
+                            //   Using the slot address instead of the output
+                            //   by-value reduces overhead when `O` is a larger
+                            //   type like `String` since then it will write a
+                            //   single word instead of three words.
+                            _ = black_box(defer_slot);
+                        }
+
+                        end = AnyTimestamp::end(timer_kind);
+
+                        // Drop outputs and inputs.
+                        for DeferSlot { input, output } in defer_slots_slice {
+                            // SAFETY: All outputs were initialized in the
+                            // sample loop and we have exclusive access.
+                            unsafe { (*output.get()).assume_init_drop() }
+
+                            if mem::needs_drop::<I>() {
+                                // SAFETY: The output was dropped and thus we
+                                // have exclusive access to inputs.
+                                unsafe { drop_input(input) }
+                            }
+                        }
                     }
 
-                    end = AnyTimestamp::end(timer_kind);
+                    // Output does not need to be dropped.
+                    Err(defer_inputs_slice) => {
+                        // Initialize and store inputs.
+                        for input in defer_inputs_slice {
+                            // SAFETY: We have exclusive access to `input`.
+                            let input = unsafe { &mut *input.get() };
 
-                    // SAFETY: All outputs were initialized in the sample loop
-                    // and we have exclusive access.
-                    for defer_slot in defer_slots_slice {
-                        unsafe { (*defer_slot.output.get()).assume_init_drop() }
-                    }
-                } else {
-                    // Outputs do not need to have deferred drop, but inputs
-                    // still need to be retrieved from `defer_store`.
+                            *input = MaybeUninit::new(gen_input());
+                        }
 
-                    start = AnyTimestamp::start(timer_kind);
+                        // Create iterator before the sample timing section to
+                        // reduce benchmarking overhead.
+                        let defer_inputs_iter = black_box(defer_inputs_slice.iter());
 
-                    // Sample loop:
-                    for DeferSlot { input, .. } in defer_slots_iter {
-                        // SAFETY: All inputs in `defer_store` were initialized.
-                        _ = black_box(unsafe { benched(input) });
-                    }
+                        start = AnyTimestamp::start(timer_kind);
 
-                    end = AnyTimestamp::end(timer_kind);
-                }
+                        // Sample loop:
+                        for input in defer_inputs_iter {
+                            // SAFETY: All inputs in `defer_store` were
+                            // initialized.
+                            _ = black_box(unsafe { benched(input) });
+                        }
 
-                if mem::needs_drop::<I>() {
-                    for defer_slot in defer_slots_slice {
-                        // SAFETY: All outputs were dropped and we thus have
-                        // exclusive access to inputs.
-                        unsafe { drop_input(&defer_slot.input) }
+                        end = AnyTimestamp::end(timer_kind);
+
+                        // Drop inputs.
+                        if mem::needs_drop::<I>() {
+                            for input in defer_inputs_slice {
+                                // SAFETY: We have exclusive access to inputs.
+                                unsafe { drop_input(input) }
+                            }
+                        }
                     }
                 }
             }
