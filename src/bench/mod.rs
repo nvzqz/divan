@@ -255,15 +255,13 @@ impl Context {
         let sample_overhead =
             FineDuration { picos: self.overhead.picos.saturating_mul(sample_size as u128) };
 
-        self.samples.reserve_exact(rem_samples as usize);
+        if !self.is_test {
+            self.samples.reserve_exact(rem_samples as usize);
+        }
 
         let skip_input_time = self.options.skip_input_time.unwrap_or_default();
         let initial_start = if skip_input_time { None } else { Some(Timestamp::start(timer_kind)) };
 
-        // NOTE: Aside from handling sample count and size, testing and
-        // benchmarking should behave exactly the same since we don't want to
-        // introduce extra work in benchmarks just to handle tests. Doing so may
-        // worsen measurement quality for real benchmarking.
         while {
             // Conditions for when sampling is over:
             if elapsed_picos >= max_picos {
@@ -278,6 +276,14 @@ impl Context {
                 elapsed_picos < min_picos
             }
         } {
+            // The following logic chooses how to efficiently sample the
+            // benchmark function once and assigns `sample_start`/`sample_end`
+            // before/after the sample loop.
+            //
+            // NOTE: Testing and benchmarking should behave exactly the same
+            // when getting the sample time span. We don't want to introduce
+            // extra work that may worsen measurement quality for real
+            // benchmarking.
             let sample_start: AnyTimestamp;
             let sample_end: AnyTimestamp;
 
@@ -446,6 +452,12 @@ impl Context {
                 }
             }
 
+            // If testing, exit the benchmarking loop immediately after timing a
+            // single run.
+            if self.is_test {
+                break;
+            }
+
             // SAFETY: These values are guaranteed to be the correct variant
             // because they were created from the same `timer_kind`.
             let [sample_start, sample_end] = unsafe {
@@ -465,20 +477,15 @@ impl Context {
                 total_duration: adjusted_duration,
             });
 
-            if self.is_test {
-                elapsed_picos = u128::MAX;
-                rem_samples = 0;
-            } else {
-                rem_samples = rem_samples.saturating_sub(1);
+            rem_samples = rem_samples.saturating_sub(1);
 
-                if let Some(initial_start) = initial_start {
-                    elapsed_picos = sample_end.duration_since(initial_start, self.timer).picos;
-                } else {
-                    // Progress by at least 1ns to prevent extremely fast
-                    // functions from taking forever when `min_time` is set.
-                    let progress_picos = raw_duration.picos.max(1_000);
-                    elapsed_picos = elapsed_picos.saturating_add(progress_picos);
-                }
+            if let Some(initial_start) = initial_start {
+                elapsed_picos = sample_end.duration_since(initial_start, self.timer).picos;
+            } else {
+                // Progress by at least 1ns to prevent extremely fast
+                // functions from taking forever when `min_time` is set.
+                let progress_picos = raw_duration.picos.max(1_000);
+                elapsed_picos = elapsed_picos.saturating_add(progress_picos);
             }
         }
     }

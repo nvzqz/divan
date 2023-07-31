@@ -16,22 +16,28 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
     for timer in Timer::available() {
         for is_test in [true, false] {
             let mut did_run = false;
-            test(Bencher {
-                did_run: &mut did_run,
-                context: &mut Context::new(
-                    is_test,
-                    timer,
-                    FineDuration::default(),
-                    BenchOptions {
-                        sample_count: Some(SAMPLE_COUNT),
-                        sample_size: Some(SAMPLE_SIZE),
-                        min_time: None,
-                        max_time: None,
-                        skip_input_time: None,
-                    },
-                ),
-            });
+            let mut context = Context::new(
+                is_test,
+                timer,
+                FineDuration::default(),
+                BenchOptions {
+                    sample_count: Some(SAMPLE_COUNT),
+                    sample_size: Some(SAMPLE_SIZE),
+                    min_time: None,
+                    max_time: None,
+                    skip_input_time: None,
+                },
+            );
+
+            test(Bencher { did_run: &mut did_run, context: &mut context });
+
             assert!(did_run);
+
+            // '--test' should run the expected number of times but not allocate
+            // any samples.
+            if is_test {
+                assert_eq!(context.samples.capacity(), 0);
+            }
         }
     }
 }
