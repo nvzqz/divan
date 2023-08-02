@@ -10,6 +10,7 @@ use crate::{
     defer::{DeferSlot, DeferStore},
     stats::{Sample, Stats},
     time::{AnyTimestamp, FineDuration, Timer, Timestamp},
+    util::ConfigFnMut,
 };
 
 #[cfg(test)]
@@ -34,7 +35,7 @@ mod tests;
 /// }
 /// ```
 #[must_use = "a benchmark function must be registered"]
-pub struct Bencher<'a, C = ()> {
+pub struct Bencher<'a, C = BencherConfig> {
     pub(crate) did_run: &'a mut bool,
     pub(crate) context: &'a mut Context,
     pub(crate) config: C,
@@ -44,8 +45,11 @@ pub struct Bencher<'a, C = ()> {
 ///
 /// This enables configuring `Bencher` using the builder pattern with zero
 /// runtime cost.
-pub struct BencherConfig<G> {
-    gen_input: G,
+#[derive(Default)]
+pub struct BencherConfig<GenI = (), BeforeS = (), AfterS = ()> {
+    gen_input: GenI,
+    before_sample: BeforeS,
+    after_sample: AfterS,
 }
 
 impl<C> fmt::Debug for Bencher<'_, C> {
@@ -57,9 +61,15 @@ impl<C> fmt::Debug for Bencher<'_, C> {
 impl<'a> Bencher<'a> {
     #[inline]
     pub(crate) fn new(did_run: &'a mut bool, context: &'a mut Context) -> Self {
-        Self { did_run, context, config: () }
+        Self { did_run, context, config: BencherConfig::default() }
     }
+}
 
+impl<'a, BeforeS, AfterS> Bencher<'a, BencherConfig<(), BeforeS, AfterS>>
+where
+    BeforeS: ConfigFnMut,
+    AfterS: ConfigFnMut,
+{
     /// Benchmarks a function.
     ///
     /// # Examples
@@ -101,22 +111,95 @@ impl<'a> Bencher<'a> {
     ///         });
     /// }
     /// ```
-    pub fn with_inputs<I, G>(self, gen_input: G) -> Bencher<'a, BencherConfig<G>>
+    pub fn with_inputs<I, G>(self, gen_input: G) -> Bencher<'a, BencherConfig<G, BeforeS, AfterS>>
     where
         G: FnMut() -> I,
     {
         Bencher {
             did_run: self.did_run,
             context: self.context,
-            config: BencherConfig { gen_input },
+            config: BencherConfig {
+                gen_input,
+                before_sample: self.config.before_sample,
+                after_sample: self.config.after_sample,
+            },
+        }
+    }
+}
+
+impl<'a, GenI, BeforeS, AfterS> Bencher<'a, BencherConfig<GenI, BeforeS, AfterS>> {
+    /// Calls the given function immediately before measuring a sample timing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     bencher
+    ///         .before_sample(|| {
+    ///             // Prepare for the next sample…
+    ///         })
+    ///         .bench(|| {
+    ///             // Sampled code…
+    ///         });
+    /// }
+    /// ```
+    pub fn before_sample<F>(self, before_sample: F) -> Bencher<'a, BencherConfig<GenI, F, AfterS>>
+    where
+        F: FnMut(),
+    {
+        Bencher {
+            did_run: self.did_run,
+            context: self.context,
+            config: BencherConfig {
+                gen_input: self.config.gen_input,
+                before_sample,
+                after_sample: self.config.after_sample,
+            },
+        }
+    }
+
+    /// Calls the given function immediately after measuring a sample timing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     bencher
+    ///         .before_sample(|| {
+    ///             // Prepare for the next sample…
+    ///         })
+    ///         .after_sample(|| {
+    ///             // Collect info since `before_sample`…
+    ///         })
+    ///         .bench(|| {
+    ///             // Sampled code…
+    ///         });
+    /// }
+    /// ```
+    pub fn after_sample<F>(self, after_sample: F) -> Bencher<'a, BencherConfig<GenI, BeforeS, F>>
+    where
+        F: FnMut(),
+    {
+        Bencher {
+            did_run: self.did_run,
+            context: self.context,
+            config: BencherConfig {
+                gen_input: self.config.gen_input,
+                before_sample: self.config.before_sample,
+                after_sample,
+            },
         }
     }
 }
 
 /// <span id="input-bench"></span> Benchmark over [generated inputs](Self::with_inputs).
-impl<I, G> Bencher<'_, BencherConfig<G>>
+impl<I, GenI, BeforeS, AfterS> Bencher<'_, BencherConfig<GenI, BeforeS, AfterS>>
 where
-    G: FnMut() -> I,
+    GenI: FnMut() -> I,
+    BeforeS: ConfigFnMut,
+    AfterS: ConfigFnMut,
 {
     /// Benchmarks a function over per-iteration [generated inputs](Self::with_inputs),
     /// provided by-value.
@@ -147,7 +230,7 @@ where
         *self.did_run = true;
 
         self.context.bench_loop(
-            self.config.gen_input,
+            self.config,
             |input| {
                 // SAFETY: Input is guaranteed to be initialized and not
                 // currently referenced by anything else.
@@ -190,7 +273,7 @@ where
         *self.did_run = true;
 
         self.context.bench_loop(
-            self.config.gen_input,
+            self.config,
             |input| {
                 // SAFETY: Input is guaranteed to be initialized and not
                 // currently referenced by anything else.
@@ -292,7 +375,7 @@ impl Context {
     ///   escaped references to `I`.
     pub fn bench_loop<I, O>(
         &mut self,
-        mut gen_input: impl FnMut() -> I,
+        mut config: BencherConfig<impl FnMut() -> I, impl ConfigFnMut, impl ConfigFnMut>,
         mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
     ) {
@@ -387,9 +470,10 @@ impl Context {
                 // updates external state used by `benched`. We `mem::forget`
                 // here because inputs are consumed/dropped later by `benched`.
                 for _ in 0..sample_size {
-                    mem::forget(gen_input());
+                    mem::forget((config.gen_input)());
                 }
 
+                config.before_sample.call_mut();
                 sample_start = AnyTimestamp::start(timer_kind);
 
                 // Sample loop:
@@ -402,6 +486,7 @@ impl Context {
                 }
 
                 sample_end = AnyTimestamp::end(timer_kind);
+                config.after_sample.call_mut();
 
                 // Drop outputs and inputs.
                 for _ in 0..sample_size {
@@ -424,9 +509,10 @@ impl Context {
                 // updates external state used by `benched`. We `mem::forget`
                 // here because inputs are consumed/dropped later by `benched`.
                 for _ in 0..sample_size {
-                    mem::forget(gen_input());
+                    mem::forget((config.gen_input)());
                 }
 
+                config.before_sample.call_mut();
                 sample_start = AnyTimestamp::start(timer_kind);
 
                 // Sample loop:
@@ -439,6 +525,7 @@ impl Context {
                 }
 
                 sample_end = AnyTimestamp::end(timer_kind);
+                config.after_sample.call_mut();
 
                 // Drop inputs.
                 if mem::needs_drop::<I>() {
@@ -460,13 +547,14 @@ impl Context {
                             // SAFETY: We have exclusive access to `input`.
                             let input = unsafe { &mut *input.get() };
 
-                            *input = MaybeUninit::new(gen_input());
+                            *input = MaybeUninit::new((config.gen_input)());
                         }
 
                         // Create iterator before the sample timing section to
                         // reduce benchmarking overhead.
                         let defer_slots_iter = black_box(defer_slots_slice.iter());
 
+                        config.before_sample.call_mut();
                         sample_start = AnyTimestamp::start(timer_kind);
 
                         // Sample loop:
@@ -491,6 +579,7 @@ impl Context {
                         }
 
                         sample_end = AnyTimestamp::end(timer_kind);
+                        config.after_sample.call_mut();
 
                         // Drop outputs and inputs.
                         for DeferSlot { input, output } in defer_slots_slice {
@@ -513,13 +602,14 @@ impl Context {
                             // SAFETY: We have exclusive access to `input`.
                             let input = unsafe { &mut *input.get() };
 
-                            *input = MaybeUninit::new(gen_input());
+                            *input = MaybeUninit::new((config.gen_input)());
                         }
 
                         // Create iterator before the sample timing section to
                         // reduce benchmarking overhead.
                         let defer_inputs_iter = black_box(defer_inputs_slice.iter());
 
+                        config.before_sample.call_mut();
                         sample_start = AnyTimestamp::start(timer_kind);
 
                         // Sample loop:
@@ -530,6 +620,7 @@ impl Context {
                         }
 
                         sample_end = AnyTimestamp::end(timer_kind);
+                        config.after_sample.call_mut();
 
                         // Drop inputs.
                         if mem::needs_drop::<I>() {
