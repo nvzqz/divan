@@ -35,42 +35,42 @@ mod unicode {
 
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        bencher.bench_with_values(string_generator(), std::mem::drop);
+        bencher.with_inputs(string_generator()).bench_values(std::mem::drop);
     }
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.clear());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.clear());
     }
 
     #[divan::bench]
     fn to_lowercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.to_lowercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.to_lowercase());
     }
 
     #[divan::bench]
     fn to_uppercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.to_uppercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.to_uppercase());
     }
 
     #[divan::bench]
     fn to_ascii_lowercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.to_ascii_lowercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.to_ascii_lowercase());
     }
 
     #[divan::bench]
     fn to_ascii_uppercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.to_ascii_uppercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.to_ascii_uppercase());
     }
 
     #[divan::bench]
     fn make_ascii_lowercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.make_ascii_lowercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.make_ascii_lowercase());
     }
 
     #[divan::bench]
     fn make_ascii_uppercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.make_ascii_uppercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.make_ascii_uppercase());
     }
 }
 
@@ -83,41 +83,41 @@ mod ascii {
 
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        bencher.bench_with_values(string_generator(), std::mem::drop);
+        bencher.with_inputs(string_generator()).bench_values(std::mem::drop);
     }
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.clear());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.clear());
     }
 
     #[divan::bench]
     fn to_lowercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.to_lowercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.to_lowercase());
     }
 
     #[divan::bench]
     fn to_uppercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.to_uppercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.to_uppercase());
     }
 
     #[divan::bench]
     fn to_ascii_lowercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.to_ascii_lowercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.to_ascii_lowercase());
     }
 
     #[divan::bench]
     fn to_ascii_uppercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.to_ascii_uppercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.to_ascii_uppercase());
     }
 
     #[divan::bench]
     fn make_ascii_lowercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.make_ascii_lowercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.make_ascii_lowercase());
     }
 
     #[divan::bench]
     fn make_ascii_uppercase(bencher: Bencher) {
-        bencher.bench_with_refs(string_generator(), |s| s.make_ascii_uppercase());
+        bencher.with_inputs(string_generator()).bench_refs(|s| s.make_ascii_uppercase());
     }
 }

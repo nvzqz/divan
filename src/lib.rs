@@ -290,10 +290,9 @@ pub use std::hint::black_box;
 /// # fn measured_function(_: ()) {}
 /// #[divan::bench(max_time = 5, skip_input_time)]
 /// fn bench(bencher: divan::Bencher) {
-///     bencher.bench_with_values(
-///         || generate_input(),
-///         |input| measured_function(input),
-///     );
+///     bencher
+///         .with_inputs(|| generate_input())
+///         .bench_values(|input| measured_function(input));
 /// }
 /// ```
 ///
@@ -587,10 +586,9 @@ pub use divan_macros::bench;
 ///     # fn measured_function(_: ()) {}
 ///     #[divan::bench(max_time = 5)]
 ///     fn bench(bencher: divan::Bencher) {
-///         bencher.bench_with_values(
-///             || generate_input(),
-///             |input| measured_function(input),
-///         );
+///         bencher
+///             .with_inputs(|| generate_input())
+///             .bench_values(|input| measured_function(input));
 ///     }
 /// }
 /// ```

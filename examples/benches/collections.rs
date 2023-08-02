@@ -25,7 +25,7 @@ mod vec {
 
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        bencher.bench_with_values(from_iter, std::mem::drop);
+        bencher.with_inputs(from_iter).bench_values(std::mem::drop);
     }
 
     #[divan::bench]
@@ -51,7 +51,7 @@ mod vec {
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        bencher.bench_with_refs(from_iter, Vec::clear);
+        bencher.with_inputs(from_iter).bench_refs(Vec::clear);
     }
 }
 
@@ -66,7 +66,7 @@ mod vec_deque {
 
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        bencher.bench_with_values(from_iter, std::mem::drop);
+        bencher.with_inputs(from_iter).bench_values(std::mem::drop);
     }
 
     #[divan::bench]
@@ -84,7 +84,7 @@ mod vec_deque {
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        bencher.bench_with_refs(from_iter, VecDeque::clear);
+        bencher.with_inputs(from_iter).bench_refs(VecDeque::clear);
     }
 }
 
@@ -99,7 +99,7 @@ mod linked_list {
 
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        bencher.bench_with_values(from_iter, std::mem::drop);
+        bencher.with_inputs(from_iter).bench_values(std::mem::drop);
     }
 
     #[divan::bench]
@@ -110,7 +110,7 @@ mod linked_list {
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        bencher.bench_with_refs(from_iter, LinkedList::clear);
+        bencher.with_inputs(from_iter).bench_refs(LinkedList::clear);
     }
 }
 
@@ -125,7 +125,7 @@ mod binary_heap {
 
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        bencher.bench_with_values(from_iter, std::mem::drop);
+        bencher.with_inputs(from_iter).bench_values(std::mem::drop);
     }
 
     #[divan::bench]
@@ -143,7 +143,7 @@ mod binary_heap {
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        bencher.bench_with_refs(from_iter, BinaryHeap::clear);
+        bencher.with_inputs(from_iter).bench_refs(BinaryHeap::clear);
     }
 }
 
@@ -158,7 +158,7 @@ mod hash_set {
 
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        bencher.bench_with_values(from_iter, std::mem::drop);
+        bencher.with_inputs(from_iter).bench_values(std::mem::drop);
     }
 
     #[divan::bench]
@@ -176,7 +176,7 @@ mod hash_set {
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        bencher.bench_with_refs(from_iter, HashSet::clear);
+        bencher.with_inputs(from_iter).bench_refs(HashSet::clear);
     }
 }
 
@@ -191,7 +191,7 @@ mod btree_set {
 
     #[divan::bench]
     fn drop(bencher: Bencher) {
-        bencher.bench_with_values(from_iter, std::mem::drop);
+        bencher.with_inputs(from_iter).bench_values(std::mem::drop);
     }
 
     #[divan::bench]
@@ -202,6 +202,6 @@ mod btree_set {
 
     #[divan::bench]
     fn clear(bencher: Bencher) {
-        bencher.bench_with_refs(from_iter, BTreeSet::clear);
+        bencher.with_inputs(from_iter).bench_refs(BTreeSet::clear);
     }
 }

@@ -30,22 +30,22 @@ mod random {
 
     #[divan::bench]
     fn sort(bencher: Bencher) {
-        bencher.bench_with_refs(gen::rand_int_vec_generator(), |v| v.sort());
+        bencher.with_inputs(gen::rand_int_vec_generator()).bench_refs(|v| v.sort());
     }
 
     #[divan::bench]
     fn sort_unstable(bencher: Bencher) {
-        bencher.bench_with_refs(gen::rand_int_vec_generator(), |v| v.sort_unstable());
+        bencher.with_inputs(gen::rand_int_vec_generator()).bench_refs(|v| v.sort_unstable());
     }
 
     #[divan::bench]
     fn par_sort(bencher: Bencher) {
-        bencher.bench_with_refs(gen::rand_int_vec_generator(), |v| v.par_sort());
+        bencher.with_inputs(gen::rand_int_vec_generator()).bench_refs(|v| v.par_sort());
     }
 
     #[divan::bench]
     fn par_sort_unstable(bencher: Bencher) {
-        bencher.bench_with_refs(gen::rand_int_vec_generator(), |v| v.par_sort_unstable());
+        bencher.with_inputs(gen::rand_int_vec_generator()).bench_refs(|v| v.par_sort_unstable());
     }
 }
 
@@ -55,21 +55,21 @@ mod sorted {
 
     #[divan::bench]
     fn sort(bencher: Bencher) {
-        bencher.bench_with_refs(gen::sorted_int_vec_generator(), |v| v.sort());
+        bencher.with_inputs(gen::sorted_int_vec_generator()).bench_refs(|v| v.sort());
     }
 
     #[divan::bench]
     fn sort_unstable(bencher: Bencher) {
-        bencher.bench_with_refs(gen::sorted_int_vec_generator(), |v| v.sort_unstable());
+        bencher.with_inputs(gen::sorted_int_vec_generator()).bench_refs(|v| v.sort_unstable());
     }
 
     #[divan::bench]
     fn par_sort(bencher: Bencher) {
-        bencher.bench_with_refs(gen::sorted_int_vec_generator(), |v| v.par_sort());
+        bencher.with_inputs(gen::sorted_int_vec_generator()).bench_refs(|v| v.par_sort());
     }
 
     #[divan::bench]
     fn par_sort_unstable(bencher: Bencher) {
-        bencher.bench_with_refs(gen::sorted_int_vec_generator(), |v| v.par_sort_unstable());
+        bencher.with_inputs(gen::sorted_int_vec_generator()).bench_refs(|v| v.par_sort_unstable());
     }
 }

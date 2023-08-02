@@ -34,44 +34,120 @@ mod tests;
 /// }
 /// ```
 #[must_use = "a benchmark function must be registered"]
-pub struct Bencher<'a> {
+pub struct Bencher<'a, C = ()> {
     pub(crate) did_run: &'a mut bool,
     pub(crate) context: &'a mut Context,
+    pub(crate) config: C,
 }
 
-impl fmt::Debug for Bencher<'_> {
+/// Public-in-private type for statically-typed `Bencher` configuration.
+///
+/// This enables configuring `Bencher` using the builder pattern with zero
+/// runtime cost.
+pub struct BencherConfig<G> {
+    gen_input: G,
+}
+
+impl<C> fmt::Debug for Bencher<'_, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Bencher").finish_non_exhaustive()
     }
 }
 
-impl Bencher<'_> {
+impl<'a> Bencher<'a> {
+    #[inline]
+    pub(crate) fn new(did_run: &'a mut bool, context: &'a mut Context) -> Self {
+        Self { did_run, context, config: () }
+    }
+
     /// Benchmarks a function.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     bencher.bench(|| {
+    ///         // Benchmarked code…
+    ///     });
+    /// }
+    /// ```
     pub fn bench<O, B>(self, mut benched: B)
     where
         B: FnMut() -> O,
     {
-        // Reusing `bench_with_values` for a zero-sized non-drop input type
-        // should have no overhead.
-        self.bench_with_values(|| (), |_: ()| benched());
+        // Reusing `bench_values` for a zero-sized non-drop input type should
+        // have no overhead.
+        self.with_inputs(|| ()).bench_values(|_: ()| benched());
     }
 
-    /// Benchmarks a function over per-iteration generated inputs, provided
-    /// by-value.
+    /// Generate inputs for the [benchmarked function](#input-bench).
+    ///
+    /// Time spent generating inputs does not affect benchmark timing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     bencher
+    ///         .with_inputs(|| {
+    ///             // Generate input:
+    ///             String::from("…")
+    ///         })
+    ///         .bench_values(|s| {
+    ///             // Use input by-value:
+    ///             s + "123"
+    ///         });
+    /// }
+    /// ```
+    pub fn with_inputs<I, G>(self, gen_input: G) -> Bencher<'a, BencherConfig<G>>
+    where
+        G: FnMut() -> I,
+    {
+        Bencher {
+            did_run: self.did_run,
+            context: self.context,
+            config: BencherConfig { gen_input },
+        }
+    }
+}
+
+/// <span id="input-bench"></span> Benchmark over [generated inputs](Self::with_inputs).
+impl<I, G> Bencher<'_, BencherConfig<G>>
+where
+    G: FnMut() -> I,
+{
+    /// Benchmarks a function over per-iteration [generated inputs](Self::with_inputs),
+    /// provided by-value.
     ///
     /// Per-iteration means the benchmarked function is called exactly once for
     /// each generated input.
     ///
-    /// Time spent generating inputs does not affect benchmark timing.
-    pub fn bench_with_values<I, O, G, B>(self, gen_input: G, mut benched: B)
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     bencher
+    ///         .with_inputs(|| {
+    ///             // Generate input:
+    ///             String::from("…")
+    ///         })
+    ///         .bench_values(|s| {
+    ///             // Use input by-value:
+    ///             s + "123"
+    ///         });
+    /// }
+    /// ```
+    pub fn bench_values<O, B>(self, mut benched: B)
     where
-        G: FnMut() -> I,
         B: FnMut(I) -> O,
     {
         *self.did_run = true;
 
         self.context.bench_loop(
-            gen_input,
+            self.config.gen_input,
             |input| {
                 // SAFETY: Input is guaranteed to be initialized and not
                 // currently referenced by anything else.
@@ -84,23 +160,37 @@ impl Bencher<'_> {
         );
     }
 
-    /// Benchmarks a function over per-iteration generated inputs, provided
-    /// by-reference.
+    /// Benchmarks a function over per-iteration [generated inputs](Self::with_inputs),
+    /// provided by-reference.
     ///
     /// Per-iteration means the benchmarked function is called exactly once for
     /// each generated input.
     ///
-    /// Time spent generating inputs does not affect benchmark timing.
-    pub fn bench_with_refs<I, O, G, B>(self, gen_input: G, mut benched: B)
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     bencher
+    ///         .with_inputs(|| {
+    ///             // Generate input:
+    ///             String::from("…")
+    ///         })
+    ///         .bench_refs(|s| {
+    ///             // Use input by-reference:
+    ///             *s += "123";
+    ///         });
+    /// }
+    /// ```
+    pub fn bench_refs<O, B>(self, mut benched: B)
     where
-        G: FnMut() -> I,
         B: FnMut(&mut I) -> O,
     {
         // TODO: Allow `O` to reference `&mut I` as long as `I` outlives `O`.
         *self.did_run = true;
 
         self.context.bench_loop(
-            gen_input,
+            self.config.gen_input,
             |input| {
                 // SAFETY: Input is guaranteed to be initialized and not
                 // currently referenced by anything else.

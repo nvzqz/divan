@@ -54,17 +54,15 @@ mod duration_since {
 
     #[divan::bench]
     fn instant(bencher: Bencher) {
-        bencher.bench_with_values(
-            || [Instant::now(), Instant::now()],
-            |[start, end]| end.duration_since(start),
-        );
+        bencher
+            .with_inputs(|| [Instant::now(), Instant::now()])
+            .bench_values(|[start, end]| end.duration_since(start));
     }
 
     #[divan::bench]
     fn system_time(bencher: Bencher) {
-        bencher.bench_with_values(
-            || [SystemTime::now(), SystemTime::now()],
-            |[start, end]| end.duration_since(start),
-        );
+        bencher
+            .with_inputs(|| [SystemTime::now(), SystemTime::now()])
+            .bench_values(|[start, end]| end.duration_since(start));
     }
 }
