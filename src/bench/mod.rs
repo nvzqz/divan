@@ -7,7 +7,6 @@ use std::{
 
 use crate::{
     black_box,
-    defer::{DeferSlot, DeferStore},
     stats::{Sample, Stats},
     time::{AnyTimestamp, FineDuration, Timer, Timestamp},
     util::ConfigFnMut,
@@ -15,6 +14,10 @@ use crate::{
 
 #[cfg(test)]
 mod tests;
+
+mod defer;
+
+use defer::{DeferSlot, DeferStore};
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
 ///

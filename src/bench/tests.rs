@@ -6,9 +6,8 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering::SeqCst},
 };
 
-use crate::time::TimerKind;
-
 use super::*;
+use crate::time::TimerKind;
 
 // We use a small number of runs because Miri is very slow.
 const SAMPLE_COUNT: u32 = 2;

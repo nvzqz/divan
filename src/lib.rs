@@ -13,7 +13,6 @@ mod bench;
 mod cli;
 mod compile_fail;
 mod config;
-mod defer;
 mod divan;
 mod entry;
 mod stats;
