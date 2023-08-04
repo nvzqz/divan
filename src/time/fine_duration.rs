@@ -24,7 +24,14 @@ impl fmt::Display for FineDuration {
         let sig_figs = f.precision().unwrap_or(4);
 
         let picos = self.picos;
-        let scale = TimeScale::from_picos(picos);
+        let mut scale = TimeScale::from_picos(picos);
+
+        // Prefer formatting picoseconds as nanoseconds if we can. This makes
+        // picoseconds easier to read because they are almost always alongside
+        // nanosecond-scale values.
+        if scale == TimeScale::PicoSec && sig_figs > 3 {
+            scale = TimeScale::NanoSec;
+        }
 
         let multiple: u128 = {
             let sig_figs = u32::try_from(sig_figs).unwrap_or(u32::MAX);
@@ -218,14 +225,12 @@ mod tests {
                 let base_duration = FineDuration { picos: scale.picos() };
                 let incr_duration = FineDuration { picos: scale.picos() + 1 };
 
-                let base_string = base_duration.to_string();
-
-                // Integer format.
-                assert_eq!(format!("{base_duration:.0}"), base_string);
-
                 if scale == TimeScale::PicoSec {
+                    assert_eq!(format!("{base_duration:.0}"), "1ps");
                     assert_eq!(format!("{incr_duration:.0}"), "2ps");
                 } else {
+                    let base_string = base_duration.to_string();
+                    assert_eq!(format!("{base_duration:.0}"), base_string);
                     assert_eq!(format!("{incr_duration:.0}"), base_string);
                 }
             }
@@ -233,7 +238,12 @@ mod tests {
 
         #[test]
         fn fill() {
-            for scale in TimeScale::ALL {
+            for &scale in TimeScale::ALL {
+                // Picoseconds are formatted as nanoseconds by default.
+                if scale == TimeScale::PicoSec {
+                    continue;
+                }
+
                 let duration = FineDuration { picos: scale.picos() };
                 let suffix = scale.suffix();
                 let pad = " ".repeat(9 - suffix.len());
@@ -245,16 +255,16 @@ mod tests {
 
         #[test]
         fn pico_sec() {
-            test(000, "0ps");
+            test(000, "0ns");
 
-            test(001, "1ps");
-            test(010, "10ps");
-            test(100, "100ps");
+            test(001, "0.001ns");
+            test(010, "0.01ns");
+            test(100, "0.1ns");
 
-            test(102, "102ps");
-            test(120, "120ps");
-            test(123, "123ps");
-            test(012, "12ps");
+            test(102, "0.102ns");
+            test(120, "0.12ns");
+            test(123, "0.123ns");
+            test(012, "0.012ns");
         }
 
         #[test]
