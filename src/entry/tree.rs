@@ -2,26 +2,26 @@ use std::cmp::Ordering;
 
 use crate::{
     config::SortingAttr,
-    entry::{Entry, EntryGroup, EntryLocation, PathComponents},
+    entry::{BenchEntry, EntryLocation, EntryMeta, GroupEntry, ModulePathComponents},
 };
 
-/// `Entry` tree organized by path components.
+/// `BenchEntry` tree organized by path components.
 pub(crate) enum EntryTree<'a> {
-    Leaf(&'a Entry),
-    Parent { raw_name: &'a str, group: Option<&'a EntryGroup>, children: Vec<Self> },
+    Leaf(&'a BenchEntry),
+    Parent { raw_name: &'a str, group: Option<&'a GroupEntry>, children: Vec<Self> },
 }
 
 impl<'a> EntryTree<'a> {
-    /// Constructs a tree from an iterator of entries in the order they're
-    /// produced.
-    pub fn from_entries<I>(entries: I) -> Vec<Self>
+    /// Constructs a tree from an iterator of benchmark entries in the order
+    /// they're produced.
+    pub fn from_benches<I>(benches: I) -> Vec<Self>
     where
-        I: IntoIterator<Item = &'a Entry>,
+        I: IntoIterator<Item = &'a BenchEntry>,
     {
         let mut result = Vec::<Self>::new();
 
-        for entry in entries {
-            Self::insert_entry(&mut result, entry, &mut entry.module_path_components());
+        for bench in benches {
+            Self::insert_entry(&mut result, bench, &mut bench.meta.module_path_components());
         }
 
         result
@@ -42,15 +42,15 @@ impl<'a> EntryTree<'a> {
             .unwrap_or_default()
     }
 
-    /// Inserts the group into a tree.
+    /// Inserts the benchmark group into a tree.
     ///
     /// Groups are inserted after tree construction because it prevents having
     /// parents without terminating leaves. Groups that do not match an existing
     /// parent are not inserted.
-    pub fn insert_group(mut tree: &mut [Self], group: &'a EntryGroup) {
+    pub fn insert_group(mut tree: &mut [Self], group: &'a GroupEntry) {
         // Update `tree` to be the innermost set of subtrees whose parents match
         // `group.module_path`.
-        'component: for component in group.module_path_components() {
+        'component: for component in group.meta.module_path_components() {
             for subtree in tree {
                 match subtree {
                     EntryTree::Parent { raw_name, children, .. } if component == *raw_name => {
@@ -68,7 +68,9 @@ impl<'a> EntryTree<'a> {
         // Find the matching tree to insert the group into.
         for subtree in tree {
             match subtree {
-                EntryTree::Parent { raw_name, group: slot, .. } if group.raw_name == *raw_name => {
+                EntryTree::Parent { raw_name, group: slot, .. }
+                    if group.meta.raw_name == *raw_name =>
+                {
                     *slot = Some(group);
                     return;
                 }
@@ -136,7 +138,11 @@ impl<'a> EntryTree<'a> {
     ///
     /// This uses recursion because the iterative approach runs into limitations
     /// with mutable borrows.
-    fn insert_entry(tree: &mut Vec<Self>, entry: &'a Entry, rem_modules: &mut PathComponents) {
+    fn insert_entry(
+        tree: &mut Vec<Self>,
+        entry: &'a BenchEntry,
+        rem_modules: &mut ModulePathComponents,
+    ) {
         if let Some(current_module) = rem_modules.next() {
             if let Some(children) = Self::get_children(tree, current_module) {
                 Self::insert_entry(children, entry, rem_modules);
@@ -150,9 +156,9 @@ impl<'a> EntryTree<'a> {
 
     /// Constructs a sequence of branches from a module path.
     fn from_path(
-        entry: &'a Entry,
+        entry: &'a BenchEntry,
         current_module: &'a str,
-        rem_modules: &mut PathComponents,
+        rem_modules: &mut ModulePathComponents,
     ) -> Self {
         let child = if let Some(next_module) = rem_modules.next() {
             Self::from_path(entry, next_module, rem_modules)
@@ -182,24 +188,37 @@ impl<'a> EntryTree<'a> {
         }
     }
 
-    pub fn display_name(&self) -> &'a str {
+    pub fn meta(&self) -> Option<&'a EntryMeta> {
         match self {
-            Self::Leaf(entry) => entry.display_name,
-            Self::Parent { group: Some(group), .. } => group.display_name,
-            Self::Parent { raw_name, .. } => raw_name.strip_prefix("r#").unwrap_or(raw_name),
+            Self::Leaf(entry) => Some(&entry.meta),
+            Self::Parent { group, .. } => Some(&(*group)?.meta),
+        }
+    }
+
+    pub fn raw_name(&self) -> &'a str {
+        match self {
+            Self::Leaf(bench) => bench.meta.raw_name,
+            Self::Parent { group: Some(group), .. } => group.meta.raw_name,
+            Self::Parent { raw_name, .. } => raw_name,
+        }
+    }
+
+    pub fn display_name(&self) -> &'a str {
+        if let Some(common) = self.meta() {
+            common.display_name
+        } else {
+            let raw_name = self.raw_name();
+            raw_name.strip_prefix("r#").unwrap_or(raw_name)
         }
     }
 
     /// Returns the location of this entry, group, or the children's earliest
     /// location.
-    fn location(&self) -> Option<EntryLocation> {
-        match self {
-            Self::Leaf(entry) => Some(entry.location()),
-            Self::Parent { group: Some(group), .. } => Some(group.location()),
-
-            // Finding the children's earliest location is expensive in theory,
-            // but there are too few entries for it to matter in practice.
-            Self::Parent { children, .. } => children.iter().flat_map(Self::location).min(),
+    fn location(&self) -> Option<&'a EntryLocation> {
+        if let Some(common) = self.meta() {
+            Some(&common.location)
+        } else {
+            self.children().iter().flat_map(Self::location).min()
         }
     }
 

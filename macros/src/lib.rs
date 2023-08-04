@@ -18,7 +18,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Items needed by generated code.
-    let AttrOptions { private_mod, linkme_crate, std_crate, .. } = &options;
+    let AttrOptions { private_mod, linkme_crate, .. } = &options;
 
     let fn_item = item.clone();
     let fn_item = syn::parse_macro_input!(fn_item as syn::ItemFn);
@@ -26,11 +26,6 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     let fn_ident = &fn_item.sig.ident;
     let fn_name = fn_ident.to_string();
     let fn_name_pretty = fn_name.strip_prefix("r#").unwrap_or(&fn_name);
-
-    let name_expr: &dyn ToTokens = match &options.name_expr {
-        Some(name) => name,
-        None => &fn_name_pretty,
-    };
 
     let ignore = fn_item.attrs.iter().any(|attr| attr.meta.path().is_ident("ignore"));
 
@@ -48,32 +43,21 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
     let static_ident = syn::Ident::new(
-        &format!("__DIVAN_ENTRY_{}", fn_name_pretty.to_uppercase()),
+        &format!("__DIVAN_BENCH_{}", fn_name_pretty.to_uppercase()),
         fn_ident.span(),
     );
 
-    let bench_options_fn = options.bench_options_fn();
+    let meta = entry_meta_expr(&fn_name, &options, ignore);
 
     let generated_items = quote! {
         // The static is local to intentionally cause a compile error if this
         // attribute is used multiple times on the same function.
-        #[#linkme_crate::distributed_slice(#private_mod::ENTRIES)]
+        #[#linkme_crate::distributed_slice(#private_mod::BENCH_ENTRIES)]
         #[linkme(crate = #linkme_crate)]
         #[doc(hidden)]
-        static #static_ident: #private_mod::Entry = #private_mod::Entry {
-            display_name: #name_expr,
-            raw_name: #fn_name,
-            module_path: #std_crate::module_path!(),
-
-            // `Span` location info is nightly-only, so use macros.
-            file: #std_crate::file!(),
-            line: #std_crate::line!(),
-            col: #std_crate::column!(),
-
-            ignore: #ignore,
-
-            bench_options: #bench_options_fn,
+        static #static_ident: #private_mod::BenchEntry = #private_mod::BenchEntry {
             bench: #bench_fn,
+            meta: #meta,
         };
     };
 
@@ -91,7 +75,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Items needed by generated code.
-    let AttrOptions { private_mod, linkme_crate, std_crate, .. } = &options;
+    let AttrOptions { private_mod, linkme_crate, .. } = &options;
 
     // TODO: Make module parsing cheaper by parsing only the necessary parts.
     let mod_item = item.clone();
@@ -100,11 +84,6 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     let mod_ident = &mod_item.ident;
     let mod_name = mod_ident.to_string();
     let mod_name_pretty = mod_name.strip_prefix("r#").unwrap_or(&mod_name);
-
-    let name_expr: &dyn ToTokens = match &options.name_expr {
-        Some(name) => name,
-        None => &mod_name_pretty,
-    };
 
     // TODO: Fix `unused_attributes` warning when using `#[ignore]` on a module.
     let ignore = mod_item.attrs.iter().any(|attr| attr.meta.path().is_ident("ignore"));
@@ -115,27 +94,16 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
         mod_ident.span(),
     );
 
-    let bench_options_fn = options.bench_options_fn();
+    let meta = entry_meta_expr(&mod_name, &options, ignore);
 
     let generated_items = quote! {
         // By having the static be local, we cause a compile error if this
         // attribute is used multiple times on the same function.
-        #[#linkme_crate::distributed_slice(#private_mod::ENTRY_GROUPS)]
+        #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
         #[linkme(crate = #linkme_crate)]
         #[doc(hidden)]
-        static #static_ident: #private_mod::EntryGroup = #private_mod::EntryGroup {
-            display_name: #name_expr,
-            raw_name: #mod_name,
-            module_path: #std_crate::module_path!(),
-
-            // `Span` location info is nightly-only, so use macros.
-            file: #std_crate::file!(),
-            line: #std_crate::line!(),
-            col: #std_crate::column!(),
-
-            ignore: #ignore,
-
-            bench_options: #bench_options_fn,
+        static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
+            meta: #meta,
         };
     };
 
@@ -143,4 +111,41 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     let mut result = item;
     result.extend(TokenStream::from(generated_items));
     result
+}
+
+/// Constructs an `EntryMeta` expression.
+fn entry_meta_expr(
+    raw_name: &str,
+    options: &AttrOptions,
+    ignore: bool,
+) -> proc_macro2::TokenStream {
+    let AttrOptions { private_mod, std_crate, .. } = &options;
+
+    let raw_name_pretty = raw_name.strip_prefix("r#").unwrap_or(raw_name);
+
+    let display_name: &dyn ToTokens = match &options.name_expr {
+        Some(name) => name,
+        None => &raw_name_pretty,
+    };
+
+    let bench_options_fn = options.bench_options_fn();
+
+    quote! {
+        #private_mod::EntryMeta {
+            raw_name: #raw_name,
+            display_name: #display_name,
+            module_path: #std_crate::module_path!(),
+
+            // `Span` location info is nightly-only, so use macros.
+            location: #private_mod::EntryLocation {
+                file: #std_crate::file!(),
+                line: #std_crate::line!(),
+                col: #std_crate::column!(),
+            },
+
+            ignore: #ignore,
+
+            bench_options: #bench_options_fn,
+        }
+    }
 }

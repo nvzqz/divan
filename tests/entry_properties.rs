@@ -3,7 +3,7 @@
 // Miri does not work with `linkme`.
 #![cfg(not(miri))]
 
-use divan::__private::{Entry, EntryGroup, ENTRIES, ENTRY_GROUPS};
+use divan::__private::{EntryMeta, BENCH_ENTRIES, GROUP_ENTRIES};
 
 #[divan::bench]
 fn outer() {}
@@ -29,41 +29,42 @@ mod ignored_group {
     fn not_yet_ignored() {}
 }
 
-/// Finds an `Entry` or `EntryGroup` based on its raw name.
-macro_rules! find {
+/// Finds `EntryMeta` based on the entry's raw name.
+macro_rules! find_meta {
     ($entries:expr, $raw_name:literal) => {
         $entries
             .iter()
-            .find(|entry| entry.raw_name == $raw_name)
+            .map(|entry| &entry.meta)
+            .find(|common| common.raw_name == $raw_name)
             .expect(concat!($raw_name, " not found"))
     };
 }
 
-fn find_outer() -> &'static Entry {
-    find!(ENTRIES, "outer")
+fn find_outer() -> &'static EntryMeta {
+    find_meta!(BENCH_ENTRIES, "outer")
 }
 
-fn find_inner() -> &'static Entry {
-    find!(ENTRIES, "inner")
+fn find_inner() -> &'static EntryMeta {
+    find_meta!(BENCH_ENTRIES, "inner")
 }
 
-fn find_outer_group() -> &'static EntryGroup {
-    find!(ENTRY_GROUPS, "outer_group")
+fn find_outer_group() -> &'static EntryMeta {
+    find_meta!(GROUP_ENTRIES, "outer_group")
 }
 
-fn find_inner_group() -> &'static EntryGroup {
-    find!(ENTRY_GROUPS, "inner_group")
+fn find_inner_group() -> &'static EntryMeta {
+    find_meta!(GROUP_ENTRIES, "inner_group")
 }
 
 #[test]
 fn file() {
     let file = file!();
 
-    assert_eq!(find_outer().file, file);
-    assert_eq!(find_outer_group().file, file);
+    assert_eq!(find_outer().location.file, file);
+    assert_eq!(find_outer_group().location.file, file);
 
-    assert_eq!(find_inner().file, file);
-    assert_eq!(find_inner_group().file, file);
+    assert_eq!(find_inner().location.file, file);
+    assert_eq!(find_inner_group().location.file, file);
 }
 
 #[test]
@@ -79,30 +80,30 @@ fn module_path() {
 
 #[test]
 fn line() {
-    assert_eq!(find_outer().line, 8);
-    assert_eq!(find_outer_group().line, 11);
+    assert_eq!(find_outer().location.line, 8);
+    assert_eq!(find_outer_group().location.line, 11);
 
-    assert_eq!(find_inner().line, 13);
-    assert_eq!(find_inner_group().line, 16);
+    assert_eq!(find_inner().location.line, 13);
+    assert_eq!(find_inner_group().location.line, 16);
 }
 
 #[test]
 fn column() {
-    assert_eq!(find_outer().col, 1);
-    assert_eq!(find_outer_group().col, 1);
+    assert_eq!(find_outer().location.col, 1);
+    assert_eq!(find_outer_group().location.col, 1);
 
-    assert_eq!(find_inner().col, 5);
-    assert_eq!(find_inner_group().col, 5);
+    assert_eq!(find_inner().location.col, 5);
+    assert_eq!(find_inner_group().location.col, 5);
 }
 
 #[test]
 fn ignore() {
-    assert!(find!(ENTRIES, "ignored").ignore);
-    assert!(find!(ENTRY_GROUPS, "ignored_group").ignore);
+    assert!(find_meta!(BENCH_ENTRIES, "ignored").ignore);
+    assert!(find_meta!(GROUP_ENTRIES, "ignored_group").ignore);
 
     // Although its parent is marked as `#[ignore]`, it itself is not yet known
     // to be ignored.
-    assert!(!find!(ENTRIES, "not_yet_ignored").ignore);
+    assert!(!find_meta!(BENCH_ENTRIES, "not_yet_ignored").ignore);
 
     assert!(!find_inner().ignore);
     assert!(!find_inner_group().ignore);
