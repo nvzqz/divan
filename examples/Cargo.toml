@@ -8,10 +8,10 @@ description = "Examples for Divan, a statistically-comfy benchmarking library."
 readme = "../README.md"
 publish = false
 
-[dev-dependencies]
+[dependencies]
 divan = { workspace = true }
 fastrand = "2"
-image = "0.24"
+image = { version = "0.24", optional = true }
 rayon = "1"
 
 [[bench]]
@@ -21,6 +21,7 @@ harness = false
 [[bench]]
 name = "image"
 harness = false
+required-features = ["image"]
 
 [[bench]]
 name = "math"
