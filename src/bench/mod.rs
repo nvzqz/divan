@@ -347,8 +347,8 @@ impl Context {
     ) {
         // The time spent benchmarking, in picoseconds.
         //
-        // This includes input generation time, unless `skip_input_time` is
-        // `true`.
+        // Unless `skip_ext_time` is set, this includes time external to
+        // `benched`, such as time spent generating inputs and running drop.
         let mut elapsed_picos: u128 = 0;
 
         // The minimum time for benchmarking, in picoseconds.
@@ -398,8 +398,8 @@ impl Context {
             self.samples.reserve_exact(rem_samples as usize);
         }
 
-        let skip_input_time = self.options.skip_input_time.unwrap_or_default();
-        let initial_start = if skip_input_time { None } else { Some(Timestamp::start(timer_kind)) };
+        let skip_ext_time = self.options.skip_ext_time.unwrap_or_default();
+        let initial_start = if skip_ext_time { None } else { Some(Timestamp::start(timer_kind)) };
 
         while {
             // Conditions for when sampling is over:

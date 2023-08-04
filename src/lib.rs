@@ -130,7 +130,7 @@ pub use std::hint::black_box;
 /// - [`sample_size`]
 /// - [`min_time`]
 /// - [`max_time`]
-/// - [`skip_input_time`]
+/// - [`skip_ext_time`]
 /// - [`ignore`]
 ///
 /// ## `name`
@@ -204,7 +204,9 @@ pub use std::hint::black_box;
 /// overridden at runtime using either the `DIVAN_MIN_TIME` environment variable
 /// or `--min-time` CLI argument.
 ///
-/// Unless [`skip_input_time`] is set, this includes input generation time.
+/// Unless [`skip_ext_time`] is set, this includes time external to the
+/// benchmarked function, such as time spent generating inputs and running
+/// [`Drop`].
 ///
 /// ```
 /// use std::time::Duration;
@@ -241,7 +243,9 @@ pub use std::hint::black_box;
 /// overridden at runtime using either the `DIVAN_MAX_TIME` environment variable
 /// or `--max-time` CLI argument.
 ///
-/// Unless [`skip_input_time`] is set, this includes input generation time.
+/// Unless [`skip_ext_time`] is set, this includes time external to the
+/// benchmarked function, such as time spent generating inputs and running
+/// [`Drop`].
 ///
 /// If `min_time > max_time`, then [`max_time`] has priority and [`min_time`]
 /// will not be reached.
@@ -273,22 +277,23 @@ pub use std::hint::black_box;
 /// }
 /// ```
 ///
-/// ## `skip_input_time`
-/// [`skip_input_time`]: #skip_input_time
+/// ## `skip_ext_time`
+/// [`skip_ext_time`]: #skip_ext_time
 ///
-/// When [`min_time`] or [`max_time`] is set, time spent generating inputs is
-/// included by default. Enabling the [`skip_input_time`] option will make only
-/// the time spent actually running the benchmarked function be considered. This
-/// may be overridden at runtime using either the `DIVAN_SKIP_INPUT_TIME`
-/// environment variable or `--skip-input-time` CLI argument.
+/// By default, [`min_time`] and [`max_time`] include time external to the
+/// benchmarked function, such as time spent generating inputs and running
+/// [`Drop`]. Enabling the [`skip_ext_time`] option will instead make those
+/// options only consider time spent within the benchmarked function. This may
+/// be overridden at runtime using either the `DIVAN_SKIP_EXT_TIME` environment
+/// variable or `--skip-ext-time` CLI argument.
 ///
-/// In the following example, [`max_time`] will only consider the time spent
-/// running `measured_function`:
+/// In the following example, [`max_time`] only considers time spent running
+/// `measured_function`:
 ///
 /// ```
 /// # fn generate_input() {}
 /// # fn measured_function(_: ()) {}
-/// #[divan::bench(max_time = 5, skip_input_time)]
+/// #[divan::bench(max_time = 5, skip_ext_time)]
 /// fn bench(bencher: divan::Bencher) {
 ///     bencher
 ///         .with_inputs(|| generate_input())
@@ -300,7 +305,7 @@ pub use std::hint::black_box;
 /// values:
 ///
 /// ```
-/// #[divan::bench(max_time = 5, skip_input_time = false)]
+/// #[divan::bench(max_time = 5, skip_ext_time = false)]
 /// fn bench(bencher: divan::Bencher) {
 ///     // ...
 /// }
@@ -410,7 +415,7 @@ pub use divan_macros::bench;
 /// - [`sample_size`]
 /// - [`min_time`]
 /// - [`max_time`]
-/// - [`skip_input_time`]
+/// - [`skip_ext_time`]
 /// - [`ignore`]
 ///
 /// ## `name`
@@ -496,7 +501,8 @@ pub use divan_macros::bench;
 /// overridden at runtime using either the `DIVAN_MIN_TIME` environment variable
 /// or `--min-time` CLI argument.
 ///
-/// Unless [`skip_input_time`] is set, this includes input generation time.
+/// Unless [`skip_ext_time`] is set, this includes time external to benchmarked
+/// functions, such as time spent generating inputs and running [`Drop`].
 ///
 /// ```
 /// use std::time::Duration;
@@ -534,7 +540,8 @@ pub use divan_macros::bench;
 /// overridden at runtime using either the `DIVAN_MAX_TIME` environment variable
 /// or `--max-time` CLI argument.
 ///
-/// Unless [`skip_input_time`] is set, this includes input generation time.
+/// Unless [`skip_ext_time`] is set, this includes time external to benchmarked
+/// functions, such as time spent generating inputs and running [`Drop`].
 ///
 /// If `min_time > max_time`, then [`max_time`] has priority and [`min_time`]
 /// will not be reached.
@@ -567,20 +574,21 @@ pub use divan_macros::bench;
 /// }
 /// ```
 ///
-/// ## `skip_input_time`
-/// [`skip_input_time`]: #skip_input_time
+/// ## `skip_ext_time`
+/// [`skip_ext_time`]: #skip_ext_time
 ///
-/// When [`min_time`] or [`max_time`] is set, time spent generating inputs is
-/// included by default. Enabling the [`skip_input_time`] option will make only
-/// the time spent actually running the benchmarked function be considered. This
-/// may be overridden at runtime using either the `DIVAN_SKIP_INPUT_TIME`
-/// environment variable or `--skip-input-time` CLI argument.
+/// By default, [`min_time`] and [`max_time`] include time external to
+/// benchmarked functions, such as time spent generating inputs and running
+/// [`Drop`]. Enabling the [`skip_ext_time`] option will instead make those
+/// options only consider time spent within benchmarked functions. This may be
+/// overridden at runtime using either the `DIVAN_SKIP_EXT_TIME` environment
+/// variable or `--skip-ext-time` CLI argument.
 ///
-/// In the following example, [`max_time`] will only consider the time spent
-/// running `measured_function`:
+/// In the following example, [`max_time`] only considers time spent running
+/// `measured_function`:
 ///
 /// ```
-/// #[divan::bench_group(skip_input_time)]
+/// #[divan::bench_group(skip_ext_time)]
 /// mod group {
 ///     # fn generate_input() {}
 ///     # fn measured_function(_: ()) {}
@@ -597,7 +605,7 @@ pub use divan_macros::bench;
 /// values:
 ///
 /// ```
-/// #[divan::bench_group(skip_input_time = false)]
+/// #[divan::bench_group(skip_ext_time = false)]
 /// mod group {
 ///     // ...
 /// }

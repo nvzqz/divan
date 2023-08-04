@@ -116,10 +116,10 @@ pub fn command() -> Command {
                 .value_parser(value_parser!(ParsedSeconds)),
         )
         .arg(
-            option("skip-input-time")
-                .env("DIVAN_SKIP_INPUT_TIME")
+            option("skip-ext-time")
+                .env("DIVAN_SKIP_EXT_TIME")
                 .value_name("true|false")
-                .help("When '--min-time' or '--max-time' is set, skip input generation time")
+                .help("When '--min-time' or '--max-time' is set, skip time external to benchmarked functions")
                 .value_parser(value_parser!(bool))
                 .num_args(0..=1),
         )

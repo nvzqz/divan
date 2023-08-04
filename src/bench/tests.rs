@@ -27,7 +27,7 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
                     sample_size: Some(SAMPLE_SIZE),
                     min_time: None,
                     max_time: None,
-                    skip_input_time: None,
+                    skip_ext_time: None,
                 },
             );
 

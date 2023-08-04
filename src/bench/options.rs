@@ -19,9 +19,10 @@ pub struct BenchOptions {
     /// The time ceiling for benchmarking a function.
     pub max_time: Option<Duration>,
 
-    /// Skip time spent generating inputs when accounting for `min_time` or
-    /// `max_time`.
-    pub skip_input_time: Option<bool>,
+    /// When accounting for `min_time` or `max_time`, skip time external to
+    /// benchmarked functions, such as time spent generating inputs and running
+    /// [`Drop`].
+    pub skip_ext_time: Option<bool>,
 }
 
 impl BenchOptions {
@@ -33,7 +34,7 @@ impl BenchOptions {
             sample_size: self.sample_size.or(other.sample_size),
             min_time: self.min_time.or(other.min_time),
             max_time: self.max_time.or(other.max_time),
-            skip_input_time: self.skip_input_time.or(other.skip_input_time),
+            skip_ext_time: self.skip_ext_time.or(other.skip_ext_time),
         }
     }
 }
