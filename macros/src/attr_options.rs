@@ -1,6 +1,12 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse::Parser, spanned::Spanned, Expr, Ident};
+use syn::{
+    parse::{Parse, Parser},
+    spanned::Spanned,
+    Expr, Ident, Token, Type,
+};
+
+use crate::Macro;
 
 /// Values from parsed options shared between `#[divan::bench]` and
 /// `#[divan::bench_group]`.
@@ -24,6 +30,11 @@ pub(crate) struct AttrOptions {
     /// Custom name for the benchmark or group.
     pub name_expr: Option<Expr>,
 
+    /// Generic types over which to instantiate benchmark functions.
+    ///
+    /// Currently only supported by `#[divan::bench]`.
+    pub generic_types: Option<GenericTypes>,
+
     /// Options used directly as `BenchOptions` fields.
     ///
     /// Option reuse is handled by the compiler ensuring `BenchOptions` fields
@@ -32,10 +43,14 @@ pub(crate) struct AttrOptions {
 }
 
 impl AttrOptions {
-    pub fn parse(tokens: TokenStream, macro_name: &str) -> Result<Self, TokenStream> {
+    pub fn parse(tokens: TokenStream, target_macro: Macro) -> Result<Self, TokenStream> {
+        let macro_name = target_macro.name();
+
         let mut divan_crate = None::<syn::Path>;
         let mut name_expr = None::<Expr>;
         let mut bench_options = Vec::new();
+
+        let mut generic_types = None::<GenericTypes>;
 
         let attr_parser = syn::meta::parser(|meta| {
             let Some(ident) = meta.path.get_ident() else {
@@ -52,9 +67,8 @@ impl AttrOptions {
                 ($storage:expr) => {
                     if $storage.is_none() {
                         $storage = Some(meta.value()?.parse()?);
-                        Ok(())
                     } else {
-                        repeat_error()
+                        return repeat_error();
                     }
                 };
             }
@@ -62,6 +76,15 @@ impl AttrOptions {
             match ident_name {
                 "crate" => parse!(divan_crate),
                 "name" => parse!(name_expr),
+                "types" => {
+                    if target_macro != Macro::Bench {
+                        return Err(meta.error(format_args!(
+                            "unsupported '{macro_name}' option '{ident_name}'"
+                        )));
+                    }
+
+                    parse!(generic_types);
+                }
                 _ => {
                     let value: Expr = match meta.value() {
                         Ok(value) => value.parse()?,
@@ -74,9 +97,10 @@ impl AttrOptions {
                     };
 
                     bench_options.push((ident.clone(), value));
-                    Ok(())
                 }
             }
+
+            Ok(())
         });
 
         match attr_parser.parse(tokens) {
@@ -92,6 +116,7 @@ impl AttrOptions {
             linkme_crate: quote! { #private_mod::linkme },
             private_mod,
             name_expr,
+            generic_types,
             bench_options,
         })
     }
@@ -139,6 +164,35 @@ impl AttrOptions {
                     }
                 })
             }
+        }
+    }
+}
+
+/// Generic types over which to instantiate benchmark functions.
+pub enum GenericTypes {
+    /// List of types, e.g. `[i32, String, ()]`.
+    List(Vec<proc_macro2::TokenStream>),
+}
+
+impl Parse for GenericTypes {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let content;
+        syn::bracketed!(content in input);
+
+        Ok(Self::List(
+            content
+                .parse_terminated(Type::parse, Token![,])?
+                .into_iter()
+                .map(|ty| ty.into_token_stream())
+                .collect(),
+        ))
+    }
+}
+
+impl GenericTypes {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::List(list) => list.is_empty(),
         }
     }
 }

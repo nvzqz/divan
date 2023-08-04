@@ -10,9 +10,24 @@ mod attr_options;
 
 use attr_options::*;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Macro {
+    Bench,
+    BenchGroup,
+}
+
+impl Macro {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Bench => "bench",
+            Self::BenchGroup => "bench_group",
+        }
+    }
+}
+
 #[proc_macro_attribute]
 pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
-    let options = match AttrOptions::parse(options, "bench") {
+    let options = match AttrOptions::parse(options, Macro::Bench) {
         Ok(options) => options,
         Err(compile_error) => return compile_error,
     };
@@ -34,14 +49,10 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
     let fn_args = &fn_item.sig.inputs;
 
-    let bench_fn = match (is_extern_abi, fn_args.is_empty()) {
-        (false, false) => quote! { #fn_ident },
-        (false, true) => quote! { |divan| divan.bench(#fn_ident) },
-        (true, false) => quote! { |divan| #fn_ident(divan) },
-        (true, true) => quote! { |divan| divan.bench(|| #fn_ident()) },
-    };
-
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
+    //
+    // The static is local to intentionally cause a compile error if this
+    // attribute is used multiple times on the same function.
     let static_ident = syn::Ident::new(
         &format!("__DIVAN_BENCH_{}", fn_name_pretty.to_uppercase()),
         fn_ident.span(),
@@ -49,16 +60,64 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
     let meta = entry_meta_expr(&fn_name, &options, ignore);
 
-    let generated_items = quote! {
-        // The static is local to intentionally cause a compile error if this
-        // attribute is used multiple times on the same function.
-        #[#linkme_crate::distributed_slice(#private_mod::BENCH_ENTRIES)]
-        #[linkme(crate = #linkme_crate)]
-        #[doc(hidden)]
-        static #static_ident: #private_mod::BenchEntry = #private_mod::BenchEntry {
-            bench: #bench_fn,
-            meta: #meta,
+    let make_bench_fn = |generic_type: Option<&proc_macro2::TokenStream>| {
+        let fn_expr = match generic_type {
+            Some(ty) => quote! { #fn_ident::<#ty> },
+            None => fn_ident.to_token_stream(),
         };
+
+        match (is_extern_abi, fn_args.is_empty()) {
+            (false, false) => fn_expr,
+            (false, true) => quote! { |divan| divan.bench(#fn_expr) },
+            (true, false) => quote! { |divan| #fn_expr(divan) },
+            (true, true) => quote! { |divan| divan.bench(|| #fn_expr()) },
+        }
+    };
+
+    let generated_items = match &options.generic_types {
+        // No generic types; generate a simple benchmark entry.
+        None => {
+            let bench_fn = make_bench_fn(None);
+            quote! {
+                #[#linkme_crate::distributed_slice(#private_mod::BENCH_ENTRIES)]
+                #[linkme(crate = #linkme_crate)]
+                #[doc(hidden)]
+                static #static_ident: #private_mod::BenchEntry = #private_mod::BenchEntry {
+                    meta: #meta,
+                    bench: #bench_fn,
+                };
+            }
+        }
+
+        // Generic specified, but no types provided; generate nothing.
+        Some(generic_types) if generic_types.is_empty() => Default::default(),
+
+        // Generate a benchmark group entry with generic benchmark entries.
+        Some(GenericTypes::List(generic_types)) => {
+            let generic_benches = generic_types.iter().map(|ty| {
+                let bench = make_bench_fn(Some(ty));
+                quote! {
+                    #private_mod::GenericBenchEntry {
+                        group: &#static_ident,
+                        bench: #bench,
+                        get_type_name: #private_mod::any::type_name::<#ty>,
+                        get_type_id: #private_mod::any::TypeId::of::<#ty>,
+                    }
+                }
+            });
+
+            quote! {
+                #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
+                #[linkme(crate = #linkme_crate)]
+                #[doc(hidden)]
+                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
+                    meta: #meta,
+                    generic_benches: #private_mod::Some(
+                        &[#(#generic_benches),*]
+                    ),
+                };
+            }
+        }
     };
 
     // Append our generated code to the existing token stream.
@@ -69,7 +128,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
-    let options = match AttrOptions::parse(options, "bench_group") {
+    let options = match AttrOptions::parse(options, Macro::BenchGroup) {
         Ok(options) => options,
         Err(compile_error) => return compile_error,
     };
@@ -104,6 +163,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
         #[doc(hidden)]
         static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
             meta: #meta,
+            generic_benches: #private_mod::None,
         };
     };
 

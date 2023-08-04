@@ -1,4 +1,4 @@
-use crate::{bench::BenchOptions, entry::ModulePathComponents};
+use crate::bench::BenchOptions;
 
 /// Metadata common to `#[divan::bench]` and `#[divan::bench_group]`.
 pub struct EntryMeta {
@@ -34,7 +34,7 @@ pub struct EntryLocation {
 
 impl EntryMeta {
     #[inline]
-    pub(crate) fn module_path_components(&self) -> ModulePathComponents {
+    pub(crate) fn module_path_components<'a>(&self) -> impl Iterator<Item = &'a str> {
         self.module_path.split("::")
     }
 }

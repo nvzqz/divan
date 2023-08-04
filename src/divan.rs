@@ -6,7 +6,7 @@ use regex::Regex;
 use crate::{
     bench::{self, BenchOptions, Bencher},
     config::{Action, Filter, FormatStyle, ParsedSeconds, RunIgnored, SortingAttr},
-    entry::{BenchEntry, EntryLocation, EntryTree},
+    entry::{AnyBenchEntry, EntryLocation, EntryTree},
     time::{FineDuration, Timer, TimerKind},
 };
 
@@ -81,9 +81,20 @@ impl Divan {
             // Miri does not work with `linkme`.
             Vec::new()
         } else {
-            let mut tree = EntryTree::from_benches(crate::entry::BENCH_ENTRIES);
+            let group_entries = &*crate::entry::GROUP_ENTRIES;
 
-            for group in crate::entry::GROUP_ENTRIES {
+            let generic_bench_entries = group_entries.iter().flat_map(|group| {
+                group.generic_benches.unwrap_or_default().iter().map(AnyBenchEntry::GenericBench)
+            });
+
+            let bench_entries = crate::entry::BENCH_ENTRIES
+                .iter()
+                .map(AnyBenchEntry::Bench)
+                .chain(generic_bench_entries);
+
+            let mut tree = EntryTree::from_benches(bench_entries);
+
+            for group in group_entries {
                 EntryTree::insert_group(&mut tree, group);
             }
 
@@ -173,8 +184,8 @@ impl Divan {
                 }
                 FormatContext::Terse { parent_path } => match child {
                     EntryTree::Leaf(bench) => {
-                        let EntryLocation { file, line, .. } = bench.meta.location;
-                        let display_name = bench.meta.display_name;
+                        let EntryLocation { file, line, .. } = bench.meta().location;
+                        let display_name = bench.display_name();
                         format!("{file} - {parent_path}::{display_name} (line {line}): bench")
                     }
                     EntryTree::Parent { .. } => unreachable!(),
@@ -182,7 +193,7 @@ impl Divan {
             };
 
             match child {
-                EntryTree::Leaf(entry) => match (action, self.format_style) {
+                &EntryTree::Leaf(entry) => match (action, self.format_style) {
                     (Action::List, FormatStyle::Terse | FormatStyle::Pretty) => {
                         println!("{}", list_format());
                     }
@@ -249,7 +260,7 @@ impl Divan {
 
     fn run_bench_entry(
         &self,
-        bench_entry: &BenchEntry,
+        bench_entry: AnyBenchEntry,
         action: Action,
         timer: Timer,
         overhead: FineDuration,
@@ -259,9 +270,10 @@ impl Divan {
     ) {
         use crate::bench::Context;
 
-        let display_name = bench_entry.meta.display_name;
+        let display_name = bench_entry.display_name();
+        let entry_meta = bench_entry.meta();
 
-        if self.should_ignore(parent_ignored || bench_entry.meta.ignore) {
+        if self.should_ignore(parent_ignored || entry_meta.ignore) {
             match fmt_ctx {
                 FormatContext::Pretty { .. } => print!("(ignored)"),
                 FormatContext::Terse { parent_path } => {
@@ -275,8 +287,7 @@ impl Divan {
             println!("Running '{parent_path}::{display_name}'");
         }
 
-        let mut options = bench_entry
-            .meta
+        let mut options = entry_meta
             .bench_options
             .map(|bench_options| bench_options())
             .unwrap_or_default()
@@ -287,7 +298,7 @@ impl Divan {
         let mut context = Context::new(action.is_test(), timer, overhead, options);
 
         let mut did_run = false;
-        (bench_entry.bench)(Bencher::new(&mut did_run, &mut context));
+        bench_entry.bench(Bencher::new(&mut did_run, &mut context));
 
         if !did_run {
             eprintln!("warning: No benchmark function registered for '{display_name}'");

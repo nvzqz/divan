@@ -2,13 +2,16 @@ use std::cmp::Ordering;
 
 use crate::{
     config::SortingAttr,
-    entry::{BenchEntry, EntryLocation, EntryMeta, GroupEntry, ModulePathComponents},
+    entry::{AnyBenchEntry, EntryLocation, EntryMeta, GroupEntry},
 };
 
 /// `BenchEntry` tree organized by path components.
 pub(crate) enum EntryTree<'a> {
-    Leaf(&'a BenchEntry),
+    /// Benchmark group; parent to leaves and other parents.
     Parent { raw_name: &'a str, group: Option<&'a GroupEntry>, children: Vec<Self> },
+
+    /// Benchmark entry leaf.
+    Leaf(AnyBenchEntry<'a>),
 }
 
 impl<'a> EntryTree<'a> {
@@ -16,12 +19,26 @@ impl<'a> EntryTree<'a> {
     /// they're produced.
     pub fn from_benches<I>(benches: I) -> Vec<Self>
     where
-        I: IntoIterator<Item = &'a BenchEntry>,
+        I: IntoIterator<Item = AnyBenchEntry<'a>>,
     {
         let mut result = Vec::<Self>::new();
 
         for bench in benches {
-            Self::insert_entry(&mut result, bench, &mut bench.meta.module_path_components());
+            let mut module_path = bench.meta().module_path_components();
+            let mut extended_module_path;
+
+            let module_iter: &mut dyn Iterator<Item = &str> = match bench {
+                AnyBenchEntry::Bench { .. } => &mut module_path,
+
+                // Generic benchmarks consider their group's raw name to be the
+                // last path component.
+                AnyBenchEntry::GenericBench(bench) => {
+                    extended_module_path = module_path.chain(Some(bench.group.meta.raw_name));
+                    &mut extended_module_path
+                }
+            };
+
+            Self::insert_entry(&mut result, bench, module_iter);
         }
 
         result
@@ -96,11 +113,11 @@ impl<'a> EntryTree<'a> {
                 };
 
                 match subtree {
-                    EntryTree::Leaf { .. } => filter(full_path),
                     EntryTree::Parent { children, .. } => {
                         retain(children, full_path, filter);
                         !children.is_empty()
                     }
+                    EntryTree::Leaf { .. } => filter(full_path),
                 }
             });
         }
@@ -140,8 +157,8 @@ impl<'a> EntryTree<'a> {
     /// with mutable borrows.
     fn insert_entry(
         tree: &mut Vec<Self>,
-        entry: &'a BenchEntry,
-        rem_modules: &mut ModulePathComponents,
+        entry: AnyBenchEntry<'a>,
+        rem_modules: &mut dyn Iterator<Item = &'a str>,
     ) {
         if let Some(current_module) = rem_modules.next() {
             if let Some(children) = Self::get_children(tree, current_module) {
@@ -156,9 +173,9 @@ impl<'a> EntryTree<'a> {
 
     /// Constructs a sequence of branches from a module path.
     fn from_path(
-        entry: &'a BenchEntry,
+        entry: AnyBenchEntry<'a>,
         current_module: &'a str,
-        rem_modules: &mut ModulePathComponents,
+        rem_modules: &mut dyn Iterator<Item = &'a str>,
     ) -> Self {
         let child = if let Some(next_module) = rem_modules.next() {
             Self::from_path(entry, next_module, rem_modules)
@@ -190,21 +207,23 @@ impl<'a> EntryTree<'a> {
 
     pub fn meta(&self) -> Option<&'a EntryMeta> {
         match self {
-            Self::Leaf(entry) => Some(&entry.meta),
             Self::Parent { group, .. } => Some(&(*group)?.meta),
+            Self::Leaf(bench) => Some(bench.meta()),
         }
     }
 
     pub fn raw_name(&self) -> &'a str {
         match self {
-            Self::Leaf(bench) => bench.meta.raw_name,
             Self::Parent { group: Some(group), .. } => group.meta.raw_name,
             Self::Parent { raw_name, .. } => raw_name,
+            Self::Leaf(bench) => bench.raw_name(),
         }
     }
 
     pub fn display_name(&self) -> &'a str {
-        if let Some(common) = self.meta() {
+        if let Self::Leaf(bench) = self {
+            bench.display_name()
+        } else if let Some(common) = self.meta() {
             common.display_name
         } else {
             let raw_name = self.raw_name();

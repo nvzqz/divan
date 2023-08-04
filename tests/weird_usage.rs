@@ -40,6 +40,13 @@ extern "system" fn extern_abi_1() {}
 #[allow(improper_ctypes_definitions)]
 extern "C" fn extern_abi_2(_: divan::Bencher) {}
 
+#[divan::bench(types = [i32, u8])]
+extern "system" fn extern_abi_3<T>() {}
+
+#[divan::bench(r#types = [i32, u8])]
+#[allow(improper_ctypes_definitions)]
+extern "C" fn extern_abi_4<T>(_: divan::Bencher) {}
+
 #[test]
 fn test_fn() {
     Divan::default().test_benches();

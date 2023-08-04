@@ -4,70 +4,78 @@ fn main() {
     divan::main();
 }
 
-enum StringEnc {
-    Ascii,
-    Unicode,
+#[derive(Default)]
+struct Ascii {
+    rng: fastrand::Rng,
 }
 
-use StringEnc::*;
+#[derive(Default)]
+struct Unicode {
+    rng: fastrand::Rng,
+}
 
-impl StringEnc {
-    /// Returns a function that generates deterministic pseudorandom strings.
-    pub fn string_generator(self) -> impl FnMut() -> String {
-        let mut rng = fastrand::Rng::with_seed(42);
+trait GenString: Default {
+    fn gen_string(&mut self) -> String;
+}
 
-        move || {
-            let len = 100;
-            (0..len)
-                .map(|_| match self {
-                    StringEnc::Ascii => rng.alphanumeric(),
-                    StringEnc::Unicode => rng.char(..),
-                })
-                .collect()
-        }
+impl GenString for Ascii {
+    fn gen_string(&mut self) -> String {
+        let len = 100;
+        (0..len).map(|_| self.rng.alphanumeric()).collect()
     }
 }
 
-macro_rules! bench_group {
-    ($group:ident, $bench:expr) => {
-        mod $group {
-            use super::*;
-
-            #[divan::bench]
-            fn ascii(bencher: Bencher) {
-                let bench: fn(Bencher<'_, _>) = $bench;
-                bench(bencher.with_inputs(Ascii.string_generator()));
-            }
-
-            #[divan::bench]
-            fn unicode(bencher: Bencher) {
-                let bench: fn(Bencher<'_, _>) = $bench;
-                bench(bencher.with_inputs(Unicode.string_generator()));
-            }
-        }
-    };
+impl GenString for Unicode {
+    fn gen_string(&mut self) -> String {
+        let len = 100;
+        (0..len).map(|_| self.rng.char(..)).collect()
+    }
 }
 
-macro_rules! bench_values {
-    ($group:ident, $benched:expr) => {
-        bench_group!($group, |bencher| bencher.bench_values($benched));
-    };
+#[divan::bench(types = [Ascii, Unicode])]
+fn clear<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_refs(String::clear);
 }
 
-macro_rules! bench_refs {
-    ($group:ident, $benched:expr) => {
-        bench_group!($group, |bencher| bencher.bench_refs($benched));
-    };
+#[divan::bench(types = [Ascii, Unicode])]
+fn drop<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_values(std::mem::drop);
 }
 
-bench_refs!(clear, |s: &mut String| s.clear());
-bench_values!(drop, |s: String| drop(s));
+#[divan::bench(types = [Ascii, Unicode])]
+fn make_ascii_lowercase<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_refs(|s| s.make_ascii_lowercase());
+}
 
-bench_refs!(make_ascii_lowercase, |s: &mut String| s.make_ascii_lowercase());
-bench_refs!(make_ascii_uppercase, |s: &mut String| s.make_ascii_uppercase());
+#[divan::bench(types = [Ascii, Unicode])]
+fn make_ascii_uppercase<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_refs(|s| s.make_ascii_uppercase());
+}
 
-bench_refs!(to_ascii_lowercase, |s: &mut String| s.to_ascii_lowercase());
-bench_refs!(to_ascii_uppercase, |s: &mut String| s.to_ascii_uppercase());
+#[divan::bench(types = [Ascii, Unicode])]
+fn to_ascii_lowercase<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_refs(|s| s.to_ascii_lowercase());
+}
 
-bench_refs!(to_lowercase, |s: &mut String| s.to_lowercase());
-bench_refs!(to_uppercase, |s: &mut String| s.to_uppercase());
+#[divan::bench(types = [Ascii, Unicode])]
+fn to_ascii_uppercase<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_refs(|s| s.to_ascii_uppercase());
+}
+
+#[divan::bench(types = [Ascii, Unicode])]
+fn to_lowercase<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_refs(|s| s.to_lowercase());
+}
+
+#[divan::bench(types = [Ascii, Unicode])]
+fn to_uppercase<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_refs(|s| s.to_uppercase());
+}

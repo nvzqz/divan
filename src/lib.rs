@@ -126,6 +126,7 @@ pub use std::hint::black_box;
 ///
 /// - [`name`]
 /// - [`crate`]
+/// - [`types`]
 /// - [`sample_count`]
 /// - [`sample_size`]
 /// - [`min_time`]
@@ -163,6 +164,43 @@ pub use std::hint::black_box;
 ///     # 0
 /// }
 /// ```
+///
+/// ## `types`
+/// [`types`]: #types
+///
+/// Divan supports benchmarking generic functions over a list of types via the
+/// [`types`] option.
+///
+/// The following example benchmarks the [`FromIterator`] implementations for
+/// [`Vec`], [`BTreeSet`], and [`HashSet`]:
+///
+/// ```
+/// use std::collections::{BTreeSet, HashSet};
+///
+/// #[divan::bench(types = [Vec<i32>, BTreeSet<i32>, HashSet<i32>])]
+/// fn from_range<T>() -> T
+/// where
+///     T: FromIterator<i32>,
+/// {
+///     divan::black_box(0..100).collect()
+/// }
+/// ```
+///
+/// The following example benchmarks the [`From<&str>`](From) implementations
+/// for [`&str`](prim@str) and [`String`]:
+///
+/// ```
+/// #[divan::bench(types = [&str, String])]
+/// fn from_str<'a, T>() -> T
+/// where
+///     T: From<&'a str>,
+/// {
+///     divan::black_box("hello world").into()
+/// }
+/// ```
+///
+/// [`BTreeSet`]: std::collections::BTreeSet
+/// [`HashSet`]: std::collections::HashSet
 ///
 /// ## `sample_count`
 /// [`sample_count`]: #sample_count
