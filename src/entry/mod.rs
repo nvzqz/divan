@@ -42,6 +42,11 @@ pub struct GroupEntry {
 /// `#[divan::bench]`.
 ///
 /// Unlike `BenchEntry`, this is for a specific generic type.
+///
+/// Although this type contains trivially-`Copy` data, it *should not* implement
+/// `Clone` because the memory address of each instance is used to determine the
+/// relative order in `GroupEntry.generic_benches` when sorting benchmarks by
+/// location.
 pub struct GenericBenchEntry {
     /// The associated group, for entry metadata.
     pub group: &'static GroupEntry,

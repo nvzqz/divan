@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::{
     config::SortingAttr,
-    entry::{AnyBenchEntry, EntryLocation, EntryMeta, GroupEntry},
+    entry::{AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry},
 };
 
 /// `BenchEntry` tree organized by path components.
@@ -142,7 +142,7 @@ impl<'a> EntryTree<'a> {
             let ordering = match attr {
                 SortingAttr::Kind => self.kind().cmp(&other.kind()),
                 SortingAttr::Name => self.display_name().cmp(other.display_name()),
-                SortingAttr::Location => self.location().cmp(&other.location()),
+                SortingAttr::Location => self.cmp_location(other),
             };
             if ordering.is_ne() {
                 return ordering;
@@ -238,6 +238,29 @@ impl<'a> EntryTree<'a> {
             Some(&common.location)
         } else {
             self.children().iter().flat_map(Self::location).min()
+        }
+    }
+
+    /// Compares location with special consideration for whether this is a
+    /// generic benchmark.
+    ///
+    /// When comparing by location, generic benchmarks use the order in which
+    /// their types are specified.
+    fn cmp_location(&self, other: &Self) -> Ordering {
+        let ordering = self.location().cmp(&other.location());
+
+        match (ordering, self, other) {
+            (
+                Ordering::Equal,
+                Self::Leaf(AnyBenchEntry::GenericBench(this)),
+                Self::Leaf(AnyBenchEntry::GenericBench(other)),
+            ) => {
+                // Compare by address as a proxy for slice index.
+                let this: *const GenericBenchEntry = *this;
+                let other: *const GenericBenchEntry = *other;
+                this.cmp(&other)
+            }
+            _ => ordering,
         }
     }
 
