@@ -40,7 +40,7 @@ pub use options::BenchOptions;
 /// ```
 #[must_use = "a benchmark function must be registered"]
 pub struct Bencher<'a, C = BencherConfig> {
-    pub(crate) context: &'a mut Context,
+    pub(crate) context: &'a mut BenchContext,
     pub(crate) config: C,
 }
 
@@ -63,7 +63,7 @@ impl<C> fmt::Debug for Bencher<'_, C> {
 
 impl<'a> Bencher<'a> {
     #[inline]
-    pub(crate) fn new(context: &'a mut Context) -> Self {
+    pub(crate) fn new(context: &'a mut BenchContext) -> Self {
         Self { context, config: BencherConfig::default() }
     }
 }
@@ -291,7 +291,7 @@ where
 ///
 /// Functions called within the benchmark loop should be `#[inline(always)]` to
 /// ensure instruction cache locality.
-pub(crate) struct Context {
+pub(crate) struct BenchContext {
     /// Whether the benchmark is being run as `--test`.
     ///
     /// When `true`, the benchmark is run exactly once. To achieve this, sample
@@ -316,7 +316,7 @@ pub(crate) struct Context {
     samples: Vec<Sample>,
 }
 
-impl Context {
+impl BenchContext {
     /// Creates a new benchmarking context.
     pub fn new(is_test: bool, timer: Timer, overhead: FineDuration, options: BenchOptions) -> Self {
         Self { is_test, timer, overhead, options, did_run: false, samples: Vec::new() }

@@ -17,7 +17,7 @@ const SAMPLE_SIZE: u32 = 2;
 fn test_bencher(test: &mut dyn FnMut(Bencher)) {
     for timer in Timer::available() {
         for is_test in [true, false] {
-            let mut context = Context::new(
+            let mut context = BenchContext::new(
                 is_test,
                 timer,
                 FineDuration::default(),

@@ -268,7 +268,7 @@ impl Divan {
         parent_options: &BenchOptions,
         fmt_ctx: &FormatContext,
     ) {
-        use crate::bench::Context;
+        use crate::bench::BenchContext;
 
         let display_name = bench_entry.display_name();
         let entry_meta = bench_entry.meta();
@@ -295,7 +295,7 @@ impl Divan {
 
         options = self.bench_options.overwrite(&options);
 
-        let mut context = Context::new(action.is_test(), timer, overhead, options);
+        let mut context = BenchContext::new(action.is_test(), timer, overhead, options);
 
         bench_entry.bench(Bencher::new(&mut context));
 
