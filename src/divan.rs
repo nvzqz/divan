@@ -297,10 +297,9 @@ impl Divan {
 
         let mut context = Context::new(action.is_test(), timer, overhead, options);
 
-        let mut did_run = false;
-        bench_entry.bench(Bencher::new(&mut did_run, &mut context));
+        bench_entry.bench(Bencher::new(&mut context));
 
-        if !did_run {
+        if !context.did_run {
             eprintln!("warning: No benchmark function registered for '{display_name}'");
             return;
         }

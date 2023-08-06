@@ -17,7 +17,6 @@ const SAMPLE_SIZE: u32 = 2;
 fn test_bencher(test: &mut dyn FnMut(Bencher)) {
     for timer in Timer::available() {
         for is_test in [true, false] {
-            let mut did_run = false;
             let mut context = Context::new(
                 is_test,
                 timer,
@@ -31,9 +30,9 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
                 },
             );
 
-            test(Bencher::new(&mut did_run, &mut context));
+            test(Bencher::new(&mut context));
 
-            assert!(did_run);
+            assert!(context.did_run);
 
             // '--test' should run the expected number of times but not allocate
             // any samples.

@@ -40,7 +40,6 @@ pub use options::BenchOptions;
 /// ```
 #[must_use = "a benchmark function must be registered"]
 pub struct Bencher<'a, C = BencherConfig> {
-    pub(crate) did_run: &'a mut bool,
     pub(crate) context: &'a mut Context,
     pub(crate) config: C,
 }
@@ -64,8 +63,8 @@ impl<C> fmt::Debug for Bencher<'_, C> {
 
 impl<'a> Bencher<'a> {
     #[inline]
-    pub(crate) fn new(did_run: &'a mut bool, context: &'a mut Context) -> Self {
-        Self { did_run, context, config: BencherConfig::default() }
+    pub(crate) fn new(context: &'a mut Context) -> Self {
+        Self { context, config: BencherConfig::default() }
     }
 }
 
@@ -120,7 +119,6 @@ where
         G: FnMut() -> I,
     {
         Bencher {
-            did_run: self.did_run,
             context: self.context,
             config: BencherConfig {
                 gen_input,
@@ -153,7 +151,6 @@ impl<'a, GenI, BeforeS, AfterS> Bencher<'a, BencherConfig<GenI, BeforeS, AfterS>
         F: FnMut(),
     {
         Bencher {
-            did_run: self.did_run,
             context: self.context,
             config: BencherConfig {
                 gen_input: self.config.gen_input,
@@ -187,7 +184,6 @@ impl<'a, GenI, BeforeS, AfterS> Bencher<'a, BencherConfig<GenI, BeforeS, AfterS>
         F: FnMut(),
     {
         Bencher {
-            did_run: self.did_run,
             context: self.context,
             config: BencherConfig {
                 gen_input: self.config.gen_input,
@@ -231,8 +227,6 @@ where
     where
         B: FnMut(I) -> O,
     {
-        *self.did_run = true;
-
         self.context.bench_loop(
             self.config,
             |input| {
@@ -274,8 +268,6 @@ where
         B: FnMut(&mut I) -> O,
     {
         // TODO: Allow `O` to reference `&mut I` as long as `I` outlives `O`.
-        *self.did_run = true;
-
         self.context.bench_loop(
             self.config,
             |input| {
@@ -317,6 +309,9 @@ pub(crate) struct Context {
     /// User-configured options.
     pub options: BenchOptions,
 
+    /// Whether the benchmark loop was started.
+    pub did_run: bool,
+
     /// Recorded samples.
     samples: Vec<Sample>,
 }
@@ -324,7 +319,7 @@ pub(crate) struct Context {
 impl Context {
     /// Creates a new benchmarking context.
     pub fn new(is_test: bool, timer: Timer, overhead: FineDuration, options: BenchOptions) -> Self {
-        Self { is_test, timer, overhead, options, samples: Vec::new() }
+        Self { is_test, timer, overhead, options, did_run: false, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -345,6 +340,8 @@ impl Context {
         mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
     ) {
+        self.did_run = true;
+
         // The time spent benchmarking, in picoseconds.
         //
         // Unless `skip_ext_time` is set, this includes time external to
