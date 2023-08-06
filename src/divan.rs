@@ -25,6 +25,20 @@ pub struct Divan {
     bench_options: BenchOptions,
 }
 
+/// Immutable context shared between entry runs.
+pub(crate) struct SharedContext {
+    /// The specific action being performed.
+    pub action: Action,
+
+    /// The timer used to measure samples.
+    pub timer: Timer,
+
+    /// Per-iteration overhead.
+    ///
+    /// `min_time` and `max_time` do not consider this as benchmarking time.
+    pub bench_overhead: FineDuration,
+}
+
 impl fmt::Debug for Divan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Divan").finish_non_exhaustive()
@@ -137,17 +151,19 @@ impl Divan {
             }
         };
 
-        let overhead = if action.is_bench() {
-            bench::measure_overhead(timer)
-        } else {
-            FineDuration::default()
+        let shared_context = SharedContext {
+            action,
+            timer,
+            bench_overhead: if action.is_bench() {
+                bench::measure_overhead(timer)
+            } else {
+                FineDuration::default()
+            },
         };
 
         self.run_tree(
             &tree,
-            action,
-            timer,
-            overhead,
+            &shared_context,
             false,
             &BenchOptions::default(),
             match self.format_style {
@@ -160,21 +176,18 @@ impl Divan {
         );
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn run_tree(
         &self,
         tree: &[EntryTree],
-        action: Action,
-        timer: Timer,
-        overhead: FineDuration,
+        shared_context: &SharedContext,
         parent_ignored: bool,
         parent_options: &BenchOptions,
-        fmt_ctx: FormatContext,
+        fmt_context: FormatContext,
     ) {
         for (i, child) in tree.iter().enumerate() {
             let is_last = i == tree.len() - 1;
 
-            let list_format = || match &fmt_ctx {
+            let list_format = || match &fmt_context {
                 FormatContext::Pretty(tree_fmt) => {
                     let current_prefix = tree_fmt.current_prefix(is_last);
                     let name_pad_len =
@@ -193,7 +206,7 @@ impl Divan {
             };
 
             match child {
-                &EntryTree::Leaf(entry) => match (action, self.format_style) {
+                &EntryTree::Leaf(entry) => match (shared_context.action, self.format_style) {
                     (Action::List, FormatStyle::Terse | FormatStyle::Pretty) => {
                         println!("{}", list_format());
                     }
@@ -204,12 +217,10 @@ impl Divan {
 
                         self.run_bench_entry(
                             entry,
-                            action,
-                            timer,
-                            overhead,
+                            shared_context,
                             parent_ignored,
                             parent_options,
-                            &fmt_ctx,
+                            &fmt_context,
                         );
 
                         if self.format_style.is_pretty() {
@@ -231,12 +242,10 @@ impl Divan {
 
                     self.run_tree(
                         children,
-                        action,
-                        timer,
-                        overhead,
+                        shared_context,
                         parent_ignored || group.map(|g| g.meta.ignore).unwrap_or_default(),
                         group_options.as_ref().unwrap_or(parent_options),
-                        match &fmt_ctx {
+                        match &fmt_context {
                             FormatContext::Pretty(tree_fmt) => FormatContext::Pretty(TreeFormat {
                                 parent_prefix: Some(tree_fmt.child_prefix(is_last)),
                                 max_name_span: tree_fmt.max_name_span,
@@ -261,12 +270,10 @@ impl Divan {
     fn run_bench_entry(
         &self,
         bench_entry: AnyBenchEntry,
-        action: Action,
-        timer: Timer,
-        overhead: FineDuration,
+        shared_context: &SharedContext,
         parent_ignored: bool,
         parent_options: &BenchOptions,
-        fmt_ctx: &FormatContext,
+        fmt_context: &FormatContext,
     ) {
         use crate::bench::BenchContext;
 
@@ -274,7 +281,7 @@ impl Divan {
         let entry_meta = bench_entry.meta();
 
         if self.should_ignore(parent_ignored || entry_meta.ignore) {
-            match fmt_ctx {
+            match fmt_context {
                 FormatContext::Pretty { .. } => print!("(ignored)"),
                 FormatContext::Terse { parent_path } => {
                     println!("Ignoring '{parent_path}::{display_name}'");
@@ -283,7 +290,7 @@ impl Divan {
             return;
         }
 
-        if let FormatContext::Terse { parent_path } = fmt_ctx {
+        if let FormatContext::Terse { parent_path } = fmt_context {
             println!("Running '{parent_path}::{display_name}'");
         }
 
@@ -295,17 +302,16 @@ impl Divan {
 
         options = self.bench_options.overwrite(&options);
 
-        let mut context = BenchContext::new(action.is_test(), timer, overhead, options);
+        let mut bench_context = BenchContext::new(shared_context, &options);
+        bench_entry.bench(Bencher::new(&mut bench_context));
 
-        bench_entry.bench(Bencher::new(&mut context));
-
-        if !context.did_run {
+        if !bench_context.did_run {
             eprintln!("warning: No benchmark function registered for '{display_name}'");
             return;
         }
 
-        if action.is_bench() {
-            let stats = context.compute_stats();
+        if shared_context.action.is_bench() {
+            let stats = bench_context.compute_stats();
 
             // TODO: Improve stats formatting.
             match self.format_style {

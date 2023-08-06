@@ -7,7 +7,7 @@ use std::{
 };
 
 use super::*;
-use crate::time::TimerKind;
+use crate::{config::Action, time::TimerKind};
 
 // We use a small number of runs because Miri is very slow.
 const SAMPLE_COUNT: u32 = 2;
@@ -15,29 +15,29 @@ const SAMPLE_SIZE: u32 = 2;
 
 #[track_caller]
 fn test_bencher(test: &mut dyn FnMut(Bencher)) {
+    let bench_options = BenchOptions {
+        sample_count: Some(SAMPLE_COUNT),
+        sample_size: Some(SAMPLE_SIZE),
+        min_time: None,
+        max_time: None,
+        skip_ext_time: None,
+    };
+
     for timer in Timer::available() {
-        for is_test in [true, false] {
-            let mut context = BenchContext::new(
-                is_test,
-                timer,
-                FineDuration::default(),
-                BenchOptions {
-                    sample_count: Some(SAMPLE_COUNT),
-                    sample_size: Some(SAMPLE_SIZE),
-                    min_time: None,
-                    max_time: None,
-                    skip_ext_time: None,
-                },
-            );
+        for action in [Action::Bench, Action::Test] {
+            let shared_context =
+                SharedContext { action, timer, bench_overhead: FineDuration::default() };
 
-            test(Bencher::new(&mut context));
+            let mut bench_context = BenchContext::new(&shared_context, &bench_options);
 
-            assert!(context.did_run);
+            test(Bencher::new(&mut bench_context));
+
+            assert!(bench_context.did_run);
 
             // '--test' should run the expected number of times but not allocate
             // any samples.
-            if is_test {
-                assert_eq!(context.samples.capacity(), 0);
+            if action.is_test() {
+                assert_eq!(bench_context.samples.capacity(), 0);
             }
         }
     }
@@ -63,8 +63,8 @@ mod run_count {
     use super::*;
 
     /// A `Bencher` configured to run code before/after the sample.
-    type Bencher<'a> =
-        crate::Bencher<'a, BencherConfig<(), &'a mut dyn FnMut(), &'a mut dyn FnMut()>>;
+    type Bencher<'a, 'b> =
+        crate::Bencher<'a, 'b, BencherConfig<(), &'a mut dyn FnMut(), &'a mut dyn FnMut()>>;
 
     fn test(run_bench: fn(Bencher, &mut dyn FnMut())) {
         test_with_drop_counter(&AtomicUsize::new(usize::MAX), run_bench);
@@ -80,12 +80,12 @@ mod run_count {
         let mut timer_tsc = false;
 
         test_bencher(&mut |b| {
-            match b.context.timer.kind() {
+            match b.context.shared_context.timer.kind() {
                 TimerKind::Os => timer_os = true,
                 TimerKind::Tsc => timer_tsc = true,
             }
 
-            let is_test = b.context.is_test;
+            let is_test = b.context.shared_context.action.is_test();
 
             // Set to `true` in the sample and reset in `after_sample`.
             let ran_sample = Cell::new(false);

@@ -6,6 +6,7 @@ use std::{
 
 use crate::{
     black_box,
+    divan::SharedContext,
     stats::{Sample, Stats},
     time::{AnyTimestamp, FineDuration, Timer, Timestamp},
     util::ConfigFnMut,
@@ -39,8 +40,8 @@ pub use options::BenchOptions;
 /// }
 /// ```
 #[must_use = "a benchmark function must be registered"]
-pub struct Bencher<'a, C = BencherConfig> {
-    pub(crate) context: &'a mut BenchContext,
+pub struct Bencher<'a, 'b, C = BencherConfig> {
+    pub(crate) context: &'a mut BenchContext<'b>,
     pub(crate) config: C,
 }
 
@@ -55,20 +56,20 @@ pub struct BencherConfig<GenI = (), BeforeS = (), AfterS = ()> {
     after_sample: AfterS,
 }
 
-impl<C> fmt::Debug for Bencher<'_, C> {
+impl<C> fmt::Debug for Bencher<'_, '_, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Bencher").finish_non_exhaustive()
     }
 }
 
-impl<'a> Bencher<'a> {
+impl<'a, 'b> Bencher<'a, 'b> {
     #[inline]
-    pub(crate) fn new(context: &'a mut BenchContext) -> Self {
+    pub(crate) fn new(context: &'a mut BenchContext<'b>) -> Self {
         Self { context, config: BencherConfig::default() }
     }
 }
 
-impl<'a, BeforeS, AfterS> Bencher<'a, BencherConfig<(), BeforeS, AfterS>>
+impl<'a, 'b, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<(), BeforeS, AfterS>>
 where
     BeforeS: ConfigFnMut,
     AfterS: ConfigFnMut,
@@ -114,7 +115,10 @@ where
     ///         });
     /// }
     /// ```
-    pub fn with_inputs<I, G>(self, gen_input: G) -> Bencher<'a, BencherConfig<G, BeforeS, AfterS>>
+    pub fn with_inputs<I, G>(
+        self,
+        gen_input: G,
+    ) -> Bencher<'a, 'b, BencherConfig<G, BeforeS, AfterS>>
     where
         G: FnMut() -> I,
     {
@@ -129,7 +133,7 @@ where
     }
 }
 
-impl<'a, GenI, BeforeS, AfterS> Bencher<'a, BencherConfig<GenI, BeforeS, AfterS>> {
+impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS, AfterS>> {
     /// Calls the given function immediately before measuring a sample timing.
     ///
     /// # Examples
@@ -146,7 +150,10 @@ impl<'a, GenI, BeforeS, AfterS> Bencher<'a, BencherConfig<GenI, BeforeS, AfterS>
     ///         });
     /// }
     /// ```
-    pub fn before_sample<F>(self, before_sample: F) -> Bencher<'a, BencherConfig<GenI, F, AfterS>>
+    pub fn before_sample<F>(
+        self,
+        before_sample: F,
+    ) -> Bencher<'a, 'b, BencherConfig<GenI, F, AfterS>>
     where
         F: FnMut(),
     {
@@ -179,7 +186,10 @@ impl<'a, GenI, BeforeS, AfterS> Bencher<'a, BencherConfig<GenI, BeforeS, AfterS>
     ///         });
     /// }
     /// ```
-    pub fn after_sample<F>(self, after_sample: F) -> Bencher<'a, BencherConfig<GenI, BeforeS, F>>
+    pub fn after_sample<F>(
+        self,
+        after_sample: F,
+    ) -> Bencher<'a, 'b, BencherConfig<GenI, BeforeS, F>>
     where
         F: FnMut(),
     {
@@ -195,7 +205,7 @@ impl<'a, GenI, BeforeS, AfterS> Bencher<'a, BencherConfig<GenI, BeforeS, AfterS>
 }
 
 /// <span id="input-bench"></span> Benchmark over [generated inputs](Self::with_inputs).
-impl<I, GenI, BeforeS, AfterS> Bencher<'_, BencherConfig<GenI, BeforeS, AfterS>>
+impl<I, GenI, BeforeS, AfterS> Bencher<'_, '_, BencherConfig<GenI, BeforeS, AfterS>>
 where
     GenI: FnMut() -> I,
     BeforeS: ConfigFnMut,
@@ -291,23 +301,11 @@ where
 ///
 /// Functions called within the benchmark loop should be `#[inline(always)]` to
 /// ensure instruction cache locality.
-pub(crate) struct BenchContext {
-    /// Whether the benchmark is being run as `--test`.
-    ///
-    /// When `true`, the benchmark is run exactly once. To achieve this, sample
-    /// count and size are each set to 1.
-    is_test: bool,
-
-    timer: Timer,
-
-    /// Per-iteration overhead.
-    ///
-    /// `min_time` and `max_time` do not consider `overhead` as benchmarking
-    /// time.
-    overhead: FineDuration,
+pub(crate) struct BenchContext<'a> {
+    shared_context: &'a SharedContext,
 
     /// User-configured options.
-    pub options: BenchOptions,
+    options: &'a BenchOptions,
 
     /// Whether the benchmark loop was started.
     pub did_run: bool,
@@ -316,10 +314,10 @@ pub(crate) struct BenchContext {
     samples: Vec<Sample>,
 }
 
-impl BenchContext {
+impl<'a> BenchContext<'a> {
     /// Creates a new benchmarking context.
-    pub fn new(is_test: bool, timer: Timer, overhead: FineDuration, options: BenchOptions) -> Self {
-        Self { is_test, timer, overhead, options, did_run: false, samples: Vec::new() }
+    pub fn new(shared_context: &'a SharedContext, options: &'a BenchOptions) -> Self {
+        Self { shared_context, options, did_run: false, samples: Vec::new() }
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -341,6 +339,7 @@ impl BenchContext {
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
     ) {
         self.did_run = true;
+        let is_test = self.shared_context.action.is_test();
 
         // The time spent benchmarking, in picoseconds.
         //
@@ -367,7 +366,8 @@ impl BenchContext {
             return;
         }
 
-        let timer_kind = self.timer.kind();
+        let timer = self.shared_context.timer;
+        let timer_kind = timer.kind();
 
         // Defer:
         // - Usage of `gen_input` values.
@@ -378,20 +378,20 @@ impl BenchContext {
         let mut defer_store: DeferStore<I, O> = DeferStore::default();
 
         // TODO: Set sample count and size dynamically if not set by the user.
-        let mut rem_samples =
-            if self.is_test { 1 } else { self.options.sample_count.unwrap_or(1_000) };
+        let mut rem_samples = if is_test { 1 } else { self.options.sample_count.unwrap_or(1_000) };
 
-        let sample_size = if self.is_test { 1 } else { self.options.sample_size.unwrap_or(1_000) };
+        let sample_size = if is_test { 1 } else { self.options.sample_size.unwrap_or(1_000) };
 
         if rem_samples == 0 || sample_size == 0 {
             return;
         }
 
         // The per-sample benchmarking overhead.
-        let sample_overhead =
-            FineDuration { picos: self.overhead.picos.saturating_mul(sample_size as u128) };
+        let sample_overhead = FineDuration {
+            picos: self.shared_context.bench_overhead.picos.saturating_mul(sample_size as u128),
+        };
 
-        if !self.is_test {
+        if !is_test {
             self.samples.reserve_exact(rem_samples as usize);
         }
 
@@ -566,7 +566,7 @@ impl BenchContext {
 
             // If testing, exit the benchmarking loop immediately after timing a
             // single run.
-            if self.is_test {
+            if is_test {
                 break;
             }
 
@@ -576,7 +576,7 @@ impl BenchContext {
                 [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
             };
 
-            let raw_duration = sample_end.duration_since(sample_start, self.timer);
+            let raw_duration = sample_end.duration_since(sample_start, timer);
 
             // Account for the per-sample benchmarking overhead.
             let adjusted_duration =
@@ -592,7 +592,7 @@ impl BenchContext {
             rem_samples = rem_samples.saturating_sub(1);
 
             if let Some(initial_start) = initial_start {
-                elapsed_picos = sample_end.duration_since(initial_start, self.timer).picos;
+                elapsed_picos = sample_end.duration_since(initial_start, timer).picos;
             } else {
                 // Progress by at least 1ns to prevent extremely fast
                 // functions from taking forever when `min_time` is set.

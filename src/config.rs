@@ -31,14 +31,17 @@ pub(crate) enum Action {
 
 #[allow(dead_code)]
 impl Action {
+    #[inline]
     pub fn is_bench(&self) -> bool {
         matches!(self, Self::Bench)
     }
 
+    #[inline]
     pub fn is_test(&self) -> bool {
         matches!(self, Self::Test)
     }
 
+    #[inline]
     pub fn is_list(&self) -> bool {
         matches!(self, Self::List)
     }
