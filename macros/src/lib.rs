@@ -9,6 +9,7 @@ use quote::{quote, ToTokens};
 mod attr_options;
 
 use attr_options::*;
+use syn::{spanned::Spanned, Expr};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Macro {
@@ -95,7 +96,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        // `types` specified, but no types provided; generate nothing.
+        // `types = []` specified; generate nothing.
         (Some(generic_types), _) if generic_types.is_empty() => Default::default(),
 
         // Generate a benchmark group entry with generic benchmark entries.
@@ -125,11 +126,14 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        // `consts` specified, but no values provided; generate nothing.
-        (None, Some(generic_consts)) if generic_consts.elems.is_empty() => Default::default(),
+        // `consts = []` specified; generate nothing.
+        (None, Some(Expr::Array(generic_consts))) if generic_consts.elems.is_empty() => {
+            Default::default()
+        }
 
-        // Generate a benchmark group entry with generic benchmark entries.
-        (None, Some(generic_consts)) => {
+        // Generate a benchmark group entry with generic benchmark entries over
+        // an array literal of constants.
+        (None, Some(Expr::Array(generic_consts))) => {
             let count = generic_consts.elems.len();
 
             let generic_benches = generic_consts.elems.iter().map(|expr| {
@@ -153,6 +157,66 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                         // `static` is necessary because `EntryConst` uses
                         // interior mutability to cache the `ToString` result.
                         static __DIVAN_GENERIC_BENCHES: [#private_mod::GenericBenchEntry; #count] = [#(#generic_benches),*];
+                        &__DIVAN_GENERIC_BENCHES
+                    }),
+                };
+            }
+        }
+
+        // Generate a benchmark group entry with generic benchmark entries over
+        // an expression of constants.
+        //
+        // This is limited to a maximum of 20 because we need some constant to
+        // instantiate each function instance.
+        (None, Some(generic_consts)) => {
+            // The maximum number of elements for non-array expressions.
+            const MAX_EXTERN_COUNT: usize = 20;
+
+            let underscore = proc_macro2::Ident::new("_", generic_consts.span());
+            let const_type = fn_item
+                .sig
+                .generics
+                .const_params()
+                .next()
+                .map(|param| &param.ty as &dyn ToTokens)
+                .unwrap_or(&underscore);
+
+            let generic_benches = (0..MAX_EXTERN_COUNT).map(|i| {
+                let expr = quote! {
+                    // Fallback to the first constant if out of bounds.
+                    __DIVAN_CONSTS[if #i < __DIVAN_CONST_COUNT { #i } else { 0 }]
+                };
+
+                let bench = make_bench_fn(Some(&expr), true);
+                quote! {
+                    {
+                        #private_mod::GenericBenchEntry::Const {
+                            group: &#static_ident,
+                            bench: #bench,
+                            value: #private_mod::EntryConst::new(&#expr),
+                        }
+                    }
+                }
+            });
+
+            quote! {
+                #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
+                #[linkme(crate = #linkme_crate)]
+                #[doc(hidden)]
+                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
+                    meta: #meta,
+                    generic_benches: #private_mod::Some({
+                        const __DIVAN_CONST_COUNT: usize = __DIVAN_CONSTS.len();
+                        const __DIVAN_CONSTS: &[#const_type] = &#generic_consts;
+
+                        // `static` is necessary because `EntryConst` uses
+                        // interior mutability to cache the `ToString` result.
+                        static __DIVAN_GENERIC_BENCHES: [#private_mod::GenericBenchEntry; __DIVAN_CONST_COUNT]
+                            = match #private_mod::shrink_array([#(#generic_benches),*]) {
+                                #private_mod::Some(array) => array,
+                                _ => panic!("external 'consts' cannot contain more than 20 values"),
+                            };
+
                         &__DIVAN_GENERIC_BENCHES
                     }),
                 };

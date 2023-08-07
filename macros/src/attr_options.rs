@@ -3,7 +3,7 @@ use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, Parser},
     spanned::Spanned,
-    Expr, ExprArray, Ident, Token, Type,
+    Expr, Ident, Token, Type,
 };
 
 use crate::Macro;
@@ -39,7 +39,7 @@ pub(crate) struct AttrOptions {
     ///
     /// Currently only supported by `#[divan::bench]` and mutually exclusive
     /// with `generic_types`.
-    pub generic_consts: Option<ExprArray>,
+    pub generic_consts: Option<Expr>,
 
     /// Options used directly as `BenchOptions` fields.
     ///
@@ -57,7 +57,7 @@ impl AttrOptions {
         let mut bench_options = Vec::new();
 
         let mut generic_types = None::<GenericTypes>;
-        let mut generic_consts = None::<ExprArray>;
+        let mut generic_consts = None::<Expr>;
 
         let attr_parser = syn::meta::parser(|meta| {
             let Some(ident) = meta.path.get_ident() else {

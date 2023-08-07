@@ -54,6 +54,15 @@ extern "system" fn extern_abi_5<const N: isize>() {}
 #[allow(improper_ctypes_definitions)]
 extern "C" fn extern_abi_6<const N: isize>(_: divan::Bencher) {}
 
+macro_rules! consts {
+    () => {
+        [0, -1, isize::MAX]
+    };
+}
+
+#[divan::bench(consts = consts!())]
+fn bench_consts<const N: isize>() {}
+
 #[test]
 fn test_fn() {
     Divan::default().test_benches();

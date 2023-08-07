@@ -236,6 +236,42 @@ pub use std::hint::black_box;
 /// }
 /// ```
 ///
+/// The list of constants can be shared across multiple benchmarks through an
+/// external [array](prim@array) or [slice](prim@slice):
+///
+/// ```
+/// const SIZES: &[usize] = &[1, 2, 5, 10];
+///
+/// #[divan::bench(consts = SIZES)]
+/// fn bench_array1<const N: usize>() -> [i32; N] {
+///     // ...
+///     # [0; N]
+/// }
+///
+/// #[divan::bench(consts = SIZES)]
+/// fn bench_array2<const N: usize>() -> [i32; N] {
+///     // ...
+///     # [0; N]
+/// }
+/// ```
+///
+/// External constants are limited to lengths 1 through 20, because of
+/// implementation details. This limit does not apply if the list is provided
+/// directly like in the first example.
+///
+/// ```compile_fail
+/// const SIZES: [usize; 21] = [
+///     // ...
+///     # 0; 21
+/// ];
+///
+/// #[divan::bench(consts = SIZES)]
+/// fn bench_array<const N: usize>() -> [i32; N] {
+///     // ...
+///     # [0; N]
+/// }
+/// ```
+///
 /// ## `sample_count`
 /// [`sample_count`]: #sample_count
 ///
