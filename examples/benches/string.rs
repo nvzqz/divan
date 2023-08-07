@@ -45,6 +45,12 @@ fn drop<G: GenString>(bencher: Bencher) {
 }
 
 #[divan::bench(types = [Ascii, Unicode])]
+fn char_count<G: GenString>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string()).bench_refs(|s| s.chars().count());
+}
+
+#[divan::bench(types = [Ascii, Unicode])]
 fn make_ascii_lowercase<G: GenString>(bencher: Bencher) {
     let mut gen = G::default();
     bencher.with_inputs(|| gen.gen_string()).bench_refs(|s| s.make_ascii_lowercase());
