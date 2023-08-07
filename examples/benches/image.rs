@@ -12,7 +12,7 @@ fn make_image(pixel: Rgba<u8>) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
 }
 
 // https://github.com/image-rs/image/blob/v0.24.6/benches/copy_from.rs
-#[divan::bench(max_time = 3, sample_size = 20)]
+#[divan::bench]
 fn copy_from(bencher: Bencher) {
     let src = make_image(Rgba([255u8, 0, 0, 255]));
     let mut dst = make_image(Rgba([0u8, 0, 0, 255]));
@@ -21,7 +21,7 @@ fn copy_from(bencher: Bencher) {
 }
 
 /// Baseline for `copy_from`.
-#[divan::bench(max_time = 3, sample_size = 20)]
+#[divan::bench]
 fn memcpy(bencher: Bencher) {
     let src = make_image(Rgba([255u8, 0, 0, 255]));
     let mut dst = vec![0; src.len()];

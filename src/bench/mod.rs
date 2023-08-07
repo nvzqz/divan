@@ -297,6 +297,46 @@ where
     }
 }
 
+/// State machine for how the benchmark is being run.
+#[derive(Clone, Copy)]
+pub(crate) enum BenchMode {
+    /// The benchmark is being run as `--test`.
+    ///
+    /// Don't collect samples and run exactly once.
+    Test,
+
+    /// Scale `sample_size` to determine the right size for collecting.
+    Tune { sample_size: u32 },
+
+    /// Simply collect samples.
+    Collect { sample_size: u32 },
+}
+
+impl BenchMode {
+    #[inline]
+    pub fn is_test(self) -> bool {
+        matches!(self, Self::Test)
+    }
+
+    #[inline]
+    pub fn is_tune(self) -> bool {
+        matches!(self, Self::Tune { .. })
+    }
+
+    #[inline]
+    pub fn is_collect(self) -> bool {
+        matches!(self, Self::Collect { .. })
+    }
+
+    #[inline]
+    pub fn sample_size(self) -> u32 {
+        match self {
+            Self::Test => 1,
+            Self::Tune { sample_size, .. } | Self::Collect { sample_size, .. } => sample_size,
+        }
+    }
+}
+
 /// `#[divan::bench]` loop context.
 ///
 /// Functions called within the benchmark loop should be `#[inline(always)]` to
@@ -338,8 +378,12 @@ impl<'a> BenchContext<'a> {
         mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
     ) {
+        const DEFAULT_SAMPLE_COUNT: u32 = 100;
+
         self.did_run = true;
-        let is_test = self.shared_context.action.is_test();
+
+        let mut current_mode = self.initial_mode();
+        let is_test = current_mode.is_test();
 
         // The time spent benchmarking, in picoseconds.
         //
@@ -361,8 +405,8 @@ impl<'a> BenchContext<'a> {
             .map(|max_time| FineDuration::from(max_time).picos)
             .unwrap_or(u128::MAX);
 
-        // Don't bother running if 0 max time is specified.
-        if max_picos == 0 {
+        // Don't bother running if user specifies 0 max time or 0 samples.
+        if max_picos == 0 || !self.options.has_samples() {
             return;
         }
 
@@ -377,22 +421,18 @@ impl<'a> BenchContext<'a> {
         //   time spent between samples.
         let mut defer_store: DeferStore<I, O> = DeferStore::default();
 
-        // TODO: Set sample count and size dynamically if not set by the user.
-        let mut rem_samples = if is_test { 1 } else { self.options.sample_count.unwrap_or(100) };
-
-        let sample_size = if is_test { 1 } else { self.options.sample_size.unwrap_or(1_000) };
-
-        if rem_samples == 0 || sample_size == 0 {
-            return;
-        }
-
-        // The per-sample benchmarking overhead.
-        let sample_overhead = FineDuration {
-            picos: self.shared_context.bench_overhead.picos.saturating_mul(sample_size as u128),
+        let mut rem_samples = if current_mode.is_collect() {
+            Some(self.options.sample_count.unwrap_or(DEFAULT_SAMPLE_COUNT))
+        } else {
+            None
         };
 
+        // Only measure precision if we need to tune sample size.
+        let timer_precision =
+            if current_mode.is_tune() { timer.precision() } else { FineDuration::default() };
+
         if !is_test {
-            self.samples.reserve_exact(rem_samples as usize);
+            self.samples.reserve_exact(self.options.sample_count.unwrap_or(1) as usize);
         }
 
         let skip_ext_time = self.options.skip_ext_time.unwrap_or_default();
@@ -404,7 +444,7 @@ impl<'a> BenchContext<'a> {
                 // Depleted the benchmarking time budget. This is a strict
                 // condition regardless of sample count and minimum time.
                 false
-            } else if rem_samples > 0 {
+            } else if rem_samples.unwrap_or(1) > 0 {
                 // More samples expected.
                 true
             } else {
@@ -412,6 +452,8 @@ impl<'a> BenchContext<'a> {
                 elapsed_picos < min_picos
             }
         } {
+            let sample_size = current_mode.sample_size();
+
             // The following logic chooses how to efficiently sample the
             // benchmark function once and assigns `sample_start`/`sample_end`
             // before/after the sample loop.
@@ -578,6 +620,32 @@ impl<'a> BenchContext<'a> {
 
             let raw_duration = sample_end.duration_since(sample_start, timer);
 
+            // TODO: Make tuning be less influenced by early runs. Currently if
+            // early runs are very quick but later runs are slow, benchmarking
+            // will take a very long time.
+            //
+            // TODO: Make `sample_size` consider time generating inputs and
+            // dropping inputs/outputs. Currently benchmarks like
+            // `Bencher::bench_refs(String::clear)` take a very long time.
+            if current_mode.is_tune() {
+                // Clear previous smaller samples.
+                self.samples.clear();
+
+                // If within 100x timer precision, continue tuning.
+                let precision_multiple = raw_duration.picos / timer_precision.picos;
+                if precision_multiple <= 100 {
+                    current_mode = BenchMode::Tune { sample_size: sample_size * 2 };
+                } else {
+                    current_mode = BenchMode::Collect { sample_size };
+                    rem_samples = Some(self.options.sample_count.unwrap_or(DEFAULT_SAMPLE_COUNT));
+                }
+            }
+
+            // The per-sample benchmarking overhead.
+            let sample_overhead = FineDuration {
+                picos: self.shared_context.bench_overhead.picos.saturating_mul(sample_size as u128),
+            };
+
             // Account for the per-sample benchmarking overhead.
             let adjusted_duration =
                 FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead.picos) };
@@ -589,7 +657,9 @@ impl<'a> BenchContext<'a> {
                 total_duration: adjusted_duration,
             });
 
-            rem_samples = rem_samples.saturating_sub(1);
+            if let Some(rem_samples) = &mut rem_samples {
+                *rem_samples = rem_samples.saturating_sub(1);
+            }
 
             if let Some(initial_start) = initial_start {
                 elapsed_picos = sample_end.duration_since(initial_start, timer).picos;
@@ -599,6 +669,17 @@ impl<'a> BenchContext<'a> {
                 let progress_picos = raw_duration.picos.max(1_000);
                 elapsed_picos = elapsed_picos.saturating_add(progress_picos);
             }
+        }
+    }
+
+    #[inline]
+    fn initial_mode(&self) -> BenchMode {
+        if self.shared_context.action.is_test() {
+            BenchMode::Test
+        } else if let Some(sample_size) = self.options.sample_size {
+            BenchMode::Collect { sample_size }
+        } else {
+            BenchMode::Tune { sample_size: 1 }
         }
     }
 

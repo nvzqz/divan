@@ -24,7 +24,6 @@ mod gen {
     }
 }
 
-#[divan::bench_group(max_time = 5)]
 mod random {
     use super::*;
 
@@ -49,7 +48,6 @@ mod random {
     }
 }
 
-#[divan::bench_group(max_time = 5)]
 mod sorted {
     use super::*;
 

@@ -37,4 +37,10 @@ impl BenchOptions {
             skip_ext_time: self.skip_ext_time.or(other.skip_ext_time),
         }
     }
+
+    /// Returns `true` if non-zero samples are specified.
+    #[inline]
+    pub(crate) fn has_samples(&self) -> bool {
+        self.sample_count != Some(0) && self.sample_size != Some(0)
+    }
 }
