@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use crate::time::FineDuration;
+
 /// Benchmarking options set directly by the user in `#[divan::bench]` and
 /// `#[divan::bench_group]`.
 ///
@@ -42,5 +44,20 @@ impl BenchOptions {
     #[inline]
     pub(crate) fn has_samples(&self) -> bool {
         self.sample_count != Some(0) && self.sample_size != Some(0)
+    }
+
+    #[inline]
+    pub(crate) fn min_time(&self) -> FineDuration {
+        self.min_time.map(FineDuration::from).unwrap_or_default()
+    }
+
+    #[inline]
+    pub(crate) fn max_time(&self) -> FineDuration {
+        FineDuration {
+            picos: self
+                .max_time
+                .map(|max_time| FineDuration::from(max_time).picos)
+                .unwrap_or(u128::MAX),
+        }
     }
 }

@@ -392,18 +392,10 @@ impl<'a> BenchContext<'a> {
         let mut elapsed_picos: u128 = 0;
 
         // The minimum time for benchmarking, in picoseconds.
-        let min_picos = self
-            .options
-            .min_time
-            .map(|min_time| FineDuration::from(min_time).picos)
-            .unwrap_or_default();
+        let min_picos = self.options.min_time().picos;
 
         // The remaining time left for benchmarking, in picoseconds.
-        let max_picos = self
-            .options
-            .max_time
-            .map(|max_time| FineDuration::from(max_time).picos)
-            .unwrap_or(u128::MAX);
+        let max_picos = self.options.max_time().picos;
 
         // Don't bother running if user specifies 0 max time or 0 samples.
         if max_picos == 0 || !self.options.has_samples() {
