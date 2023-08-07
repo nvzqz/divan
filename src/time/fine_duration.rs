@@ -107,6 +107,11 @@ impl fmt::Debug for FineDuration {
         fmt::Display::fmt(self, f)
     }
 }
+
+impl FineDuration {
+    pub const MAX: Self = Self { picos: u128::MAX };
+}
+
 mod picos {
     pub const NANOS: u128 = 1_000;
     pub const MICROS: u128 = 1_000 * NANOS;

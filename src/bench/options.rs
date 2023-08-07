@@ -53,11 +53,6 @@ impl BenchOptions {
 
     #[inline]
     pub(crate) fn max_time(&self) -> FineDuration {
-        FineDuration {
-            picos: self
-                .max_time
-                .map(|max_time| FineDuration::from(max_time).picos)
-                .unwrap_or(u128::MAX),
-        }
+        self.max_time.map(FineDuration::from).unwrap_or(FineDuration::MAX)
     }
 }

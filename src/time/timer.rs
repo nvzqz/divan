@@ -60,7 +60,7 @@ impl Timer {
         let timer_kind = self.kind();
 
         // Start with the worst possible minimum.
-        let mut min_sample = FineDuration { picos: u128::MAX };
+        let mut min_sample = FineDuration::MAX;
         let mut seen_count = 0;
 
         // If timing in immediate succession fails to produce a non-zero sample,
