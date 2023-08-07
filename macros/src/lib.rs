@@ -9,18 +9,18 @@ use quote::{quote, ToTokens};
 mod attr_options;
 
 use attr_options::*;
-use syn::{spanned::Spanned, Expr};
+use syn::Expr;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Macro {
-    Bench,
+#[derive(Clone, Copy)]
+enum Macro<'a> {
+    Bench { fn_sig: &'a syn::Signature },
     BenchGroup,
 }
 
-impl Macro {
-    fn name(self) -> &'static str {
+impl Macro<'_> {
+    fn name(&self) -> &'static str {
         match self {
-            Self::Bench => "bench",
+            Self::Bench { .. } => "bench",
             Self::BenchGroup => "bench_group",
         }
     }
@@ -28,7 +28,11 @@ impl Macro {
 
 #[proc_macro_attribute]
 pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
-    let options = match AttrOptions::parse(options, Macro::Bench) {
+    let fn_item = item.clone();
+    let fn_item = syn::parse_macro_input!(fn_item as syn::ItemFn);
+    let fn_sig = &fn_item.sig;
+
+    let options = match AttrOptions::parse(options, Macro::Bench { fn_sig }) {
         Ok(options) => options,
         Err(compile_error) => return compile_error,
     };
@@ -36,19 +40,16 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     // Items needed by generated code.
     let AttrOptions { private_mod, linkme_crate, .. } = &options;
 
-    let fn_item = item.clone();
-    let fn_item = syn::parse_macro_input!(fn_item as syn::ItemFn);
-
-    let fn_ident = &fn_item.sig.ident;
+    let fn_ident = &fn_sig.ident;
     let fn_name = fn_ident.to_string();
     let fn_name_pretty = fn_name.strip_prefix("r#").unwrap_or(&fn_name);
 
     let ignore = fn_item.attrs.iter().any(|attr| attr.meta.path().is_ident("ignore"));
 
     // If the function is `extern "ABI"`, it is wrapped in a Rust-ABI function.
-    let is_extern_abi = fn_item.sig.abi.is_some();
+    let is_extern_abi = fn_sig.abi.is_some();
 
-    let fn_args = &fn_item.sig.inputs;
+    let fn_args = &fn_sig.inputs;
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
     //
@@ -127,13 +128,13 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         // `consts = []` specified; generate nothing.
-        (None, Some(Expr::Array(generic_consts))) if generic_consts.elems.is_empty() => {
+        (None, Some((_, Expr::Array(generic_consts)))) if generic_consts.elems.is_empty() => {
             Default::default()
         }
 
         // Generate a benchmark group entry with generic benchmark entries over
         // an array literal of constants.
-        (None, Some(Expr::Array(generic_consts))) => {
+        (None, Some((_, Expr::Array(generic_consts)))) => {
             let count = generic_consts.elems.len();
 
             let generic_benches = generic_consts.elems.iter().map(|expr| {
@@ -168,18 +169,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         //
         // This is limited to a maximum of 20 because we need some constant to
         // instantiate each function instance.
-        (None, Some(generic_consts)) => {
+        (None, Some((const_param, generic_consts))) => {
             // The maximum number of elements for non-array expressions.
             const MAX_EXTERN_COUNT: usize = 20;
 
-            let underscore = proc_macro2::Ident::new("_", generic_consts.span());
-            let const_type = fn_item
-                .sig
-                .generics
-                .const_params()
-                .next()
-                .map(|param| &param.ty as &dyn ToTokens)
-                .unwrap_or(&underscore);
+            let const_type = &const_param.ty;
 
             let generic_benches = (0..MAX_EXTERN_COUNT).map(|i| {
                 let expr = quote! {

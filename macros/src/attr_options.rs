@@ -13,7 +13,7 @@ use crate::Macro;
 ///
 /// The `crate` option is not included because it is only needed to get proper
 /// access to `__private`.
-pub(crate) struct AttrOptions {
+pub(crate) struct AttrOptions<'a> {
     /// `divan::__private`.
     pub private_mod: proc_macro2::TokenStream,
 
@@ -39,7 +39,7 @@ pub(crate) struct AttrOptions {
     ///
     /// Currently only supported by `#[divan::bench]` and mutually exclusive
     /// with `generic_types`.
-    pub generic_consts: Option<Expr>,
+    pub generic_consts: Option<(&'a syn::ConstParam, Expr)>,
 
     /// Options used directly as `BenchOptions` fields.
     ///
@@ -48,8 +48,8 @@ pub(crate) struct AttrOptions {
     pub bench_options: Vec<(Ident, Expr)>,
 }
 
-impl AttrOptions {
-    pub fn parse(tokens: TokenStream, target_macro: Macro) -> Result<Self, TokenStream> {
+impl<'a> AttrOptions<'a> {
+    pub fn parse(tokens: TokenStream, target_macro: Macro<'a>) -> Result<Self, TokenStream> {
         let macro_name = target_macro.name();
 
         let mut divan_crate = None::<syn::Path>;
@@ -57,6 +57,8 @@ impl AttrOptions {
         let mut bench_options = Vec::new();
 
         let mut generic_types = None::<GenericTypes>;
+
+        let mut generic_const_param = None::<&'a syn::ConstParam>;
         let mut generic_consts = None::<Expr>;
 
         let attr_parser = syn::meta::parser(|meta| {
@@ -94,8 +96,13 @@ impl AttrOptions {
                 "crate" => parse!(divan_crate),
                 "name" => parse!(name_expr),
                 "types" => {
-                    if target_macro != Macro::Bench {
-                        return unsupported_error();
+                    match target_macro {
+                        Macro::Bench { fn_sig } => {
+                            if fn_sig.generics.type_params().next().is_none() {
+                                return Err(meta.error(format_args!("generic type required for '{macro_name}' option '{ident_name}'")));
+                            }
+                        }
+                        _ => return unsupported_error(),
                     }
 
                     if generic_consts.is_some() {
@@ -105,8 +112,15 @@ impl AttrOptions {
                     parse!(generic_types);
                 }
                 "consts" => {
-                    if target_macro != Macro::Bench {
-                        return unsupported_error();
+                    match target_macro {
+                        Macro::Bench { fn_sig } => {
+                            if let Some(param) = fn_sig.generics.const_params().next() {
+                                generic_const_param = Some(param);
+                            } else {
+                                return Err(meta.error(format_args!("generic constant required for '{macro_name}' option '{ident_name}'")));
+                            }
+                        }
+                        _ => return unsupported_error(),
                     }
 
                     if generic_types.is_some() {
@@ -147,7 +161,7 @@ impl AttrOptions {
             private_mod,
             name_expr,
             generic_types,
-            generic_consts,
+            generic_consts: generic_const_param.and_then(|param| Some((param, generic_consts?))),
             bench_options,
         })
     }
