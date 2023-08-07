@@ -378,7 +378,7 @@ impl<'a> BenchContext<'a> {
         let mut defer_store: DeferStore<I, O> = DeferStore::default();
 
         // TODO: Set sample count and size dynamically if not set by the user.
-        let mut rem_samples = if is_test { 1 } else { self.options.sample_count.unwrap_or(1_000) };
+        let mut rem_samples = if is_test { 1 } else { self.options.sample_count.unwrap_or(100) };
 
         let sample_size = if is_test { 1 } else { self.options.sample_size.unwrap_or(1_000) };
 
