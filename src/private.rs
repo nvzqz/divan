@@ -5,8 +5,8 @@ pub use linkme;
 pub use crate::{
     bench::BenchOptions,
     entry::{
-        BenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry, BENCH_ENTRIES,
-        GROUP_ENTRIES,
+        BenchEntry, EntryConst, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry,
+        BENCH_ENTRIES, GROUP_ENTRIES,
     },
     time::IntoDuration,
 };

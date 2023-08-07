@@ -127,6 +127,7 @@ pub use std::hint::black_box;
 /// - [`name`]
 /// - [`crate`]
 /// - [`types`]
+/// - [`consts`]
 /// - [`sample_count`]
 /// - [`sample_size`]
 /// - [`min_time`]
@@ -201,6 +202,39 @@ pub use std::hint::black_box;
 ///
 /// [`BTreeSet`]: std::collections::BTreeSet
 /// [`HashSet`]: std::collections::HashSet
+///
+/// ## `consts`
+/// [`consts`]: #consts
+///
+/// Similarly to the [`types`] option, Divan also supports benchmarking generic
+/// functions over a list of values via the [`consts`] option. These options are
+/// currently mutually-exclusive.
+///
+/// The following example benchmarks initialization of [`[i32; N]`](prim@array)
+/// for values of `N` provided by a [literal](https://doc.rust-lang.org/reference/expressions/literal-expr.html),
+/// [`const` item](https://doc.rust-lang.org/reference/items/constant-items.html),
+/// and [`const fn`](https://doc.rust-lang.org/reference/const_eval.html#const-functions):
+///
+/// ```
+/// #[divan::bench(consts = [1000, LEN, len()])]
+/// fn init_array<const N: usize>() -> [i32; N] {
+///     let mut result = [0; N];
+///
+///     for i in 0..N {
+///         result[i] = divan::black_box(i as i32);
+///     }
+///
+///     result
+/// }
+///
+/// const LEN: usize = // ...
+/// # 0;
+///
+/// const fn len() -> usize {
+///     // ...
+///     # 0
+/// }
+/// ```
 ///
 /// ## `sample_count`
 /// [`sample_count`]: #sample_count

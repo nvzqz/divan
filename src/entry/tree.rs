@@ -33,7 +33,7 @@ impl<'a> EntryTree<'a> {
                 // Generic benchmarks consider their group's raw name to be the
                 // last path component.
                 AnyBenchEntry::GenericBench(bench) => {
-                    extended_module_path = module_path.chain(Some(bench.group.meta.raw_name));
+                    extended_module_path = module_path.chain(Some(bench.group().meta.raw_name));
                     &mut extended_module_path
                 }
             };

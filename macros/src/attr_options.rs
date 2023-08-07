@@ -3,7 +3,7 @@ use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, Parser},
     spanned::Spanned,
-    Expr, Ident, Token, Type,
+    Expr, ExprArray, Ident, Token, Type,
 };
 
 use crate::Macro;
@@ -35,6 +35,12 @@ pub(crate) struct AttrOptions {
     /// Currently only supported by `#[divan::bench]`.
     pub generic_types: Option<GenericTypes>,
 
+    /// Generic `const` array over which to instantiate benchmark functions.
+    ///
+    /// Currently only supported by `#[divan::bench]` and mutually exclusive
+    /// with `generic_types`.
+    pub generic_consts: Option<ExprArray>,
+
     /// Options used directly as `BenchOptions` fields.
     ///
     /// Option reuse is handled by the compiler ensuring `BenchOptions` fields
@@ -51,6 +57,7 @@ impl AttrOptions {
         let mut bench_options = Vec::new();
 
         let mut generic_types = None::<GenericTypes>;
+        let mut generic_consts = None::<ExprArray>;
 
         let attr_parser = syn::meta::parser(|meta| {
             let Some(ident) = meta.path.get_ident() else {
@@ -62,6 +69,16 @@ impl AttrOptions {
 
             let repeat_error =
                 || Err(meta.error(format_args!("repeated '{macro_name}' option '{ident_name}'")));
+
+            let unsupported_error = || {
+                Err(meta.error(format_args!("unsupported '{macro_name}' option '{ident_name}'")))
+            };
+
+            let feature_mutex_error = |other_option: &str| {
+                Err(meta.error(format_args!(
+                    "'{macro_name}' option '{ident_name}' is not supported with '{other_option}'"
+                )))
+            };
 
             macro_rules! parse {
                 ($storage:expr) => {
@@ -78,12 +95,25 @@ impl AttrOptions {
                 "name" => parse!(name_expr),
                 "types" => {
                     if target_macro != Macro::Bench {
-                        return Err(meta.error(format_args!(
-                            "unsupported '{macro_name}' option '{ident_name}'"
-                        )));
+                        return unsupported_error();
+                    }
+
+                    if generic_consts.is_some() {
+                        return feature_mutex_error("consts");
                     }
 
                     parse!(generic_types);
+                }
+                "consts" => {
+                    if target_macro != Macro::Bench {
+                        return unsupported_error();
+                    }
+
+                    if generic_types.is_some() {
+                        return feature_mutex_error("types");
+                    }
+
+                    parse!(generic_consts);
                 }
                 _ => {
                     let value: Expr = match meta.value() {
@@ -117,6 +147,7 @@ impl AttrOptions {
             private_mod,
             name_expr,
             generic_types,
+            generic_consts,
             bench_options,
         })
     }

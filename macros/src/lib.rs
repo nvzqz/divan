@@ -60,9 +60,15 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
     let meta = entry_meta_expr(&fn_name, &options, ignore);
 
-    let make_bench_fn = |generic_type: Option<&proc_macro2::TokenStream>| {
-        let fn_expr = match generic_type {
-            Some(ty) => quote! { #fn_ident::<#ty> },
+    let make_bench_fn = |generic: Option<&dyn ToTokens>, generic_const: bool| {
+        let fn_expr = match generic {
+            Some(generic) => {
+                if generic_const {
+                    quote! { #fn_ident::<{ #generic }> }
+                } else {
+                    quote! { #fn_ident::<#generic> }
+                }
+            }
             None => fn_ident.to_token_stream(),
         };
 
@@ -74,10 +80,10 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let generated_items = match &options.generic_types {
+    let generated_items = match (&options.generic_types, &options.generic_consts) {
         // No generic types; generate a simple benchmark entry.
-        None => {
-            let bench_fn = make_bench_fn(None);
+        (None, None) => {
+            let bench_fn = make_bench_fn(None, false);
             quote! {
                 #[#linkme_crate::distributed_slice(#private_mod::BENCH_ENTRIES)]
                 #[linkme(crate = #linkme_crate)]
@@ -89,15 +95,15 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        // Generic specified, but no types provided; generate nothing.
-        Some(generic_types) if generic_types.is_empty() => Default::default(),
+        // `types` specified, but no types provided; generate nothing.
+        (Some(generic_types), _) if generic_types.is_empty() => Default::default(),
 
         // Generate a benchmark group entry with generic benchmark entries.
-        Some(GenericTypes::List(generic_types)) => {
+        (Some(GenericTypes::List(generic_types)), _) => {
             let generic_benches = generic_types.iter().map(|ty| {
-                let bench = make_bench_fn(Some(ty));
+                let bench = make_bench_fn(Some(ty), false);
                 quote! {
-                    #private_mod::GenericBenchEntry {
+                    #private_mod::GenericBenchEntry::Type {
                         group: &#static_ident,
                         bench: #bench,
                         get_type_name: #private_mod::any::type_name::<#ty>,
@@ -115,6 +121,40 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                     generic_benches: #private_mod::Some(
                         &[#(#generic_benches),*]
                     ),
+                };
+            }
+        }
+
+        // `consts` specified, but no values provided; generate nothing.
+        (None, Some(generic_consts)) if generic_consts.elems.is_empty() => Default::default(),
+
+        // Generate a benchmark group entry with generic benchmark entries.
+        (None, Some(generic_consts)) => {
+            let count = generic_consts.elems.len();
+
+            let generic_benches = generic_consts.elems.iter().map(|expr| {
+                let bench = make_bench_fn(Some(expr), true);
+                quote! {
+                    #private_mod::GenericBenchEntry::Const {
+                        group: &#static_ident,
+                        bench: #bench,
+                        value: #private_mod::EntryConst::new(&#expr),
+                    }
+                }
+            });
+
+            quote! {
+                #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
+                #[linkme(crate = #linkme_crate)]
+                #[doc(hidden)]
+                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
+                    meta: #meta,
+                    generic_benches: #private_mod::Some({
+                        // `static` is necessary because `EntryConst` uses
+                        // interior mutability to cache the `ToString` result.
+                        static __DIVAN_GENERIC_BENCHES: [#private_mod::GenericBenchEntry; #count] = [#(#generic_benches),*];
+                        &__DIVAN_GENERIC_BENCHES
+                    }),
                 };
             }
         }
