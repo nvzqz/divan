@@ -141,7 +141,7 @@ impl<'a> EntryTree<'a> {
         for attr in attr.with_tie_breakers() {
             let ordering = match attr {
                 SortingAttr::Kind => self.kind().cmp(&other.kind()),
-                SortingAttr::Name => self.display_name().cmp(other.display_name()),
+                SortingAttr::Name => self.cmp_display_name(other),
                 SortingAttr::Location => self.cmp_location(other),
             };
             if ordering.is_ne() {
@@ -261,6 +261,28 @@ impl<'a> EntryTree<'a> {
                 this.cmp(&other)
             }
             _ => ordering,
+        }
+    }
+
+    /// Compares display name with special consideration for the `PartialOrd`
+    /// implementation of constants.
+    ///
+    /// When sorting by display name, the `PartialOrd` implementation is used by
+    /// `EntryConst` to sort integers by value instead of lexicographically.
+    fn cmp_display_name(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (
+                Self::Leaf(AnyBenchEntry::GenericBench(GenericBenchEntry::Const {
+                    value: this,
+                    ..
+                })),
+                Self::Leaf(AnyBenchEntry::GenericBench(GenericBenchEntry::Const {
+                    value: other,
+                    ..
+                })),
+            ) => this.cmp_name(other),
+
+            _ => self.display_name().cmp(other.display_name()),
         }
     }
 

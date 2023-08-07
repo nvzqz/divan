@@ -1,4 +1,4 @@
-use std::{any::TypeId, mem::ManuallyDrop, sync::OnceLock};
+use std::{any::TypeId, cmp::Ordering, mem::ManuallyDrop, sync::OnceLock};
 
 use crate::{entry::GroupEntry, Bencher};
 
@@ -44,7 +44,7 @@ impl GenericBenchEntry {
     pub(crate) fn raw_name(&self) -> &str {
         match self {
             Self::Type { get_type_name, .. } => get_type_name(),
-            Self::Const { value, .. } => value.as_str(),
+            Self::Const { value, .. } => value.name(),
         }
     }
 
@@ -64,7 +64,7 @@ impl GenericBenchEntry {
 
                 type_name
             }
-            Self::Const { value, .. } => value.as_str(),
+            Self::Const { value, .. } => value.name(),
         }
     }
 
@@ -81,6 +81,9 @@ pub struct EntryConst {
     /// `&'static T`.
     value: *const (),
 
+    /// [`PartialOrd::partial_cmp`].
+    partial_cmp: unsafe fn(*const (), *const ()) -> Option<Ordering>,
+
     /// [`ToString::to_string`].
     to_string: unsafe fn(*const ()) -> String,
 
@@ -96,21 +99,44 @@ impl EntryConst {
     /// Creates entry data for a `const` values.
     pub const fn new<T>(value: &'static T) -> Self
     where
-        T: ToString + Send + Sync,
+        T: PartialOrd + ToString + Send + Sync,
     {
+        unsafe fn partial_cmp<T: PartialOrd>(a: *const (), b: *const ()) -> Option<Ordering> {
+            T::partial_cmp(&*a.cast(), &*b.cast())
+        }
+
         unsafe fn to_string<T: ToString>(value: *const ()) -> String {
             T::to_string(&*value.cast())
         }
 
         Self {
             value: value as *const T as *const (),
+            partial_cmp: partial_cmp::<T>,
             to_string: to_string::<T>,
             cached_string: ManuallyDrop::new(OnceLock::new()),
         }
     }
 
+    /// Returns [`PartialOrd::partial_cmp`] ordering if `<` or `>, falling back
+    /// to comparing [`ToString::to_string`] otherwise.
+    pub(crate) fn cmp_name(&self, other: &Self) -> Ordering {
+        if self.partial_cmp == other.partial_cmp {
+            // SAFETY: Both constants have the same comparison function, so they
+            // must be the same type.
+            if let Some(ordering) = unsafe { (self.partial_cmp)(self.value, other.value) } {
+                if !ordering.is_eq() {
+                    return ordering;
+                }
+            }
+        }
+
+        // Fallback to name comparison.
+        self.name().cmp(other.name())
+    }
+
+    /// [`ToString::to_string`].
     #[inline]
-    fn as_str(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         self.cached_string.get_or_init(|| {
             // SAFETY: The function is guaranteed to call `T::to_string`.
             let string = unsafe { (self.to_string)(self.value) };
