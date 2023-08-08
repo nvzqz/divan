@@ -24,21 +24,18 @@ impl<'a> EntryTree<'a> {
         let mut result = Vec::<Self>::new();
 
         for bench in benches {
-            let mut module_path = bench.meta().module_path_components();
-            let mut extended_module_path;
-
-            let module_iter: &mut dyn Iterator<Item = &str> = match bench {
-                AnyBenchEntry::Bench { .. } => &mut module_path,
-
-                // Generic benchmarks consider their group's raw name to be the
-                // last path component.
-                AnyBenchEntry::GenericBench(bench) => {
-                    extended_module_path = module_path.chain(Some(bench.group().meta.raw_name));
-                    &mut extended_module_path
-                }
+            let mut insert_entry = |path_iter| {
+                Self::insert_entry(&mut result, bench, path_iter);
             };
 
-            Self::insert_entry(&mut result, bench, module_iter);
+            match bench {
+                AnyBenchEntry::Bench(bench) => {
+                    insert_entry(&mut bench.meta.module_path_components());
+                }
+                AnyBenchEntry::GenericBench(bench) => {
+                    insert_entry(&mut bench.path_components());
+                }
+            }
         }
 
         result
@@ -272,12 +269,12 @@ impl<'a> EntryTree<'a> {
     fn cmp_display_name(&self, other: &Self) -> Ordering {
         match (self, other) {
             (
-                Self::Leaf(AnyBenchEntry::GenericBench(GenericBenchEntry::Const {
-                    value: this,
+                Self::Leaf(AnyBenchEntry::GenericBench(GenericBenchEntry {
+                    const_value: Some(this),
                     ..
                 })),
-                Self::Leaf(AnyBenchEntry::GenericBench(GenericBenchEntry::Const {
-                    value: other,
+                Self::Leaf(AnyBenchEntry::GenericBench(GenericBenchEntry {
+                    const_value: Some(other),
                     ..
                 })),
             ) => this.cmp_name(other),

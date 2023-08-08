@@ -1,4 +1,9 @@
-use std::{any::TypeId, cmp::Ordering, mem::ManuallyDrop, sync::OnceLock};
+use std::{
+    any::{Any, TypeId},
+    cmp::Ordering,
+    mem::ManuallyDrop,
+    sync::OnceLock,
+};
 
 use crate::{entry::GroupEntry, Bencher};
 
@@ -11,68 +16,89 @@ use crate::{entry::GroupEntry, Bencher};
 /// `Clone` because the memory address of each instance is used to determine the
 /// relative order in `GroupEntry.generic_benches` when sorting benchmarks by
 /// location.
-pub enum GenericBenchEntry {
-    /// Generic type.
-    Type {
-        /// The associated group, for entry metadata.
-        group: &'static GroupEntry,
+pub struct GenericBenchEntry {
+    /// The associated group, for entry metadata.
+    pub group: &'static GroupEntry,
 
-        /// The benchmarking function.
-        bench: fn(Bencher),
+    /// The benchmarking function.
+    pub bench: fn(Bencher),
 
-        /// [`std::any::type_name`].
-        get_type_name: fn() -> &'static str,
+    /// A generic type.
+    pub ty: Option<EntryType>,
 
-        /// [`std::any::TypeId::of`].
-        get_type_id: fn() -> TypeId,
-    },
-
-    /// `const` generic.
-    Const {
-        /// The associated group, for entry metadata.
-        group: &'static GroupEntry,
-
-        /// The benchmarking function.
-        bench: fn(Bencher),
-
-        /// The `const` value and associated data.
-        value: EntryConst,
-    },
+    /// A `const` value and associated data.
+    pub const_value: Option<EntryConst>,
 }
 
 impl GenericBenchEntry {
     pub(crate) fn raw_name(&self) -> &str {
-        match self {
-            Self::Type { get_type_name, .. } => get_type_name(),
-            Self::Const { value, .. } => value.name(),
+        match (&self.ty, &self.const_value) {
+            (_, Some(const_value)) => const_value.name(),
+            (Some(ty), None) => ty.raw_name(),
+            (None, None) => unreachable!(),
         }
     }
 
     pub(crate) fn display_name(&self) -> &str {
-        match self {
-            Self::Type { get_type_name, .. } => {
-                let mut type_name = get_type_name();
-
-                // Remove module components in type name.
-                while let Some((prev, next)) = type_name.split_once("::") {
-                    // Do not go past generic type boundary.
-                    if prev.contains('<') {
-                        break;
-                    }
-                    type_name = next;
-                }
-
-                type_name
-            }
-            Self::Const { value, .. } => value.name(),
+        match (&self.ty, &self.const_value) {
+            (_, Some(const_value)) => const_value.name(),
+            (Some(ty), None) => ty.display_name(),
+            (None, None) => unreachable!(),
         }
     }
 
-    #[inline]
-    pub(crate) fn group(&self) -> &'static GroupEntry {
-        match self {
-            Self::Type { group, .. } | Self::Const { group, .. } => group,
+    pub(crate) fn path_components(&self) -> impl Iterator<Item = &str> {
+        let module_path = self.group.meta.module_path_components();
+
+        // Generic benchmarks consider their group's raw name to be the path
+        // component after the module path.
+        let group_component = self.group.meta.raw_name;
+
+        // If this is a generic const benchmark with generic types, the generic
+        // types are considered to be the parent of the const values.
+        let type_component = if self.const_value.is_some() {
+            self.ty.as_ref().map(|ty| ty.raw_name())
+        } else {
+            None
+        };
+
+        module_path.chain(Some(group_component)).chain(type_component)
+    }
+}
+
+/// Generic type instantiation.
+pub struct EntryType {
+    /// [`std::any::type_name`].
+    get_type_name: fn() -> &'static str,
+
+    /// [`std::any::TypeId::of`].
+    #[allow(dead_code)]
+    get_type_id: fn() -> TypeId,
+}
+
+impl EntryType {
+    /// Creates an instance for the given type.
+    pub const fn new<T: Any>() -> Self {
+        Self { get_type_name: std::any::type_name::<T>, get_type_id: TypeId::of::<T> }
+    }
+
+    pub(crate) fn raw_name(&self) -> &'static str {
+        (self.get_type_name)()
+    }
+
+    pub(crate) fn display_name(&self) -> &'static str {
+        let mut type_name = self.raw_name();
+
+        // Remove module components in type name.
+        while let Some((prev, next)) = type_name.split_once("::") {
+            // Do not go past generic type boundary.
+            if prev.contains('<') {
+                break;
+            }
+            type_name = next;
         }
+
+        type_name
     }
 }
 

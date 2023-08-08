@@ -105,11 +105,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             let generic_benches = generic_types.iter().map(|ty| {
                 let bench = make_bench_fn(Some(ty), false);
                 quote! {
-                    #private_mod::GenericBenchEntry::Type {
+                    #private_mod::GenericBenchEntry {
                         group: &#static_ident,
                         bench: #bench,
-                        get_type_name: #private_mod::any::type_name::<#ty>,
-                        get_type_id: #private_mod::any::TypeId::of::<#ty>,
+                        const_value: #private_mod::None,
+                        ty: #private_mod::Some(#private_mod::EntryType::new::<#ty>()),
                     }
                 }
             });
@@ -140,10 +140,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             let generic_benches = generic_consts.elems.iter().map(|expr| {
                 let bench = make_bench_fn(Some(expr), true);
                 quote! {
-                    #private_mod::GenericBenchEntry::Const {
+                    #private_mod::GenericBenchEntry {
                         group: &#static_ident,
                         bench: #bench,
-                        value: #private_mod::EntryConst::new(&#expr),
+                        ty: #private_mod::None,
+                        const_value: #private_mod::Some(#private_mod::EntryConst::new(&#expr)),
                     }
                 }
             });
@@ -184,10 +185,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                 let bench = make_bench_fn(Some(&expr), true);
                 quote! {
                     {
-                        #private_mod::GenericBenchEntry::Const {
+                        #private_mod::GenericBenchEntry {
                             group: &#static_ident,
                             bench: #bench,
-                            value: #private_mod::EntryConst::new(&#expr),
+                            ty: #private_mod::None,
+                            const_value: #private_mod::Some(#private_mod::EntryConst::new(&#expr)),
                         }
                     }
                 }

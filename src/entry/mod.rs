@@ -5,7 +5,7 @@ mod meta;
 mod tree;
 
 pub use self::{
-    generic::{EntryConst, GenericBenchEntry},
+    generic::{EntryConst, EntryType, GenericBenchEntry},
     meta::{EntryLocation, EntryMeta},
 };
 pub(crate) use tree::EntryTree;
@@ -52,8 +52,7 @@ impl<'a> AnyBenchEntry<'a> {
     pub fn bench(self, bencher: Bencher) {
         match self {
             Self::Bench(BenchEntry { bench, .. })
-            | Self::GenericBench(GenericBenchEntry::Type { bench, .. })
-            | Self::GenericBench(GenericBenchEntry::Const { bench, .. }) => bench(bencher),
+            | Self::GenericBench(GenericBenchEntry { bench, .. }) => bench(bencher),
         }
     }
 
@@ -61,7 +60,7 @@ impl<'a> AnyBenchEntry<'a> {
     pub fn meta(self) -> &'a EntryMeta {
         match self {
             Self::Bench(entry) => &entry.meta,
-            Self::GenericBench(entry) => &entry.group().meta,
+            Self::GenericBench(entry) => &entry.group.meta,
         }
     }
 
