@@ -82,6 +82,19 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    // Creates a `GroupEntry` for generic benchmarks.
+    let make_generic_entry = |generic_benches: proc_macro2::TokenStream| {
+        quote! {
+            #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
+            #[linkme(crate = #linkme_crate)]
+            #[doc(hidden)]
+            static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
+                meta: #meta,
+                generic_benches: #private_mod::Some({ #generic_benches }),
+            };
+        }
+    };
+
     let generated_items = match (&options.generic_types, &options.generic_consts) {
         // No generic types; generate a simple benchmark entry.
         (None, None) => {
@@ -114,17 +127,9 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                 }
             });
 
-            quote! {
-                #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
-                #[linkme(crate = #linkme_crate)]
-                #[doc(hidden)]
-                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
-                    meta: #meta,
-                    generic_benches: #private_mod::Some(
-                        &[#(#generic_benches),*]
-                    ),
-                };
-            }
+            make_generic_entry(quote! {
+                &[#(#generic_benches),*]
+            })
         }
 
         // `consts = []` specified; generate nothing.
@@ -149,20 +154,12 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                 }
             });
 
-            quote! {
-                #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
-                #[linkme(crate = #linkme_crate)]
-                #[doc(hidden)]
-                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
-                    meta: #meta,
-                    generic_benches: #private_mod::Some({
-                        // `static` is necessary because `EntryConst` uses
-                        // interior mutability to cache the `ToString` result.
-                        static __DIVAN_GENERIC_BENCHES: [#private_mod::GenericBenchEntry; #count] = [#(#generic_benches),*];
-                        &__DIVAN_GENERIC_BENCHES
-                    }),
-                };
-            }
+            make_generic_entry(quote! {
+                // `static` is necessary because `EntryConst` uses interior
+                // mutability to cache the `ToString` result.
+                static __DIVAN_GENERIC_BENCHES: [#private_mod::GenericBenchEntry; #count] = [#(#generic_benches),*];
+                &__DIVAN_GENERIC_BENCHES
+            })
         }
 
         // Generate a benchmark group entry with generic benchmark entries over
@@ -195,28 +192,20 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                 }
             });
 
-            quote! {
-                #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
-                #[linkme(crate = #linkme_crate)]
-                #[doc(hidden)]
-                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
-                    meta: #meta,
-                    generic_benches: #private_mod::Some({
-                        const __DIVAN_CONST_COUNT: usize = __DIVAN_CONSTS.len();
-                        const __DIVAN_CONSTS: &[#const_type] = &#generic_consts;
+            make_generic_entry(quote! {
+                const __DIVAN_CONST_COUNT: usize = __DIVAN_CONSTS.len();
+                const __DIVAN_CONSTS: &[#const_type] = &#generic_consts;
 
-                        // `static` is necessary because `EntryConst` uses
-                        // interior mutability to cache the `ToString` result.
-                        static __DIVAN_GENERIC_BENCHES: [#private_mod::GenericBenchEntry; __DIVAN_CONST_COUNT]
-                            = match #private_mod::shrink_array([#(#generic_benches),*]) {
-                                #private_mod::Some(array) => array,
-                                _ => panic!("external 'consts' cannot contain more than 20 values"),
-                            };
+                // `static` is necessary because `EntryConst` uses interior
+                // mutability to cache the `ToString` result.
+                static __DIVAN_GENERIC_BENCHES: [#private_mod::GenericBenchEntry; __DIVAN_CONST_COUNT]
+                    = match #private_mod::shrink_array([#(#generic_benches),*]) {
+                        #private_mod::Some(array) => array,
+                        _ => panic!("external 'consts' cannot contain more than 20 values"),
+                    };
 
-                        &__DIVAN_GENERIC_BENCHES
-                    }),
-                };
-            }
+                &__DIVAN_GENERIC_BENCHES
+            })
         }
     };
 
