@@ -13,7 +13,7 @@ use crate::Macro;
 ///
 /// The `crate` option is not included because it is only needed to get proper
 /// access to `__private`.
-pub(crate) struct AttrOptions<'a> {
+pub(crate) struct AttrOptions {
     /// `divan::__private`.
     pub private_mod: proc_macro2::TokenStream,
 
@@ -30,16 +30,8 @@ pub(crate) struct AttrOptions<'a> {
     /// Custom name for the benchmark or group.
     pub name_expr: Option<Expr>,
 
-    /// Generic types over which to instantiate benchmark functions.
-    ///
-    /// Currently only supported by `#[divan::bench]`.
-    pub generic_types: Option<GenericTypes>,
-
-    /// Generic `const` array over which to instantiate benchmark functions.
-    ///
-    /// Currently only supported by `#[divan::bench]` and mutually exclusive
-    /// with `generic_types`.
-    pub generic_consts: Option<(&'a syn::ConstParam, Expr)>,
+    /// Options for generic functions.
+    pub generic: GenericOptions,
 
     /// Options used directly as `BenchOptions` fields.
     ///
@@ -48,18 +40,15 @@ pub(crate) struct AttrOptions<'a> {
     pub bench_options: Vec<(Ident, Expr)>,
 }
 
-impl<'a> AttrOptions<'a> {
-    pub fn parse(tokens: TokenStream, target_macro: Macro<'a>) -> Result<Self, TokenStream> {
+impl AttrOptions {
+    pub fn parse(tokens: TokenStream, target_macro: Macro) -> Result<Self, TokenStream> {
         let macro_name = target_macro.name();
 
         let mut divan_crate = None::<syn::Path>;
         let mut name_expr = None::<Expr>;
         let mut bench_options = Vec::new();
 
-        let mut generic_types = None::<GenericTypes>;
-
-        let mut generic_const_param = None::<&'a syn::ConstParam>;
-        let mut generic_consts = None::<Expr>;
+        let mut generic = GenericOptions::default();
 
         let attr_parser = syn::meta::parser(|meta| {
             let Some(ident) = meta.path.get_ident() else {
@@ -74,12 +63,6 @@ impl<'a> AttrOptions<'a> {
 
             let unsupported_error = || {
                 Err(meta.error(format_args!("unsupported '{macro_name}' option '{ident_name}'")))
-            };
-
-            let feature_mutex_error = |other_option: &str| {
-                Err(meta.error(format_args!(
-                    "'{macro_name}' option '{ident_name}' is not supported with '{other_option}'"
-                )))
             };
 
             macro_rules! parse {
@@ -105,29 +88,19 @@ impl<'a> AttrOptions<'a> {
                         _ => return unsupported_error(),
                     }
 
-                    if generic_consts.is_some() {
-                        return feature_mutex_error("consts");
-                    }
-
-                    parse!(generic_types);
+                    parse!(generic.types);
                 }
                 "consts" => {
                     match target_macro {
                         Macro::Bench { fn_sig } => {
-                            if let Some(param) = fn_sig.generics.const_params().next() {
-                                generic_const_param = Some(param);
-                            } else {
-                                return Err(meta.error(format_args!("generic constant required for '{macro_name}' option '{ident_name}'")));
+                            if fn_sig.generics.const_params().next().is_none() {
+                                return Err(meta.error(format_args!("generic const required for '{macro_name}' option '{ident_name}'")));
                             }
                         }
                         _ => return unsupported_error(),
                     }
 
-                    if generic_types.is_some() {
-                        return feature_mutex_error("types");
-                    }
-
-                    parse!(generic_consts);
+                    parse!(generic.consts);
                 }
                 _ => {
                     let value: Expr = match meta.value() {
@@ -160,8 +133,7 @@ impl<'a> AttrOptions<'a> {
             linkme_crate: quote! { #private_mod::linkme },
             private_mod,
             name_expr,
-            generic_types,
-            generic_consts: generic_const_param.and_then(|param| Some((param, generic_consts?))),
+            generic,
             bench_options,
         })
     }
@@ -208,6 +180,40 @@ impl<'a> AttrOptions<'a> {
                         ..#private_mod::Default::default()
                     }
                 })
+            }
+        }
+    }
+}
+
+/// Options for generic functions.
+#[derive(Default)]
+pub struct GenericOptions {
+    /// Generic types over which to instantiate benchmark functions.
+    pub types: Option<GenericTypes>,
+
+    /// `const` array/slice over which to instantiate benchmark functions.
+    pub consts: Option<Expr>,
+}
+
+impl GenericOptions {
+    /// Returns `true` if set exclusively to either:
+    /// - `types = []`
+    /// - `consts = []`
+    pub fn is_empty(&self) -> bool {
+        match (&self.types, &self.consts) {
+            (Some(types), None) => types.is_empty(),
+            (None, Some(Expr::Array(consts))) => consts.elems.is_empty(),
+            _ => false,
+        }
+    }
+
+    /// Returns an iterator of multiple `Some` for types, or a single `None` if
+    /// there are no types.
+    pub fn types_iter(&self) -> Box<dyn Iterator<Item = Option<&dyn ToTokens>> + '_> {
+        match &self.types {
+            None => Box::new(std::iter::once(None)),
+            Some(GenericTypes::List(types)) => {
+                Box::new(types.iter().map(|t| Some(t as &dyn ToTokens)))
             }
         }
     }

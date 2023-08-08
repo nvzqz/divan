@@ -57,7 +57,11 @@ impl GenericBenchEntry {
         // If this is a generic const benchmark with generic types, the generic
         // types are considered to be the parent of the const values.
         let type_component = if self.const_value.is_some() {
-            self.ty.as_ref().map(|ty| ty.raw_name())
+            // FIXME: Switch back to `raw_name` once we have a way to insert
+            // this `display_name` into `EntryTree::Parent`. The current
+            // approach allows different types with the same name to become the
+            // same `EntryTree::Parent`.
+            self.ty.as_ref().map(|ty| ty.display_name())
         } else {
             None
         };

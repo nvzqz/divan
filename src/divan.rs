@@ -97,9 +97,9 @@ impl Divan {
         } else {
             let group_entries = &*crate::entry::GROUP_ENTRIES;
 
-            let generic_bench_entries = group_entries.iter().flat_map(|group| {
-                group.generic_benches.unwrap_or_default().iter().map(AnyBenchEntry::GenericBench)
-            });
+            let generic_bench_entries = group_entries
+                .iter()
+                .flat_map(|group| group.generic_benches_iter().map(AnyBenchEntry::GenericBench));
 
             let bench_entries = crate::entry::BENCH_ENTRIES
                 .iter()

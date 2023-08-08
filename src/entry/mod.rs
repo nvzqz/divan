@@ -37,7 +37,17 @@ pub struct GroupEntry {
     pub meta: EntryMeta,
 
     /// Generic `#[divan::bench]` entries.
-    pub generic_benches: Option<&'static [GenericBenchEntry]>,
+    ///
+    /// This is two-dimensional to make code generation simpler. The outer
+    /// dimension corresponds to types and the inner dimension corresponds to
+    /// constants.
+    pub generic_benches: Option<&'static [&'static [GenericBenchEntry]]>,
+}
+
+impl GroupEntry {
+    pub(crate) fn generic_benches_iter(&self) -> impl Iterator<Item = &'static GenericBenchEntry> {
+        self.generic_benches.unwrap_or_default().iter().flat_map(|benches| benches.iter())
+    }
 }
 
 /// `BenchEntry` or `GenericBenchEntry`.

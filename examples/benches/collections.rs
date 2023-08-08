@@ -6,11 +6,13 @@ fn main() {
     divan::main();
 }
 
+const LENS: &[usize] = &[0, 1, 4, 32, 128, 1024, 8192];
+
 mod util {
     use super::*;
 
-    pub fn collect_nums<T: FromIterator<i32>>() -> T {
-        black_box(0..100).collect()
+    pub fn collect_nums<T: FromIterator<i32>>(n: usize) -> T {
+        black_box(0..(n as i32)).collect()
     }
 
     pub trait WithCapacity {
@@ -57,50 +59,60 @@ fn default<T: Default>() -> T {
     T::default()
 }
 
-#[divan::bench(types = [
-    Vec<i32>,
-    VecDeque<i32>,
-    BinaryHeap<i32>,
-    HashSet<i32>,
-])]
-fn with_capacity<T: util::WithCapacity>() -> T {
-    // TODO: Make capacity be a provided value.
-    let capacity = black_box(100);
-    T::with_capacity(capacity)
+#[divan::bench(
+    types = [
+        Vec<i32>,
+        VecDeque<i32>,
+        BinaryHeap<i32>,
+        HashSet<i32>,
+    ],
+    consts = LENS,
+)]
+fn with_capacity<T: util::WithCapacity, const N: usize>() -> T {
+    T::with_capacity(black_box(N))
 }
 
-#[divan::bench(types = [
-    Vec<i32>,
-    VecDeque<i32>,
-    LinkedList<i32>,
-    BinaryHeap<i32>,
-    HashSet<i32>,
-    BTreeSet<i32>,
-])]
-fn from_iter<T: FromIterator<i32>>() -> T {
-    util::collect_nums()
+#[divan::bench(
+    types = [
+        Vec<i32>,
+        VecDeque<i32>,
+        LinkedList<i32>,
+        BinaryHeap<i32>,
+        HashSet<i32>,
+        BTreeSet<i32>,
+    ],
+    consts = LENS,
+)]
+fn from_iter<T: FromIterator<i32>, const N: usize>() -> T {
+    util::collect_nums(N)
 }
 
-#[divan::bench(types = [
-    Vec<i32>,
-    VecDeque<i32>,
-    LinkedList<i32>,
-    BinaryHeap<i32>,
-    HashSet<i32>,
-    BTreeSet<i32>,
-])]
-fn drop<T: FromIterator<i32>>(bencher: Bencher) {
-    bencher.with_inputs(from_iter::<T>).bench_values(std::mem::drop);
+#[divan::bench(
+    types = [
+        Vec<i32>,
+        VecDeque<i32>,
+        LinkedList<i32>,
+        BinaryHeap<i32>,
+        HashSet<i32>,
+        BTreeSet<i32>,
+    ],
+    consts = LENS,
+)]
+fn drop<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
+    bencher.with_inputs(from_iter::<T, N>).bench_values(std::mem::drop);
 }
 
-#[divan::bench(types = [
-    Vec<i32>,
-    VecDeque<i32>,
-    LinkedList<i32>,
-    BinaryHeap<i32>,
-    HashSet<i32>,
-    BTreeSet<i32>,
-])]
-fn clear<T: FromIterator<i32> + util::Clear>(bencher: Bencher) {
-    bencher.with_inputs(from_iter::<T>).bench_refs(T::clear);
+#[divan::bench(
+    types = [
+        Vec<i32>,
+        VecDeque<i32>,
+        LinkedList<i32>,
+        BinaryHeap<i32>,
+        HashSet<i32>,
+        BTreeSet<i32>,
+    ],
+    consts = LENS,
+)]
+fn clear<T: FromIterator<i32> + util::Clear, const N: usize>(bencher: Bencher) {
+    bencher.with_inputs(from_iter::<T, N>).bench_refs(T::clear);
 }
