@@ -23,3 +23,14 @@
 //! #[divan::bench(sample_size = 1, r#sample_size = 1)]
 //! fn bench() {}
 //! ```
+//!
+//! # Type Checking
+//!
+//! The following won't produce any benchmarks because `types = []`. However, we
+//! still want to ensure that values in `consts = [...]` match the generic
+//! const's type of `i32`.
+//!
+//! ```compile_fail
+//! #[divan::bench(types = [], consts = ['a', 'b', 'c'])]
+//! fn bench<T, const C: i32>() {}
+//! ```

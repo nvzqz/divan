@@ -199,9 +199,13 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         // Generate a benchmark group entry with generic benchmark entries.
         Some(Expr::Array(generic_consts)) => {
             let consts_count = generic_consts.elems.len();
+            let const_type = &const_param.unwrap().1.ty;
 
             let generic_benches = options.generic.types_iter().map(|ty| {
-                let generic_benches = generic_consts.elems.iter().map(move |expr| make_generic_bench_entry(ty, Some(&expr)));
+                let generic_benches = (0..consts_count).map(move |i| {
+                    let const_value = quote! { __DIVAN_CONSTS[#i] };
+                    make_generic_bench_entry(ty, Some(&const_value))
+                });
 
                 // `static` is necessary because `EntryConst` uses interior
                 // mutability to cache the `ToString` result.
@@ -212,6 +216,13 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             });
 
             make_generic_group(quote! {
+                // We refer to our own slice because it:
+                // - Type-checks values, even if `generic_benches` is empty
+                //   because the user set `types = []`
+                // - Prevents re-computing constants, which can slightly improve
+                //   compile time given that Miri is slow
+                const __DIVAN_CONSTS: &[#const_type] = &#generic_consts;
+
                 &[#({ #generic_benches }),*]
             })
         }
