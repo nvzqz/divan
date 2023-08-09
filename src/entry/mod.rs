@@ -1,3 +1,5 @@
+use std::ptr::NonNull;
+
 use crate::Bencher;
 
 mod generic;
@@ -58,6 +60,15 @@ pub(crate) enum AnyBenchEntry<'a> {
 }
 
 impl<'a> AnyBenchEntry<'a> {
+    /// Returns a pointer to use as the identity of the entry.
+    #[inline]
+    pub fn entry_addr(self) -> NonNull<()> {
+        match self {
+            Self::Bench(entry) => NonNull::from(entry).cast(),
+            Self::GenericBench(entry) => NonNull::from(entry).cast(),
+        }
+    }
+
     #[inline]
     pub fn bench(self, bencher: Bencher) {
         match self {

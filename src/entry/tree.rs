@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, ptr::NonNull};
 
 use crate::{
     config::SortingAttr,
@@ -135,16 +135,42 @@ impl<'a> EntryTree<'a> {
     }
 
     fn cmp_by_attr(&self, other: &Self, attr: SortingAttr) -> Ordering {
+        // We take advantage of the fact that entries have stable addresses,
+        // unlike `EntryTree`.
+        let entry_addr_ordering = match (self.entry_addr(), other.entry_addr()) {
+            (Some(a), Some(b)) => Some(a.cmp(&b)),
+            _ => None,
+        };
+
+        // If entries have the same address, then all attributes will be equal.
+        if matches!(entry_addr_ordering, Some(Ordering::Equal)) {
+            return Ordering::Equal;
+        }
+
         for attr in attr.with_tie_breakers() {
             let ordering = match attr {
                 SortingAttr::Kind => self.kind().cmp(&other.kind()),
                 SortingAttr::Name => self.cmp_display_name(other),
-                SortingAttr::Location => self.cmp_location(other),
+                SortingAttr::Location => {
+                    let location_ordering = self.location().cmp(&other.location());
+
+                    // Use the entry's address to break location ties.
+                    //
+                    // This makes generic benchmarks use the same order as their
+                    // types and constants.
+                    if location_ordering.is_eq() {
+                        entry_addr_ordering.unwrap_or(Ordering::Equal)
+                    } else {
+                        location_ordering
+                    }
+                }
             };
+
             if ordering.is_ne() {
                 return ordering;
             }
         }
+
         Ordering::Equal
     }
 
@@ -202,6 +228,16 @@ impl<'a> EntryTree<'a> {
         }
     }
 
+    /// Returns a pointer to use as the identity of the entry.
+    pub fn entry_addr(&self) -> Option<NonNull<()>> {
+        match self {
+            Self::Leaf(bench) => Some(bench.entry_addr()),
+            Self::Parent { group, .. } => {
+                group.map(|entry: &GroupEntry| NonNull::from(entry).cast())
+            }
+        }
+    }
+
     pub fn meta(&self) -> Option<&'a EntryMeta> {
         match self {
             Self::Parent { group, .. } => Some(&(*group)?.meta),
@@ -235,29 +271,6 @@ impl<'a> EntryTree<'a> {
             Some(&common.location)
         } else {
             self.children().iter().flat_map(Self::location).min()
-        }
-    }
-
-    /// Compares location with special consideration for whether this is a
-    /// generic benchmark.
-    ///
-    /// When comparing by location, generic benchmarks use the order in which
-    /// their types are specified.
-    fn cmp_location(&self, other: &Self) -> Ordering {
-        let ordering = self.location().cmp(&other.location());
-
-        match (ordering, self, other) {
-            (
-                Ordering::Equal,
-                Self::Leaf(AnyBenchEntry::GenericBench(this)),
-                Self::Leaf(AnyBenchEntry::GenericBench(other)),
-            ) => {
-                // Compare by address as a proxy for slice index.
-                let this: *const GenericBenchEntry = *this;
-                let other: *const GenericBenchEntry = *other;
-                this.cmp(&other)
-            }
-            _ => ordering,
         }
     }
 
