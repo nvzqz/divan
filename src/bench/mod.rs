@@ -642,12 +642,7 @@ impl<'a> BenchContext<'a> {
             let adjusted_duration =
                 FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead.picos) };
 
-            self.samples.push(Sample {
-                start: sample_start,
-                end: sample_end,
-                size: sample_size,
-                total_duration: adjusted_duration,
-            });
+            self.samples.push(Sample { size: sample_size, total_duration: adjusted_duration });
 
             if let Some(rem_samples) = &mut rem_samples {
                 *rem_samples = rem_samples.saturating_sub(1);
