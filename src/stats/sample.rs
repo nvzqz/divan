@@ -30,4 +30,12 @@ impl SampleCollection {
     pub fn total_duration(&self) -> FineDuration {
         FineDuration { picos: self.all.iter().map(|s| s.total_duration.picos).sum() }
     }
+
+    /// Returns all samples sorted by duration.
+    #[inline]
+    pub fn sorted_samples(&self) -> Vec<&Sample> {
+        let mut result: Vec<&Sample> = self.all.iter().collect();
+        result.sort_unstable_by_key(|s| s.total_duration);
+        result
+    }
 }

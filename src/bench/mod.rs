@@ -683,25 +683,24 @@ impl<'a> BenchContext<'a> {
             picos: total_duration.picos.checked_div(total_count as u128).unwrap_or_default(),
         };
 
-        // Samples ordered by each average duration.
-        let mut ordered_samples: Vec<&Sample> = samples.iter().collect();
-        ordered_samples.sort_unstable_by_key(|s| s.total_duration / sample_size);
+        // Samples sorted by duration.
+        let sorted_samples = self.samples.sorted_samples();
 
         let min_duration =
-            ordered_samples.first().map(|s| s.total_duration / sample_size).unwrap_or_default();
+            sorted_samples.first().map(|s| s.total_duration / sample_size).unwrap_or_default();
         let max_duration =
-            ordered_samples.last().map(|s| s.total_duration / sample_size).unwrap_or_default();
+            sorted_samples.last().map(|s| s.total_duration / sample_size).unwrap_or_default();
 
         let median_duration = if sample_count == 0 {
             FineDuration::default()
         } else if sample_count % 2 == 0 {
             // Take average of two middle numbers.
-            let s1 = ordered_samples[sample_count / 2];
-            let s2 = ordered_samples[(sample_count / 2) - 1];
+            let s1 = sorted_samples[sample_count / 2];
+            let s2 = sorted_samples[(sample_count / 2) - 1];
             (s1.total_duration + s2.total_duration) / (sample_size * 2)
         } else {
             // Single middle number.
-            ordered_samples[sample_count / 2].total_duration / sample_size
+            sorted_samples[sample_count / 2].total_duration / sample_size
         };
 
         Stats {
