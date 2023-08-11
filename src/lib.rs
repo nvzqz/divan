@@ -22,6 +22,31 @@ mod util;
 #[doc(inline)]
 pub use std::hint::black_box;
 
+#[doc(inline)]
+pub use crate::{bench::Bencher, divan::Divan};
+
+/// Runs all registered benchmarks.
+///
+/// # Examples
+///
+/// ```
+/// #[divan::bench]
+/// fn add() -> i32 {
+///     // ...
+///     # 0
+/// }
+///
+/// fn main() {
+///     // Run `add` benchmark:
+///     divan::main();
+/// }
+/// ```
+///
+/// See [`#[divan::bench]`](macro@bench) for more examples.
+pub fn main() {
+    Divan::from_args().main();
+}
+
 /// Registers a benchmarking function.
 ///
 /// # Examples
@@ -743,28 +768,3 @@ pub use divan_macros::bench;
 ///
 /// [`Duration`]: std::time::Duration
 pub use divan_macros::bench_group;
-
-#[doc(inline)]
-pub use crate::{bench::Bencher, divan::Divan};
-
-/// Runs all registered benchmarks.
-///
-/// # Examples
-///
-/// ```
-/// #[divan::bench]
-/// fn add() -> i32 {
-///     // ...
-///     # 0
-/// }
-///
-/// fn main() {
-///     // Run `add` benchmark:
-///     divan::main();
-/// }
-/// ```
-///
-/// See [`#[divan::bench]`](macro@bench) for more examples.
-pub fn main() {
-    Divan::from_args().main();
-}
