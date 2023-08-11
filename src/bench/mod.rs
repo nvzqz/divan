@@ -82,7 +82,7 @@ where
     /// #[divan::bench]
     /// fn bench(bencher: divan::Bencher) {
     ///     bencher.bench(|| {
-    ///         // Benchmarked code…
+    ///         // Benchmarked code...
     ///     });
     /// }
     /// ```
@@ -107,7 +107,7 @@ where
     ///     bencher
     ///         .with_inputs(|| {
     ///             // Generate input:
-    ///             String::from("…")
+    ///             String::from("...")
     ///         })
     ///         .bench_values(|s| {
     ///             // Use input by-value:
@@ -143,10 +143,10 @@ impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS,
     /// fn bench(bencher: divan::Bencher) {
     ///     bencher
     ///         .before_sample(|| {
-    ///             // Prepare for the next sample…
+    ///             // Prepare for the next sample...
     ///         })
     ///         .bench(|| {
-    ///             // Sampled code…
+    ///             // Sampled code...
     ///         });
     /// }
     /// ```
@@ -176,13 +176,13 @@ impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS,
     /// fn bench(bencher: divan::Bencher) {
     ///     bencher
     ///         .before_sample(|| {
-    ///             // Prepare for the next sample…
+    ///             // Prepare for the next sample...
     ///         })
     ///         .after_sample(|| {
-    ///             // Collect info since `before_sample`…
+    ///             // Collect info since `before_sample`...
     ///         })
     ///         .bench(|| {
-    ///             // Sampled code…
+    ///             // Sampled code...
     ///         });
     /// }
     /// ```
@@ -225,7 +225,7 @@ where
     ///     bencher
     ///         .with_inputs(|| {
     ///             // Generate input:
-    ///             String::from("…")
+    ///             String::from("...")
     ///         })
     ///         .bench_values(|s| {
     ///             // Use input by-value:
@@ -265,7 +265,7 @@ where
     ///     bencher
     ///         .with_inputs(|| {
     ///             // Generate input:
-    ///             String::from("…")
+    ///             String::from("...")
     ///         })
     ///         .bench_refs(|s| {
     ///             // Use input by-reference:
