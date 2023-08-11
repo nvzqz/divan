@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::time::FineDuration;
+use crate::{counter::AnyCounter, time::FineDuration};
 
 /// Benchmarking options set directly by the user in `#[divan::bench]` and
 /// `#[divan::bench_group]`.
@@ -14,6 +14,10 @@ pub struct BenchOptions {
 
     /// The number of iterations inside a single sample.
     pub sample_size: Option<u32>,
+
+    /// Counts the number of values processed each iteration of a benchmarked
+    /// function.
+    pub counter: Option<AnyCounter>,
 
     /// The time floor for benchmarking a function.
     pub min_time: Option<Duration>,
@@ -32,11 +36,15 @@ impl BenchOptions {
     #[must_use]
     pub(crate) fn overwrite(&self, other: &Self) -> Self {
         Self {
+            // `Copy` values:
             sample_count: self.sample_count.or(other.sample_count),
             sample_size: self.sample_size.or(other.sample_size),
             min_time: self.min_time.or(other.min_time),
             max_time: self.max_time.or(other.max_time),
             skip_ext_time: self.skip_ext_time.or(other.skip_ext_time),
+
+            // `Clone` values:
+            counter: self.counter.as_ref().or(other.counter.as_ref()).cloned(),
         }
     }
 

@@ -159,6 +159,11 @@ impl AttrOptions {
 
                 let wrapped_value: proc_macro2::TokenStream;
                 let value: &dyn ToTokens = match option_name {
+                    "counter" => {
+                        wrapped_value = quote! { #private_mod::into_any_counter(#value) };
+                        &wrapped_value
+                    }
+
                     // If the option is a `Duration`, use `IntoDuration` to be
                     // polymorphic over `Duration` or `u64`/`f64` seconds.
                     "min_time" | "max_time" => {

@@ -19,6 +19,8 @@ mod stats;
 mod time;
 mod util;
 
+pub mod counter;
+
 #[doc(inline)]
 pub use std::hint::black_box;
 
@@ -155,6 +157,7 @@ pub fn main() {
 /// - [`types`]
 /// - [`sample_count`]
 /// - [`sample_size`]
+/// - [`counter`]
 /// - [`min_time`]
 /// - [`max_time`]
 /// - [`skip_ext_time`]
@@ -331,6 +334,28 @@ pub fn main() {
 ///     # 0
 /// }
 /// ```
+///
+/// ## `counter`
+/// [`counter`]: #counter
+///
+/// The [`Counter`](crate::counter::Counter) of each iteration can be set via
+/// the [`counter`] option. The following example emits info for the number of
+/// bytes processed when benchmarking [`char`-counting](std::str::Chars::count):
+///
+/// ```
+/// use divan::counter::Bytes;
+///
+/// const STR: &str = "...";
+///
+/// #[divan::bench(counter = Bytes(STR.len()))]
+/// fn char_count() -> usize {
+///     divan::black_box(STR).chars().count()
+/// }
+/// ```
+///
+/// See also:
+/// - [`#[divan::bench_group(counter = ...)]`](macro@bench_group#counter)
+/// - [`Bencher::counter`]
 ///
 /// ## `min_time`
 /// [`min_time`]: #min_time
@@ -549,6 +574,7 @@ pub use divan_macros::bench;
 /// - [`crate`]
 /// - [`sample_count`]
 /// - [`sample_size`]
+/// - [`counter`]
 /// - [`min_time`]
 /// - [`max_time`]
 /// - [`skip_ext_time`]
@@ -628,6 +654,42 @@ pub use divan_macros::bench;
 ///     }
 /// }
 /// ```
+///
+/// ## `counter`
+/// [`counter`]: #counter
+///
+/// The [`Counter`](crate::counter::Counter) of each iteration of benchmarked
+/// functions in a group can be set via the [`counter`] option.
+///
+/// The following example emits info for the number of bytes processed when
+/// benchmarking [`char`-counting](std::str::Chars::count) and
+/// [`char`-collecting](std::str::Chars::collect):
+///
+/// ```
+/// use divan::counter::Bytes;
+///
+/// const STR: &str = "...";
+///
+/// #[divan::bench_group(counter = Bytes(STR.len()))]
+/// mod chars {
+///     use super::STR;
+///
+///     #[divan::bench]
+///     fn count() -> usize {
+///         divan::black_box(STR).chars().count()
+///     }
+///
+///     #[divan::bench]
+///     fn collect() -> String {
+///         divan::black_box(STR).chars().collect()
+///     }
+/// }
+/// # fn main() {}
+/// ```
+///
+/// See also:
+/// - [`#[divan::bench(counter = ...)]`](macro@bench#counter)
+/// - [`Bencher::counter`]
 ///
 /// ## `min_time`
 /// [`min_time`]: #min_time

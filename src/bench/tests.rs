@@ -21,9 +21,7 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
     let bench_options = BenchOptions {
         sample_count: Some(SAMPLE_COUNT),
         sample_size: Some(SAMPLE_SIZE),
-        min_time: None,
-        max_time: None,
-        skip_ext_time: None,
+        ..BenchOptions::default()
     };
 
     for timer in Timer::available() {

@@ -6,6 +6,7 @@ use std::{
 
 use crate::{
     black_box,
+    counter::{self, AnyCounter, IntoCounter},
     divan::SharedContext,
     stats::{Sample, SampleCollection, Stats},
     time::{AnyTimestamp, FineDuration, Timestamp},
@@ -134,6 +135,38 @@ where
 }
 
 impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS, AfterS>> {
+    /// Assign a [`Counter`](crate::counter::Counter) for all iterations of the
+    /// benchmarked function.
+    ///
+    /// If context is not needed, the counter can instead be set via
+    /// [`#[divan::bench(counter = ...)]`](macro@crate::bench#counter).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use divan::{Bencher, counter::Bytes};
+    ///
+    /// #[divan::bench]
+    /// fn char_count(bencher: Bencher) {
+    ///     let s: String = // ...
+    ///     # String::new();
+    ///
+    ///     bencher
+    ///         .counter(Bytes(s.len()))
+    ///         .bench(|| {
+    ///             divan::black_box(&s).chars().count()
+    ///         });
+    /// }
+    /// ```
+    #[doc(alias = "throughput")]
+    pub fn counter<C>(self, counter: C) -> Self
+    where
+        C: IntoCounter,
+    {
+        self.context.counter = Some(counter::Sealed::into_any_counter(counter.into_counter()));
+        self
+    }
+
     /// Calls the given function immediately before measuring a sample timing.
     ///
     /// # Examples
@@ -350,6 +383,11 @@ pub(crate) struct BenchContext<'a> {
     /// Whether the benchmark loop was started.
     pub did_run: bool,
 
+    /// Counter set by `Bencher::counter`.
+    ///
+    /// If `None`, fallback to `BenchOptions.counter`.
+    counter: Option<AnyCounter>,
+
     /// Recorded samples.
     samples: SampleCollection,
 }
@@ -357,7 +395,19 @@ pub(crate) struct BenchContext<'a> {
 impl<'a> BenchContext<'a> {
     /// Creates a new benchmarking context.
     pub fn new(shared_context: &'a SharedContext, options: &'a BenchOptions) -> Self {
-        Self { shared_context, options, did_run: false, samples: SampleCollection::default() }
+        Self {
+            shared_context,
+            options,
+            did_run: false,
+            counter: None,
+            samples: SampleCollection::default(),
+        }
+    }
+
+    /// Returns the per-iteration counter.
+    #[inline]
+    fn counter(&self) -> Option<&AnyCounter> {
+        self.counter.as_ref().or(self.options.counter.as_ref())
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -679,7 +729,7 @@ impl<'a> BenchContext<'a> {
         let total_count = self.samples.iter_count();
 
         let total_duration = self.samples.total_duration();
-        let avg_duration = FineDuration {
+        let mean_duration = FineDuration {
             picos: total_duration.picos.checked_div(total_count as u128).unwrap_or_default(),
         };
 
@@ -706,10 +756,11 @@ impl<'a> BenchContext<'a> {
         Stats {
             sample_count: sample_count as u32,
             total_count,
-            avg_duration,
-            min_duration,
-            max_duration,
-            median_duration,
+            mean_time: mean_duration,
+            min_time: min_duration,
+            max_time: max_duration,
+            median_time: median_duration,
+            counter: self.counter().cloned(),
         }
     }
 }

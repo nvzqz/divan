@@ -68,8 +68,8 @@ fn default<T: Default>() -> T {
     ],
     consts = LENS,
 )]
-fn with_capacity<T: util::WithCapacity, const N: usize>() -> T {
-    T::with_capacity(black_box(N))
+fn with_capacity<T: util::WithCapacity, const N: usize>(bencher: Bencher) {
+    bencher.counter(N).bench(|| T::with_capacity(black_box(N)))
 }
 
 #[divan::bench(
@@ -83,8 +83,8 @@ fn with_capacity<T: util::WithCapacity, const N: usize>() -> T {
     ],
     consts = LENS,
 )]
-fn from_iter<T: FromIterator<i32>, const N: usize>() -> T {
-    util::collect_nums(N)
+fn from_iter<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
+    bencher.counter(N).bench(|| util::collect_nums::<T>(N))
 }
 
 #[divan::bench(
@@ -99,7 +99,7 @@ fn from_iter<T: FromIterator<i32>, const N: usize>() -> T {
     consts = LENS,
 )]
 fn drop<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
-    bencher.with_inputs(from_iter::<T, N>).bench_values(std::mem::drop);
+    bencher.counter(N).with_inputs(|| util::collect_nums::<T>(N)).bench_values(std::mem::drop);
 }
 
 #[divan::bench(
@@ -114,5 +114,5 @@ fn drop<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
     consts = LENS,
 )]
 fn clear<T: FromIterator<i32> + util::Clear, const N: usize>(bencher: Bencher) {
-    bencher.with_inputs(from_iter::<T, N>).bench_refs(T::clear);
+    bencher.counter(N).with_inputs(|| util::collect_nums::<T>(N)).bench_refs(T::clear);
 }

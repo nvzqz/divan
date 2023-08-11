@@ -1,6 +1,6 @@
 //! Benchmarks the [`image`](https://docs.rs/image) crate.
 
-use divan::{black_box, Bencher};
+use divan::{black_box, counter::Bytes, Bencher};
 use image::{GenericImage, ImageBuffer, Rgba};
 
 fn main() {
@@ -17,7 +17,9 @@ fn copy_from(bencher: Bencher) {
     let src = make_image(Rgba([255u8, 0, 0, 255]));
     let mut dst = make_image(Rgba([0u8, 0, 0, 255]));
 
-    bencher.bench(|| black_box(&mut dst).copy_from(black_box(&src), 0, 0));
+    bencher
+        .counter(Bytes(src.len()))
+        .bench(|| black_box(&mut dst).copy_from(black_box(&src), 0, 0));
 }
 
 /// Baseline for `copy_from`.
@@ -26,5 +28,7 @@ fn memcpy(bencher: Bencher) {
     let src = make_image(Rgba([255u8, 0, 0, 255]));
     let mut dst = vec![0; src.len()];
 
-    bencher.bench(|| black_box(&mut dst).copy_from_slice(black_box(&src)));
+    bencher
+        .counter(Bytes(src.len()))
+        .bench(|| black_box(&mut dst).copy_from_slice(black_box(&src)));
 }

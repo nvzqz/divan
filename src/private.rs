@@ -11,6 +11,12 @@ pub use crate::{
     time::IntoDuration,
 };
 
+/// Used by `#[divan::bench(counter = ...)]`.
+#[inline]
+pub fn into_any_counter<C: crate::counter::IntoCounter>(counter: C) -> crate::counter::AnyCounter {
+    crate::counter::Sealed::into_any_counter(counter.into_counter())
+}
+
 /// Used by `#[divan::bench]` to truncate arrays for generic `const` benchmarks.
 pub const fn shrink_array<T, const IN: usize, const OUT: usize>(
     array: [T; IN],
