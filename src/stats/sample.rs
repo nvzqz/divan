@@ -3,7 +3,7 @@ use crate::time::FineDuration;
 /// Measurement datum.
 pub struct Sample {
     /// The time this sample took to run.
-    pub total_duration: FineDuration,
+    pub duration: FineDuration,
 }
 
 /// [`Sample`] collection.
@@ -28,14 +28,14 @@ impl SampleCollection {
     /// Computes the total time across all samples.
     #[inline]
     pub fn total_duration(&self) -> FineDuration {
-        FineDuration { picos: self.all.iter().map(|s| s.total_duration.picos).sum() }
+        FineDuration { picos: self.all.iter().map(|s| s.duration.picos).sum() }
     }
 
     /// Returns all samples sorted by duration.
     #[inline]
     pub fn sorted_samples(&self) -> Vec<&Sample> {
         let mut result: Vec<&Sample> = self.all.iter().collect();
-        result.sort_unstable_by_key(|s| s.total_duration);
+        result.sort_unstable_by_key(|s| s.duration);
         result
     }
 }
