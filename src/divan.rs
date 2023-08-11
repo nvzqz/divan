@@ -4,7 +4,7 @@ use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
-    bench::{self, BenchOptions, Bencher},
+    bench::{BenchOptions, Bencher},
     config::{Action, Filter, FormatStyle, ParsedSeconds, RunIgnored, SortingAttr},
     entry::{AnyBenchEntry, EntryLocation, EntryTree},
     time::{FineDuration, Timer, TimerKind},
@@ -155,7 +155,7 @@ impl Divan {
             action,
             timer,
             bench_overhead: if action.is_bench() {
-                bench::measure_overhead(timer)
+                timer.measure_sample_loop_overhead()
             } else {
                 FineDuration::default()
             },

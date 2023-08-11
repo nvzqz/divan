@@ -7,7 +7,10 @@ use std::{
 };
 
 use super::*;
-use crate::{config::Action, time::TimerKind};
+use crate::{
+    config::Action,
+    time::{Timer, TimerKind},
+};
 
 // We use a small number of runs because Miri is very slow.
 const SAMPLE_COUNT: u32 = 2;

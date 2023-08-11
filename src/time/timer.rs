@@ -127,6 +127,43 @@ impl Timer {
             delay_len = delay_len.saturating_add(1);
         }
     }
+
+    /// Calculates the per-timing-sample benchmarking loop overhead.
+    pub fn measure_sample_loop_overhead(self) -> FineDuration {
+        let timer_kind = self.kind();
+
+        let sample_count: usize = 100;
+        let sample_size: usize = 10_000;
+
+        // The minimum non-zero sample.
+        let mut min_sample = FineDuration::default();
+
+        for _ in 0..sample_count {
+            let start = AnyTimestamp::start(timer_kind);
+
+            for i in 0..sample_size {
+                _ = crate::black_box(i);
+            }
+
+            let end = AnyTimestamp::end(timer_kind);
+
+            // SAFETY: These values are guaranteed to be the correct variant because
+            // they were created from the same `timer_kind`.
+            let [start, end] =
+                unsafe { [start.into_timestamp(timer_kind), end.into_timestamp(timer_kind)] };
+
+            let mut sample = end.duration_since(start, self);
+            sample.picos /= sample_size as u128;
+
+            if min_sample.picos == 0 {
+                min_sample = sample;
+            } else if sample.picos > 0 {
+                min_sample = min_sample.min(sample);
+            }
+        }
+
+        min_sample
+    }
 }
 
 /// [`Timer`] kind.
