@@ -1,4 +1,4 @@
-use std::{fmt, time::Duration};
+use std::{fmt, ops, time::Duration};
 
 /// [Picosecond](https://en.wikipedia.org/wiki/Picosecond)-precise [`Duration`].
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -105,6 +105,24 @@ impl fmt::Display for FineDuration {
 impl fmt::Debug for FineDuration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self, f)
+    }
+}
+
+impl ops::Add for FineDuration {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, other: Self) -> Self {
+        Self { picos: self.picos + other.picos }
+    }
+}
+
+impl<I: Into<u128>> ops::Div<I> for FineDuration {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, count: I) -> Self {
+        Self { picos: self.picos / count.into() }
     }
 }
 

@@ -37,7 +37,7 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
             // '--test' should run the expected number of times but not allocate
             // any samples.
             if action.is_test() {
-                assert_eq!(bench_context.samples.capacity(), 0);
+                assert_eq!(bench_context.samples.all.capacity(), 0);
             }
         }
     }

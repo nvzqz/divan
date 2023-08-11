@@ -7,7 +7,7 @@ use std::{
 use crate::{
     black_box,
     divan::SharedContext,
-    stats::{Sample, Stats},
+    stats::{Sample, SampleCollection, Stats},
     time::{AnyTimestamp, FineDuration, Timer, Timestamp},
     util::ConfigFnMut,
 };
@@ -351,13 +351,13 @@ pub(crate) struct BenchContext<'a> {
     pub did_run: bool,
 
     /// Recorded samples.
-    samples: Vec<Sample>,
+    samples: SampleCollection,
 }
 
 impl<'a> BenchContext<'a> {
     /// Creates a new benchmarking context.
     pub fn new(shared_context: &'a SharedContext, options: &'a BenchOptions) -> Self {
-        Self { shared_context, options, did_run: false, samples: Vec::new() }
+        Self { shared_context, options, did_run: false, samples: SampleCollection::default() }
     }
 
     /// Runs the loop for benchmarking `benched`.
@@ -424,7 +424,7 @@ impl<'a> BenchContext<'a> {
             if current_mode.is_tune() { timer.precision() } else { FineDuration::default() };
 
         if !is_test {
-            self.samples.reserve_exact(self.options.sample_count.unwrap_or(1) as usize);
+            self.samples.all.reserve(self.options.sample_count.unwrap_or(1) as usize);
         }
 
         let skip_ext_time = self.options.skip_ext_time.unwrap_or_default();
@@ -445,6 +445,7 @@ impl<'a> BenchContext<'a> {
             }
         } {
             let sample_size = current_mode.sample_size();
+            self.samples.sample_size = sample_size;
 
             // The following logic chooses how to efficiently sample the
             // benchmark function once and assigns `sample_start`/`sample_end`
@@ -621,7 +622,7 @@ impl<'a> BenchContext<'a> {
             // `Bencher::bench_refs(String::clear)` take a very long time.
             if current_mode.is_tune() {
                 // Clear previous smaller samples.
-                self.samples.clear();
+                self.samples.all.clear();
 
                 // If within 100x timer precision, continue tuning.
                 let precision_multiple = raw_duration.picos / timer_precision.picos;
@@ -642,7 +643,7 @@ impl<'a> BenchContext<'a> {
             let adjusted_duration =
                 FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead.picos) };
 
-            self.samples.push(Sample { size: sample_size, total_duration: adjusted_duration });
+            self.samples.all.push(Sample { total_duration: adjusted_duration });
 
             if let Some(rem_samples) = &mut rem_samples {
                 *rem_samples = rem_samples.saturating_sub(1);
@@ -670,31 +671,26 @@ impl<'a> BenchContext<'a> {
         }
     }
 
-    /// Computes the total iteration count and duration.
-    ///
-    /// We use `u64` for total count in case sample count and sizes are huge.
-    fn compute_totals(&self) -> (u64, FineDuration) {
-        self.samples.iter().fold(Default::default(), |(mut count, mut duration), sample| {
-            count += sample.size as u64;
-            duration.picos += sample.total_duration.picos;
-            (count, duration)
-        })
-    }
-
     pub fn compute_stats(&self) -> Stats {
-        let sample_count = self.samples.len();
-        let (total_count, total_duration) = self.compute_totals();
+        let samples = &self.samples.all;
+        let sample_count = samples.len();
+        let sample_size = self.samples.sample_size;
 
-        // Samples ordered by each average duration.
-        let mut ordered_samples: Vec<&Sample> = self.samples.iter().collect();
-        ordered_samples.sort_unstable_by_key(|s| s.avg_duration());
+        let total_count = self.samples.iter_count();
 
+        let total_duration = self.samples.total_duration();
         let avg_duration = FineDuration {
             picos: total_duration.picos.checked_div(total_count as u128).unwrap_or_default(),
         };
 
-        let min_duration = ordered_samples.first().map(|s| s.avg_duration()).unwrap_or_default();
-        let max_duration = ordered_samples.last().map(|s| s.avg_duration()).unwrap_or_default();
+        // Samples ordered by each average duration.
+        let mut ordered_samples: Vec<&Sample> = samples.iter().collect();
+        ordered_samples.sort_unstable_by_key(|s| s.total_duration / sample_size);
+
+        let min_duration =
+            ordered_samples.first().map(|s| s.total_duration / sample_size).unwrap_or_default();
+        let max_duration =
+            ordered_samples.last().map(|s| s.total_duration / sample_size).unwrap_or_default();
 
         let median_duration = if sample_count == 0 {
             FineDuration::default()
@@ -702,10 +698,10 @@ impl<'a> BenchContext<'a> {
             // Take average of two middle numbers.
             let s1 = ordered_samples[sample_count / 2];
             let s2 = ordered_samples[(sample_count / 2) - 1];
-            s1.avg_duration_between(s2)
+            (s1.total_duration + s2.total_duration) / (sample_size * 2)
         } else {
             // Single middle number.
-            ordered_samples[sample_count / 2].avg_duration()
+            ordered_samples[sample_count / 2].total_duration / sample_size
         };
 
         Stats {
