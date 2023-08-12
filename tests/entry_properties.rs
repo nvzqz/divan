@@ -19,7 +19,10 @@ mod outer_group {
 
 #[divan::bench]
 #[ignore]
-fn ignored() {}
+fn ignored_1() {}
+
+#[divan::bench(ignore)]
+fn ignored_2() {}
 
 #[divan::bench_group]
 #[allow(unused_attributes)]
@@ -98,15 +101,20 @@ fn column() {
 
 #[test]
 fn ignore() {
-    assert!(find_meta!(BENCH_ENTRIES, "ignored").ignore);
-    assert!(find_meta!(GROUP_ENTRIES, "ignored_group").ignore);
+    fn get_ignore(meta: &EntryMeta) -> bool {
+        meta.bench_options.and_then(|bench_options| bench_options().ignore).unwrap_or_default()
+    }
+
+    assert!(get_ignore(find_meta!(BENCH_ENTRIES, "ignored_1")));
+    assert!(get_ignore(find_meta!(BENCH_ENTRIES, "ignored_2")));
+    assert!(get_ignore(find_meta!(GROUP_ENTRIES, "ignored_group")));
 
     // Although its parent is marked as `#[ignore]`, it itself is not yet known
     // to be ignored.
-    assert!(!find_meta!(BENCH_ENTRIES, "not_yet_ignored").ignore);
+    assert!(!get_ignore(find_meta!(BENCH_ENTRIES, "not_yet_ignored")));
 
-    assert!(!find_inner().ignore);
-    assert!(!find_inner_group().ignore);
-    assert!(!find_outer().ignore);
-    assert!(!find_outer_group().ignore);
+    assert!(!get_ignore(find_inner()));
+    assert!(!get_ignore(find_inner_group()));
+    assert!(!get_ignore(find_outer()));
+    assert!(!get_ignore(find_outer_group()));
 }

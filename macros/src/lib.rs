@@ -44,7 +44,10 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     let fn_name = fn_ident.to_string();
     let fn_name_pretty = fn_name.strip_prefix("r#").unwrap_or(&fn_name);
 
-    let ignore = fn_item.attrs.iter().any(|attr| attr.meta.path().is_ident("ignore"));
+    // Find any `#[ignore]` attribute so that we can use its span to help
+    // compiler diagnostics.
+    let ignore_attr_ident =
+        fn_item.attrs.iter().map(|attr| attr.meta.path()).find(|path| path.is_ident("ignore"));
 
     // If the function is `extern "ABI"`, it is wrapped in a Rust-ABI function.
     let is_extern_abi = fn_sig.abi.is_some();
@@ -87,7 +90,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         fn_ident.span(),
     );
 
-    let meta = entry_meta_expr(&fn_name, &options, ignore);
+    let meta = entry_meta_expr(&fn_name, &options, ignore_attr_ident);
 
     // Creates a function expr for the benchmarking function, optionally
     // monomorphized with generic parameters.
@@ -293,8 +296,12 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     let mod_name = mod_ident.to_string();
     let mod_name_pretty = mod_name.strip_prefix("r#").unwrap_or(&mod_name);
 
+    // Find any `#[ignore]` attribute so that we can use its span to help
+    // compiler diagnostics.
+    //
     // TODO: Fix `unused_attributes` warning when using `#[ignore]` on a module.
-    let ignore = mod_item.attrs.iter().any(|attr| attr.meta.path().is_ident("ignore"));
+    let ignore_attr_ident =
+        mod_item.attrs.iter().map(|attr| attr.meta.path()).find(|path| path.is_ident("ignore"));
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
     let static_ident = syn::Ident::new(
@@ -302,7 +309,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
         mod_ident.span(),
     );
 
-    let meta = entry_meta_expr(&mod_name, &options, ignore);
+    let meta = entry_meta_expr(&mod_name, &options, ignore_attr_ident);
 
     let generated_items = quote! {
         // By having the static be local, we cause a compile error if this
@@ -326,7 +333,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
 fn entry_meta_expr(
     raw_name: &str,
     options: &AttrOptions,
-    ignore: bool,
+    ignore_attr_ident: Option<&syn::Path>,
 ) -> proc_macro2::TokenStream {
     let AttrOptions { private_mod, std_crate, .. } = &options;
 
@@ -337,7 +344,7 @@ fn entry_meta_expr(
         None => &raw_name_pretty,
     };
 
-    let bench_options_fn = options.bench_options_fn();
+    let bench_options_fn = options.bench_options_fn(ignore_attr_ident);
 
     quote! {
         #private_mod::EntryMeta {
@@ -351,8 +358,6 @@ fn entry_meta_expr(
                 line: #std_crate::line!(),
                 col: #std_crate::column!(),
             },
-
-            ignore: #ignore,
 
             bench_options: #bench_options_fn,
         }

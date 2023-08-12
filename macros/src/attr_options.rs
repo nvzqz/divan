@@ -139,7 +139,15 @@ impl AttrOptions {
     }
 
     /// Produces a function expression for creating `BenchOptions`.
-    pub fn bench_options_fn(&self) -> proc_macro2::TokenStream {
+    ///
+    /// If the `#[ignore]` attribute is specified, this be provided its
+    /// identifier to set `BenchOptions` using its span. Doing this instead of
+    /// creating the `ignore` identifier ourselves improves compiler error
+    /// diagnostics.
+    pub fn bench_options_fn(
+        &self,
+        ignore_attr_ident: Option<&syn::Path>,
+    ) -> proc_macro2::TokenStream {
         let private_mod = &self.private_mod;
 
         // Directly set fields on `BenchOptions`. This simplifies things by:
@@ -150,7 +158,7 @@ impl AttrOptions {
         // twice, even if raw identifiers are used. This also has the accidental
         // benefit of Rust Analyzer recognizing fields and emitting suggestions
         // with docs and type info.
-        if self.bench_options.is_empty() {
+        if self.bench_options.is_empty() && ignore_attr_ident.is_none() {
             quote! { #private_mod::None }
         } else {
             let options_iter = self.bench_options.iter().map(|(option, value)| {
@@ -177,11 +185,22 @@ impl AttrOptions {
 
                 quote! { #option: #private_mod::Some(#value), }
             });
+
+            let ignore = match ignore_attr_ident {
+                Some(ignore_attr_ident) => quote! { #ignore_attr_ident: #private_mod::Some(true), },
+                None => Default::default(),
+            };
+
             quote! {
                 #private_mod::Some(|| {
                     #[allow(clippy::needless_update)]
                     #private_mod::BenchOptions {
                         #(#options_iter)*
+
+                        // Ignore comes after options so that options take
+                        // priority in compiler error diagnostics.
+                        #ignore
+
                         ..#private_mod::Default::default()
                     }
                 })

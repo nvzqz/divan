@@ -164,7 +164,6 @@ impl Divan {
         self.run_tree(
             &tree,
             &shared_context,
-            false,
             &BenchOptions::default(),
             match self.format_style {
                 FormatStyle::Pretty => FormatContext::Pretty(TreeFormat {
@@ -180,7 +179,6 @@ impl Divan {
         &self,
         tree: &[EntryTree],
         shared_context: &SharedContext,
-        parent_ignored: bool,
         parent_options: &BenchOptions,
         fmt_context: FormatContext,
     ) {
@@ -215,13 +213,7 @@ impl Divan {
                             print!("{} ", list_format());
                         }
 
-                        self.run_bench_entry(
-                            entry,
-                            shared_context,
-                            parent_ignored,
-                            parent_options,
-                            &fmt_context,
-                        );
+                        self.run_bench_entry(entry, shared_context, parent_options, &fmt_context);
 
                         if self.format_style.is_pretty() {
                             println!();
@@ -243,7 +235,6 @@ impl Divan {
                     self.run_tree(
                         children,
                         shared_context,
-                        parent_ignored || group.map(|g| g.meta.ignore).unwrap_or_default(),
                         group_options.as_ref().unwrap_or(parent_options),
                         match &fmt_context {
                             FormatContext::Pretty(tree_fmt) => FormatContext::Pretty(TreeFormat {
@@ -271,7 +262,6 @@ impl Divan {
         &self,
         bench_entry: AnyBenchEntry,
         shared_context: &SharedContext,
-        parent_ignored: bool,
         parent_options: &BenchOptions,
         fmt_context: &FormatContext,
     ) {
@@ -280,7 +270,15 @@ impl Divan {
         let display_name = bench_entry.display_name();
         let entry_meta = bench_entry.meta();
 
-        if self.should_ignore(parent_ignored || entry_meta.ignore) {
+        let mut options = entry_meta
+            .bench_options
+            .map(|bench_options| bench_options())
+            .unwrap_or_default()
+            .overwrite(parent_options);
+
+        options = self.bench_options.overwrite(&options);
+
+        if self.should_ignore(options.ignore.unwrap_or_default()) {
             match fmt_context {
                 FormatContext::Pretty { .. } => print!("(ignored)"),
                 FormatContext::Terse { parent_path } => {
@@ -293,14 +291,6 @@ impl Divan {
         if let FormatContext::Terse { parent_path } = fmt_context {
             println!("Running '{parent_path}::{display_name}'");
         }
-
-        let mut options = entry_meta
-            .bench_options
-            .map(|bench_options| bench_options())
-            .unwrap_or_default()
-            .overwrite(parent_options);
-
-        options = self.bench_options.overwrite(&options);
 
         let mut bench_context = BenchContext::new(shared_context, &options);
         bench_entry.bench(Bencher::new(&mut bench_context));

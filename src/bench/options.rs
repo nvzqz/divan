@@ -29,6 +29,12 @@ pub struct BenchOptions {
     /// benchmarked functions, such as time spent generating inputs and running
     /// [`Drop`].
     pub skip_ext_time: Option<bool>,
+
+    /// Whether the benchmark should be ignored.
+    ///
+    /// This may be set within the attribute or with a separate
+    /// [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute).
+    pub ignore: Option<bool>,
 }
 
 impl BenchOptions {
@@ -42,6 +48,7 @@ impl BenchOptions {
             min_time: self.min_time.or(other.min_time),
             max_time: self.max_time.or(other.max_time),
             skip_ext_time: self.skip_ext_time.or(other.skip_ext_time),
+            ignore: self.ignore.or(other.ignore),
 
             // `Clone` values:
             counter: self.counter.as_ref().or(other.counter.as_ref()).cloned(),

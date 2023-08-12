@@ -480,11 +480,44 @@ pub fn main() {
 ///
 /// ```
 /// #[divan::bench]
-/// #[ignore = "not yet implemented"]
+/// #[ignore]
 /// fn todo() {
 ///     unimplemented!();
 /// }
 /// # divan::main();
+/// ```
+///
+/// This option can also instead be set within the `#[divan::bench]` attribute:
+///
+/// ```
+/// #[divan::bench(ignore)]
+/// fn todo() {
+///     unimplemented!();
+/// }
+/// # divan::main();
+/// ```
+///
+/// Like [`skip_ext_time`], this option can be set to an explicit [`bool`] value
+/// to override parent values:
+///
+/// ```
+/// #[divan::bench(ignore = false)]
+/// fn bench() {
+///     // ...
+/// }
+/// ```
+///
+/// This can be used to ignore benchmarks based on a runtime condition. The
+/// following example benchmark will be ignored if an [environment
+/// variable](std::env::var) is not set to "true":
+///
+/// ```
+/// #[divan::bench(
+///     ignore = std::env::var("BENCH_EXPENSIVE").as_deref() != Ok("true")
+/// )]
+/// fn expensive_bench() {
+///     // ...
+/// }
 /// ```
 ///
 /// [`Duration`]: std::time::Duration
@@ -826,6 +859,43 @@ pub use divan_macros::bench;
 ///     }
 /// }
 /// # divan::main();
+/// ```
+///
+/// This option can also instead be set within the `#[divan::bench_group]`
+/// attribute:
+///
+/// ```
+/// #[divan::bench_group(ignore)]
+/// mod math {
+///     #[divan::bench]
+///     fn todo() {
+///         unimplemented!();
+///     }
+/// }
+/// # divan::main();
+/// ```
+///
+/// Like [`skip_ext_time`], this option can be set to an explicit [`bool`] value
+/// to override parent values:
+///
+/// ```
+/// #[divan::bench_group(ignore = false)]
+/// mod group {
+///     // ...
+/// }
+/// ```
+///
+/// This can be used to ignore benchmarks based on a runtime condition. The
+/// following example benchmark group will be ignored if an [environment
+/// variable](std::env::var) is not set to "true":
+///
+/// ```
+/// #[divan::bench_group(
+///     ignore = std::env::var("BENCH_EXPENSIVE").as_deref() != Ok("true")
+/// )]
+/// mod expensive_benches {
+///     // ...
+/// }
 /// ```
 ///
 /// [`Duration`]: std::time::Duration

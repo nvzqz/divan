@@ -16,9 +16,6 @@ pub struct EntryMeta {
     /// Where the entry was defined.
     pub location: EntryLocation,
 
-    /// Whether this entry was marked with [`#[ignore]`](https://doc.rust-lang.org/reference/attributes/testing.html#the-ignore-attribute).
-    pub ignore: bool,
-
     /// Configures the benchmarker via attribute options.
     pub bench_options: Option<fn() -> BenchOptions>,
 }
