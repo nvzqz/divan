@@ -399,10 +399,15 @@ impl Divan {
             self.skip_filters.extend(skip_filters.map(|skip_filter| parse_filter(skip_filter)));
         }
 
-        if matches.get_flag("test") {
-            self.action = Action::Test;
-        } else if matches.get_flag("list") {
-            self.action = Action::List;
+        self.action = if matches.get_flag("list") {
+            Action::List
+        } else if matches.get_flag("test") || !matches.get_flag("bench") {
+            // Either of:
+            // `cargo bench -- --test`
+            // `cargo test --benches`
+            Action::Test
+        } else {
+            Action::Bench
         };
 
         if let Some(&color) = matches.get_one("color") {
