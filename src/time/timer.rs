@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, num::NonZeroU64, sync::OnceLock};
 
-use crate::time::{AnyTimestamp, FineDuration, TscTimestamp, TscUnavailable};
+use crate::time::{FineDuration, TscTimestamp, TscUnavailable, UntaggedTimestamp};
 
 /// Measures time.
 #[derive(Clone, Copy, Default)]
@@ -70,21 +70,21 @@ impl Timer {
 
         loop {
             for _ in 0..100 {
-                // Use `AnyTimestamp` to minimize overhead.
-                let sample_start: AnyTimestamp;
-                let sample_end: AnyTimestamp;
+                // Use `UntaggedTimestamp` to minimize overhead.
+                let sample_start: UntaggedTimestamp;
+                let sample_end: UntaggedTimestamp;
 
                 if delay_len == 0 {
                     // Immediate succession.
-                    sample_start = AnyTimestamp::start(timer_kind);
-                    sample_end = AnyTimestamp::end(timer_kind);
+                    sample_start = UntaggedTimestamp::start(timer_kind);
+                    sample_end = UntaggedTimestamp::end(timer_kind);
                 } else {
                     // Add delay.
-                    sample_start = AnyTimestamp::start(timer_kind);
+                    sample_start = UntaggedTimestamp::start(timer_kind);
                     for n in 0..delay_len {
                         crate::black_box(n);
                     }
-                    sample_end = AnyTimestamp::end(timer_kind);
+                    sample_end = UntaggedTimestamp::end(timer_kind);
                 }
 
                 // SAFETY: These values are guaranteed to be the correct variant
@@ -139,13 +139,13 @@ impl Timer {
         let mut min_sample = FineDuration::default();
 
         for _ in 0..sample_count {
-            let start = AnyTimestamp::start(timer_kind);
+            let start = UntaggedTimestamp::start(timer_kind);
 
             for i in 0..sample_size {
                 _ = crate::black_box(i);
             }
 
-            let end = AnyTimestamp::end(timer_kind);
+            let end = UntaggedTimestamp::end(timer_kind);
 
             // SAFETY: These values are guaranteed to be the correct variant because
             // they were created from the same `timer_kind`.

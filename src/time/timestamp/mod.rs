@@ -42,12 +42,12 @@ impl Timestamp {
 /// A [`Timestamp`] where the variant is determined by an external source of
 /// truth.
 ///
-/// By making the variant external to this type, we produce more optimized code
-/// by:
+/// By making the variant tag external to this type, we produce more optimized
+/// code by:
 /// - Reusing the same condition variable
 /// - Reducing the size of the timestamp variables
 #[derive(Clone, Copy)]
-pub union AnyTimestamp {
+pub union UntaggedTimestamp {
     /// [`Timestamp::Os`].
     pub os: Instant,
 
@@ -55,7 +55,7 @@ pub union AnyTimestamp {
     pub tsc: TscTimestamp,
 }
 
-impl AnyTimestamp {
+impl UntaggedTimestamp {
     #[inline(always)]
     pub fn start(timer_kind: TimerKind) -> Self {
         fence::full_fence();

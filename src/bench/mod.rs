@@ -9,7 +9,7 @@ use crate::{
     counter::{self, AnyCounter, IntoCounter},
     divan::SharedContext,
     stats::{Sample, SampleCollection, Stats},
-    time::{AnyTimestamp, FineDuration, Timestamp},
+    time::{FineDuration, Timestamp, UntaggedTimestamp},
     util::ConfigFnMut,
 };
 
@@ -505,8 +505,8 @@ impl<'a> BenchContext<'a> {
             // when getting the sample time span. We don't want to introduce
             // extra work that may worsen measurement quality for real
             // benchmarking.
-            let sample_start: AnyTimestamp;
-            let sample_end: AnyTimestamp;
+            let sample_start: UntaggedTimestamp;
+            let sample_end: UntaggedTimestamp;
 
             if (mem::size_of::<I>() == 0 && mem::size_of::<O>() == 0)
                 || (mem::size_of::<I>() == 0 && !mem::needs_drop::<O>())
@@ -522,7 +522,7 @@ impl<'a> BenchContext<'a> {
                 }
 
                 config.before_sample.call_mut();
-                sample_start = AnyTimestamp::start(timer_kind);
+                sample_start = UntaggedTimestamp::start(timer_kind);
 
                 // Sample loop:
                 for _ in 0..sample_size {
@@ -533,7 +533,7 @@ impl<'a> BenchContext<'a> {
                     mem::forget(black_box(benched(&input)));
                 }
 
-                sample_end = AnyTimestamp::end(timer_kind);
+                sample_end = UntaggedTimestamp::end(timer_kind);
                 config.after_sample.call_mut();
 
                 // Drop outputs and inputs.
@@ -571,7 +571,7 @@ impl<'a> BenchContext<'a> {
                         let defer_slots_iter = black_box(defer_slots_slice.iter());
 
                         config.before_sample.call_mut();
-                        sample_start = AnyTimestamp::start(timer_kind);
+                        sample_start = UntaggedTimestamp::start(timer_kind);
 
                         // Sample loop:
                         for defer_slot in defer_slots_iter {
@@ -594,7 +594,7 @@ impl<'a> BenchContext<'a> {
                             _ = black_box(defer_slot);
                         }
 
-                        sample_end = AnyTimestamp::end(timer_kind);
+                        sample_end = UntaggedTimestamp::end(timer_kind);
                         config.after_sample.call_mut();
 
                         // Drop outputs and inputs.
@@ -626,7 +626,7 @@ impl<'a> BenchContext<'a> {
                         let defer_inputs_iter = black_box(defer_inputs_slice.iter());
 
                         config.before_sample.call_mut();
-                        sample_start = AnyTimestamp::start(timer_kind);
+                        sample_start = UntaggedTimestamp::start(timer_kind);
 
                         // Sample loop:
                         for input in defer_inputs_iter {
@@ -635,7 +635,7 @@ impl<'a> BenchContext<'a> {
                             _ = black_box(unsafe { benched(input) });
                         }
 
-                        sample_end = AnyTimestamp::end(timer_kind);
+                        sample_end = UntaggedTimestamp::end(timer_kind);
                         config.after_sample.call_mut();
 
                         // Drop inputs.
