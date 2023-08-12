@@ -1,4 +1,4 @@
-use divan::Bencher;
+use divan::{black_box, Bencher};
 
 fn main() {
     divan::main();
@@ -48,6 +48,18 @@ fn clear<G: GenString, const N: usize>(bencher: Bencher) {
 fn drop<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher.with_inputs(|| gen.gen_string(N)).bench_values(std::mem::drop);
+}
+
+#[divan::bench(
+    types = [Ascii, Unicode],
+    consts = LENS,
+)]
+fn validate_utf8<G: GenString, const N: usize>(bencher: Bencher) {
+    let mut gen = G::default();
+    bencher.with_inputs(|| gen.gen_string(N)).bench_refs(|s| {
+        let bytes = black_box(s.as_bytes());
+        _ = black_box(std::str::from_utf8(bytes));
+    });
 }
 
 #[divan::bench(
