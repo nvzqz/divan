@@ -1,6 +1,10 @@
 use std::fmt;
 
-use crate::{counter::MaxCountUInt, time::FineDuration, util};
+use crate::{
+    counter::{BytesFormat, MaxCountUInt},
+    time::FineDuration,
+    util,
+};
 
 /// Type-erased `Counter`.
 ///
@@ -13,14 +17,19 @@ pub enum AnyCounter {
 }
 
 impl AnyCounter {
-    pub(crate) fn display_throughput(&self, duration: FineDuration) -> DisplayThroughput {
-        DisplayThroughput { counter: self, picos: duration.picos as f64 }
+    pub(crate) fn display_throughput(
+        &self,
+        duration: FineDuration,
+        bytes_format: BytesFormat,
+    ) -> DisplayThroughput {
+        DisplayThroughput { counter: self, picos: duration.picos as f64, bytes_format }
     }
 }
 
 pub(crate) struct DisplayThroughput<'a> {
     counter: &'a AnyCounter,
     picos: f64,
+    bytes_format: BytesFormat,
 }
 
 impl fmt::Debug for DisplayThroughput<'_> {
@@ -31,9 +40,14 @@ impl fmt::Debug for DisplayThroughput<'_> {
 
 impl fmt::Display for DisplayThroughput<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let (val, suffix) = match *self.counter {
-            AnyCounter::Bytes(bytes) => bytes_throughput(bytes, self.picos),
-            AnyCounter::Items(items) => items_throughput(items, self.picos),
+        let (val, suffix) = match (self.counter, self.bytes_format) {
+            (&AnyCounter::Bytes(bytes), BytesFormat::Binary) => {
+                bytes_throughput_binary(bytes, self.picos)
+            }
+            (&AnyCounter::Bytes(bytes), BytesFormat::Decimal) => {
+                bytes_throughput_decimal(bytes, self.picos)
+            }
+            (&AnyCounter::Items(items), _) => items_throughput(items, self.picos),
         };
 
         let sig_figs = f.precision().unwrap_or(4);
@@ -55,30 +69,61 @@ impl fmt::Display for DisplayThroughput<'_> {
     }
 }
 
-/// Returns bytes per second at the appropriate scale along with the scale's
-/// suffix.
-fn bytes_throughput(bytes: MaxCountUInt, picos: f64) -> (f64, &'static str) {
+mod scale {
     // Stop at pebibyte because `f64` cannot represent exibyte exactly.
-    const KIB: f64 = 1024.;
-    const MIB: f64 = 1024u64.pow(2) as f64;
-    const GIB: f64 = 1024u64.pow(3) as f64;
-    const TIB: f64 = 1024u64.pow(4) as f64;
-    const PIB: f64 = 1024u64.pow(5) as f64;
+    pub const KIB: f64 = 1024.;
+    pub const MIB: f64 = 1024u64.pow(2) as f64;
+    pub const GIB: f64 = 1024u64.pow(3) as f64;
+    pub const TIB: f64 = 1024u64.pow(4) as f64;
+    pub const PIB: f64 = 1024u64.pow(5) as f64;
 
+    // Stop at peta because bytes stops at pebibyte.
+    pub const K: f64 = 1e3;
+    pub const M: f64 = 1e6;
+    pub const G: f64 = 1e9;
+    pub const T: f64 = 1e12;
+    pub const P: f64 = 1e15;
+}
+
+/// Returns bytes per second at the appropriate binary scale along with the
+/// scale's suffix.
+fn bytes_throughput_binary(bytes: MaxCountUInt, picos: f64) -> (f64, &'static str) {
     let bytes_per_sec = if bytes == 0 { 0. } else { bytes as f64 * (1e12 / picos) };
 
-    let (scale, suffix) = if bytes_per_sec.is_infinite() || bytes_per_sec < KIB {
+    let (scale, suffix) = if bytes_per_sec.is_infinite() || bytes_per_sec < scale::KIB {
         (1., " B/s")
-    } else if bytes_per_sec < MIB {
-        (KIB, " KiB/s")
-    } else if bytes_per_sec < GIB {
-        (MIB, " MiB/s")
-    } else if bytes_per_sec < TIB {
-        (GIB, " GiB/s")
-    } else if bytes_per_sec < PIB {
-        (TIB, " TiB/s")
+    } else if bytes_per_sec < scale::MIB {
+        (scale::KIB, " KiB/s")
+    } else if bytes_per_sec < scale::GIB {
+        (scale::MIB, " MiB/s")
+    } else if bytes_per_sec < scale::TIB {
+        (scale::GIB, " GiB/s")
+    } else if bytes_per_sec < scale::PIB {
+        (scale::TIB, " TiB/s")
     } else {
-        (PIB, " PiB/s")
+        (scale::PIB, " PiB/s")
+    };
+
+    (bytes_per_sec / scale, suffix)
+}
+
+/// Returns bytes per second at the appropriate decimal scale along with the
+/// scale's suffix.
+fn bytes_throughput_decimal(bytes: MaxCountUInt, picos: f64) -> (f64, &'static str) {
+    let bytes_per_sec = if bytes == 0 { 0. } else { bytes as f64 * (1e12 / picos) };
+
+    let (scale, suffix) = if bytes_per_sec.is_infinite() || bytes_per_sec < scale::K {
+        (1., " B/s")
+    } else if bytes_per_sec < scale::M {
+        (scale::K, " KB/s")
+    } else if bytes_per_sec < scale::G {
+        (scale::M, " MB/s")
+    } else if bytes_per_sec < scale::T {
+        (scale::G, " GB/s")
+    } else if bytes_per_sec < scale::P {
+        (scale::T, " TB/s")
+    } else {
+        (scale::P, " PB/s")
     };
 
     (bytes_per_sec / scale, suffix)
@@ -87,27 +132,20 @@ fn bytes_throughput(bytes: MaxCountUInt, picos: f64) -> (f64, &'static str) {
 /// Returns items per second at the appropriate scale along with the scale's
 /// suffix.
 fn items_throughput(items: MaxCountUInt, picos: f64) -> (f64, &'static str) {
-    // Stop at peta because bytes stops at pebibyte.
-    const K: f64 = 1e3;
-    const M: f64 = 1e6;
-    const G: f64 = 1e9;
-    const T: f64 = 1e12;
-    const P: f64 = 1e15;
-
     let items_per_sec = if items == 0 { 0. } else { items as f64 * (1e12 / picos) };
 
-    let (scale, suffix) = if items_per_sec.is_infinite() || items_per_sec < K {
+    let (scale, suffix) = if items_per_sec.is_infinite() || items_per_sec < scale::K {
         (1., " item/s")
-    } else if items_per_sec < M {
-        (K, " Kitem/s")
-    } else if items_per_sec < G {
-        (M, " Mitem/s")
-    } else if items_per_sec < T {
-        (G, " Gitem/s")
-    } else if items_per_sec < P {
-        (T, " Titem/s")
+    } else if items_per_sec < scale::M {
+        (scale::K, " Kitem/s")
+    } else if items_per_sec < scale::G {
+        (scale::M, " Mitem/s")
+    } else if items_per_sec < scale::T {
+        (scale::G, " Gitem/s")
+    } else if items_per_sec < scale::P {
+        (scale::T, " Titem/s")
     } else {
-        (P, " Pitem/s")
+        (scale::P, " Pitem/s")
     };
 
     (items_per_sec / scale, suffix)
@@ -123,19 +161,36 @@ mod tests {
         #[test]
         fn bytes() {
             #[track_caller]
-            fn test(bytes: MaxCountUInt, picos: u128, expected: &str) {
-                assert_eq!(
-                    AnyCounter::Bytes(bytes).display_throughput(FineDuration { picos }).to_string(),
-                    expected
-                );
+            fn test(
+                bytes: MaxCountUInt,
+                picos: u128,
+                expected_binary: &str,
+                expected_decimal: &str,
+            ) {
+                for (bytes_format, expected) in [
+                    (BytesFormat::Binary, expected_binary),
+                    (BytesFormat::Decimal, expected_decimal),
+                ] {
+                    assert_eq!(
+                        AnyCounter::Bytes(bytes)
+                            .display_throughput(FineDuration { picos }, bytes_format)
+                            .to_string(),
+                        expected
+                    );
+                }
             }
 
-            test(1, 0, "inf B/s");
-            test(MaxCountUInt::MAX, 0, "inf B/s");
+            #[track_caller]
+            fn test_all(bytes: MaxCountUInt, picos: u128, expected: &str) {
+                test(bytes, picos, expected, expected);
+            }
 
-            test(0, 0, "0 B/s");
-            test(0, 1, "0 B/s");
-            test(0, u128::MAX, "0 B/s");
+            test_all(1, 0, "inf B/s");
+            test_all(MaxCountUInt::MAX, 0, "inf B/s");
+
+            test_all(0, 0, "0 B/s");
+            test_all(0, 1, "0 B/s");
+            test_all(0, u128::MAX, "0 B/s");
         }
 
         #[test]
@@ -143,7 +198,9 @@ mod tests {
             #[track_caller]
             fn test(items: MaxCountUInt, picos: u128, expected: &str) {
                 assert_eq!(
-                    AnyCounter::Items(items).display_throughput(FineDuration { picos }).to_string(),
+                    AnyCounter::Items(items)
+                        .display_throughput(FineDuration { picos }, BytesFormat::default())
+                        .to_string(),
                     expected
                 );
             }

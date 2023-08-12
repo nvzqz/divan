@@ -6,6 +6,7 @@ use regex::Regex;
 use crate::{
     bench::{BenchOptions, Bencher},
     config::{Action, Filter, FormatStyle, ParsedSeconds, RunIgnored, SortingAttr},
+    counter::{BytesFormat, PrivBytesFormat},
     entry::{AnyBenchEntry, EntryLocation, EntryTree},
     time::{FineDuration, Timer, TimerKind},
 };
@@ -19,6 +20,7 @@ pub struct Divan {
     sorting_attr: SortingAttr,
     color: ColorChoice,
     format_style: FormatStyle,
+    bytes_format: BytesFormat,
     filter: Option<Filter>,
     skip_filters: Vec<Filter>,
     run_ignored: RunIgnored,
@@ -306,10 +308,10 @@ impl Divan {
             // TODO: Improve stats formatting.
             match self.format_style {
                 FormatStyle::Pretty => {
-                    print!("{stats:?}");
+                    print!("{:?}", stats.debug(self.bytes_format));
                 }
                 FormatStyle::Terse => {
-                    println!("{stats:#?}");
+                    println!("{:#?}", stats.debug(self.bytes_format));
                     println!();
                 }
             }
@@ -418,6 +420,10 @@ impl Divan {
             self.format_style = format;
         }
 
+        if let Some(&PrivBytesFormat(bytes_format)) = matches.get_one("bytes-format") {
+            self.bytes_format = bytes_format;
+        }
+
         if matches.get_flag("ignored") {
             self.run_ignored = RunIgnored::Only;
         } else if matches.get_flag("include-ignored") {
@@ -484,6 +490,16 @@ impl Divan {
     /// Use terse output formatting.
     pub fn format_terse(mut self) -> Self {
         self.format_style = FormatStyle::Terse;
+        self
+    }
+
+    /// Determines how [`Bytes`](crate::counter::Bytes) is scaled in benchmark
+    /// outputs.
+    ///
+    /// This option is equivalent to the `--bytes-format` CLI argument.
+    #[inline]
+    pub fn bytes_format(mut self, format: BytesFormat) -> Self {
+        self.bytes_format = format;
         self
     }
 

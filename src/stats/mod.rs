@@ -2,7 +2,10 @@
 
 use std::fmt;
 
-use crate::{counter::AnyCounter, time::FineDuration};
+use crate::{
+    counter::{AnyCounter, BytesFormat},
+    time::FineDuration,
+};
 
 mod sample;
 
@@ -32,7 +35,18 @@ pub(crate) struct Stats {
     pub counter: Option<AnyCounter>,
 }
 
-impl fmt::Debug for Stats {
+impl Stats {
+    pub fn debug(&self, bytes_format: BytesFormat) -> impl fmt::Debug + '_ {
+        DebugStats { stats: self, bytes_format }
+    }
+}
+
+struct DebugStats<'a> {
+    stats: &'a Stats,
+    bytes_format: BytesFormat,
+}
+
+impl fmt::Debug for DebugStats<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         #[derive(Debug)]
         #[allow(dead_code)]
@@ -43,27 +57,33 @@ impl fmt::Debug for Stats {
             mean: T,
         }
 
+        let stats = self.stats;
+
         f.debug_struct("Stats")
             .field(
                 "time",
                 &Set {
-                    fastest: self.fastest_time,
-                    slowest: self.slowest_time,
-                    median: self.median_time,
-                    mean: self.mean_time,
+                    fastest: stats.fastest_time,
+                    slowest: stats.slowest_time,
+                    median: stats.median_time,
+                    mean: stats.mean_time,
                 },
             )
             .field(
                 "thrpt",
-                &self.counter.as_ref().map(|counter| Set {
-                    fastest: counter.display_throughput(self.fastest_time),
-                    slowest: counter.display_throughput(self.slowest_time),
-                    median: counter.display_throughput(self.median_time),
-                    mean: counter.display_throughput(self.mean_time),
+                &stats.counter.as_ref().map(|counter| {
+                    let display_throughput = |t| counter.display_throughput(t, self.bytes_format);
+
+                    Set {
+                        fastest: display_throughput(stats.fastest_time),
+                        slowest: display_throughput(stats.slowest_time),
+                        median: display_throughput(stats.median_time),
+                        mean: display_throughput(stats.mean_time),
+                    }
                 }),
             )
-            .field("sample_count", &self.sample_count)
-            .field("total_count", &self.total_count)
+            .field("sample_count", &stats.sample_count)
+            .field("total_count", &stats.total_count)
             .finish()
     }
 }

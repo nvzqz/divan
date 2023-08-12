@@ -95,3 +95,36 @@ impl Bytes<usize> {
         Self(std::mem::size_of_val(val))
     }
 }
+
+/// The numerical base for [`Bytes`] in benchmark outputs.
+///
+/// See [`Divan::bytes_format`](crate::Divan::bytes_format) for more info.
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum BytesFormat {
+    /// Powers of 1024, starting with KiB (kibibyte). This is the default.
+    #[default]
+    Binary,
+
+    /// Powers of 1000, starting with KB (kilobyte).
+    Decimal,
+}
+
+/// Private `BytesFormat` that prevents leaking trait implementations we don't
+/// want to publicly commit to.
+#[derive(Clone, Copy)]
+pub(crate) struct PrivBytesFormat(pub BytesFormat);
+
+impl clap::ValueEnum for PrivBytesFormat {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self(BytesFormat::Binary), Self(BytesFormat::Decimal)]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        let name = match self.0 {
+            BytesFormat::Binary => "binary",
+            BytesFormat::Decimal => "decimal",
+        };
+        Some(clap::builder::PossibleValue::new(name))
+    }
+}
