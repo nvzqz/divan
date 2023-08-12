@@ -5,10 +5,11 @@ use regex::Regex;
 
 use crate::{
     bench::{BenchOptions, Bencher},
-    config::{Action, Filter, FormatStyle, ParsedSeconds, RunIgnored, SortingAttr},
+    config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
     counter::{BytesFormat, PrivBytesFormat},
-    entry::{AnyBenchEntry, EntryLocation, EntryTree},
+    entry::{AnyBenchEntry, EntryTree},
     time::{FineDuration, Timer, TimerKind},
+    tree_painter::TreePainter,
 };
 
 /// The benchmark runner.
@@ -19,7 +20,6 @@ pub struct Divan {
     reverse_sort: bool,
     sorting_attr: SortingAttr,
     color: ColorChoice,
-    format_style: FormatStyle,
     bytes_format: BytesFormat,
     filter: Option<Filter>,
     skip_filters: Vec<Filter>,
@@ -163,109 +163,62 @@ impl Divan {
             },
         };
 
-        self.run_tree(
-            &tree,
-            &shared_context,
-            &BenchOptions::default(),
-            match self.format_style {
-                FormatStyle::Pretty => FormatContext::Pretty(TreeFormat {
-                    parent_prefix: None,
-                    max_name_span: EntryTree::max_name_span(&tree, 0),
-                }),
-                FormatStyle::Terse => FormatContext::Terse { parent_path: String::new() },
-            },
-        );
+        let column_widths = if action.is_bench() { 12 } else { 0 };
+        let mut tree_painter = TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths);
+
+        self.run_tree(action, &tree, &shared_context, &BenchOptions::default(), &mut tree_painter);
     }
 
     fn run_tree(
         &self,
+        action: Action,
         tree: &[EntryTree],
         shared_context: &SharedContext,
         parent_options: &BenchOptions,
-        fmt_context: FormatContext,
+        tree_painter: &mut TreePainter,
     ) {
         for (i, child) in tree.iter().enumerate() {
             let is_last = i == tree.len() - 1;
 
-            let list_format = || match &fmt_context {
-                FormatContext::Pretty(tree_fmt) => {
-                    let current_prefix = tree_fmt.current_prefix(is_last);
-                    let name_pad_len =
-                        tree_fmt.max_name_span.saturating_sub(current_prefix.chars().count());
-                    let display_name = child.display_name();
-                    format!("{current_prefix}{display_name:name_pad_len$}")
-                }
-                FormatContext::Terse { parent_path } => match child {
-                    EntryTree::Leaf(bench) => {
-                        let EntryLocation { file, line, .. } = bench.meta().location;
-                        let display_name = bench.display_name();
-                        format!("{file} - {parent_path}::{display_name} (line {line}): bench")
-                    }
-                    EntryTree::Parent { .. } => unreachable!(),
-                },
-            };
+            let name = child.display_name();
 
             match child {
-                &EntryTree::Leaf(entry) => match (shared_context.action, self.format_style) {
-                    (Action::List, FormatStyle::Terse | FormatStyle::Pretty) => {
-                        println!("{}", list_format());
-                    }
-                    _ => {
-                        if self.format_style.is_pretty() {
-                            print!("{} ", list_format());
+                EntryTree::Leaf(child) => self.run_bench_entry(
+                    action,
+                    *child,
+                    shared_context,
+                    parent_options,
+                    tree_painter,
+                    is_last,
+                ),
+                EntryTree::Parent { children, group, .. } => {
+                    tree_painter.start_parent(name, is_last);
+
+                    let options: BenchOptions;
+                    let options: &BenchOptions = match group.and_then(|g| g.meta.bench_options) {
+                        None => parent_options,
+                        Some(group_options) => {
+                            options = group_options().overwrite(parent_options);
+                            &options
                         }
+                    };
 
-                        self.run_bench_entry(entry, shared_context, parent_options, &fmt_context);
+                    self.run_tree(action, children, shared_context, options, tree_painter);
 
-                        if self.format_style.is_pretty() {
-                            println!();
-                        }
-                    }
-                },
-                EntryTree::Parent { group, children, .. } => {
-                    let group_options = group.and_then(|group| {
-                        group
-                            .meta
-                            .bench_options
-                            .map(|bench_options| bench_options().overwrite(parent_options))
-                    });
-
-                    if self.format_style.is_pretty() {
-                        println!("{}", list_format());
-                    }
-
-                    self.run_tree(
-                        children,
-                        shared_context,
-                        group_options.as_ref().unwrap_or(parent_options),
-                        match &fmt_context {
-                            FormatContext::Pretty(tree_fmt) => FormatContext::Pretty(TreeFormat {
-                                parent_prefix: Some(tree_fmt.child_prefix(is_last)),
-                                max_name_span: tree_fmt.max_name_span,
-                            }),
-                            FormatContext::Terse { parent_path } => {
-                                let display_name = child.display_name();
-                                FormatContext::Terse {
-                                    parent_path: if parent_path.is_empty() {
-                                        display_name.to_owned()
-                                    } else {
-                                        format!("{parent_path}::{display_name}")
-                                    },
-                                }
-                            }
-                        },
-                    );
+                    tree_painter.finish_parent();
                 }
-            };
+            }
         }
     }
 
     fn run_bench_entry(
         &self,
+        action: Action,
         bench_entry: AnyBenchEntry,
         shared_context: &SharedContext,
         parent_options: &BenchOptions,
-        fmt_context: &FormatContext,
+        tree_painter: &mut TreePainter,
+        is_last: bool,
     ) {
         use crate::bench::BenchContext;
 
@@ -278,82 +231,37 @@ impl Divan {
             .unwrap_or_default()
             .overwrite(parent_options);
 
+        // User runtime options override all other options.
         options = self.bench_options.overwrite(&options);
 
         if self.should_ignore(options.ignore.unwrap_or_default()) {
-            match fmt_context {
-                FormatContext::Pretty { .. } => print!("(ignored)"),
-                FormatContext::Terse { parent_path } => {
-                    println!("Ignoring '{parent_path}::{display_name}'");
-                }
-            }
+            tree_painter.ignore_leaf(display_name, is_last);
             return;
         }
 
-        if let FormatContext::Terse { parent_path } = fmt_context {
-            println!("Running '{parent_path}::{display_name}'");
+        tree_painter.start_leaf(display_name, is_last);
+
+        if action.is_list() {
+            tree_painter.finish_empty_leaf();
+            return;
         }
 
         let mut bench_context = BenchContext::new(shared_context, &options);
         bench_entry.bench(Bencher::new(&mut bench_context));
 
+        let should_compute_stats = bench_context.did_run && shared_context.action.is_bench();
+
         if !bench_context.did_run {
             eprintln!("warning: No benchmark function registered for '{display_name}'");
+        }
+
+        if !should_compute_stats {
+            tree_painter.finish_empty_leaf();
             return;
         }
 
-        if shared_context.action.is_bench() {
-            let stats = bench_context.compute_stats();
-
-            // TODO: Improve stats formatting.
-            match self.format_style {
-                FormatStyle::Pretty => {
-                    print!("{:?}", stats.debug(self.bytes_format));
-                }
-                FormatStyle::Terse => {
-                    println!("{:#?}", stats.debug(self.bytes_format));
-                    println!();
-                }
-            }
-        }
-    }
-}
-
-enum FormatContext {
-    Terse { parent_path: String },
-    Pretty(TreeFormat),
-}
-
-struct TreeFormat {
-    parent_prefix: Option<String>,
-    max_name_span: usize,
-}
-
-impl TreeFormat {
-    fn current_prefix(&self, is_last: bool) -> String {
-        let next_part = if self.parent_prefix.is_none() {
-            ""
-        } else if !is_last {
-            "├── "
-        } else {
-            "╰── "
-        };
-        let parent_prefix = self.parent_prefix.as_deref().unwrap_or_default();
-
-        format!("{parent_prefix}{next_part}")
-    }
-
-    fn child_prefix(&self, is_last: bool) -> String {
-        let next_part = if self.parent_prefix.is_none() {
-            ""
-        } else if !is_last {
-            "│   "
-        } else {
-            "    "
-        };
-        let parent_prefix = self.parent_prefix.as_deref().unwrap_or_default();
-
-        format!("{parent_prefix}{next_part}")
+        let stats = bench_context.compute_stats();
+        tree_painter.finish_leaf(is_last, &stats, self.bytes_format);
     }
 }
 
@@ -416,10 +324,6 @@ impl Divan {
             self.color = color;
         }
 
-        if let Some(&format) = matches.get_one("format") {
-            self.format_style = format;
-        }
-
         if let Some(&PrivBytesFormat(bytes_format)) = matches.get_one("bytes-format") {
             self.bytes_format = bytes_format;
         }
@@ -478,18 +382,6 @@ impl Divan {
             Some(true) => ColorChoice::Always,
             Some(false) => ColorChoice::Never,
         };
-        self
-    }
-
-    /// Use pretty output formatting.
-    pub fn format_pretty(mut self) -> Self {
-        self.format_style = FormatStyle::Pretty;
-        self
-    }
-
-    /// Use terse output formatting.
-    pub fn format_terse(mut self) -> Self {
-        self.format_style = FormatStyle::Terse;
         self
     }
 

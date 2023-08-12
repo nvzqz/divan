@@ -488,7 +488,7 @@ pub(crate) struct BenchContext<'a> {
     shared_context: &'a SharedContext,
 
     /// User-configured options.
-    options: &'a BenchOptions,
+    pub options: &'a BenchOptions,
 
     /// Whether the benchmark loop was started.
     pub did_run: bool,

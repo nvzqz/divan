@@ -95,23 +95,6 @@ impl RunIgnored {
     }
 }
 
-/// The style with which to format output.
-#[derive(Clone, Copy, Default)]
-pub(crate) enum FormatStyle {
-    /// Benchmarks are formatted as a tree.
-    #[default]
-    Pretty,
-
-    /// Each benchmark is printed on its own line.
-    Terse,
-}
-
-impl FormatStyle {
-    pub fn is_pretty(&self) -> bool {
-        matches!(self, Self::Pretty)
-    }
-}
-
 /// The attribute to sort benchmarks by.
 #[derive(Clone, Copy, Default)]
 pub(crate) enum SortingAttr {

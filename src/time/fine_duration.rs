@@ -56,6 +56,7 @@ impl fmt::Display for FineDuration {
             }
         };
 
+        str.push(' ');
         str.push_str(scale.suffix());
 
         // Fill up to specified width.
@@ -218,8 +219,8 @@ mod tests {
                 let incr_duration = FineDuration { picos: scale.picos() + 1 };
 
                 if scale == TimeScale::PicoSec {
-                    assert_eq!(format!("{base_duration:.0}"), "1ps");
-                    assert_eq!(format!("{incr_duration:.0}"), "2ps");
+                    assert_eq!(format!("{base_duration:.0}"), "1 ps");
+                    assert_eq!(format!("{incr_duration:.0}"), "2 ps");
                 } else {
                     let base_string = base_duration.to_string();
                     assert_eq!(format!("{base_duration:.0}"), base_string);
@@ -238,131 +239,131 @@ mod tests {
 
                 let duration = FineDuration { picos: scale.picos() };
                 let suffix = scale.suffix();
-                let pad = " ".repeat(9 - suffix.len());
+                let pad = " ".repeat(8 - suffix.len());
 
-                assert_fmt_eq!("{duration:<2}", "1{suffix}");
-                assert_fmt_eq!("{duration:<10}", "1{suffix}{pad}");
+                assert_fmt_eq!("{duration:<2}", "1 {suffix}");
+                assert_fmt_eq!("{duration:<10}", "1 {suffix}{pad}");
             }
         }
 
         #[test]
         fn pico_sec() {
-            test(000, "0ns");
+            test(000, "0 ns");
 
-            test(001, "0.001ns");
-            test(010, "0.01ns");
-            test(100, "0.1ns");
+            test(001, "0.001 ns");
+            test(010, "0.01 ns");
+            test(100, "0.1 ns");
 
-            test(102, "0.102ns");
-            test(120, "0.12ns");
-            test(123, "0.123ns");
-            test(012, "0.012ns");
+            test(102, "0.102 ns");
+            test(120, "0.12 ns");
+            test(123, "0.123 ns");
+            test(012, "0.012 ns");
         }
 
         #[test]
         fn nano_sec() {
-            test(001_000, "1ns");
-            test(010_000, "10ns");
-            test(100_000, "100ns");
+            test(001_000, "1 ns");
+            test(010_000, "10 ns");
+            test(100_000, "100 ns");
 
-            test(100_002, "100ns");
-            test(100_020, "100ns");
-            test(100_200, "100.2ns");
-            test(102_000, "102ns");
-            test(120_000, "120ns");
+            test(100_002, "100 ns");
+            test(100_020, "100 ns");
+            test(100_200, "100.2 ns");
+            test(102_000, "102 ns");
+            test(120_000, "120 ns");
 
-            test(001_002, "1.002ns");
-            test(001_023, "1.023ns");
-            test(001_234, "1.234ns");
-            test(001_230, "1.23ns");
-            test(001_200, "1.2ns");
+            test(001_002, "1.002 ns");
+            test(001_023, "1.023 ns");
+            test(001_234, "1.234 ns");
+            test(001_230, "1.23 ns");
+            test(001_200, "1.2 ns");
         }
 
         #[test]
         fn micro_sec() {
-            test(001_000_000, "1µs");
-            test(010_000_000, "10µs");
-            test(100_000_000, "100µs");
+            test(001_000_000, "1 µs");
+            test(010_000_000, "10 µs");
+            test(100_000_000, "100 µs");
 
-            test(100_000_002, "100µs");
-            test(100_000_020, "100µs");
-            test(100_000_200, "100µs");
-            test(100_002_000, "100µs");
-            test(100_020_000, "100µs");
-            test(100_200_000, "100.2µs");
-            test(102_000_000, "102µs");
+            test(100_000_002, "100 µs");
+            test(100_000_020, "100 µs");
+            test(100_000_200, "100 µs");
+            test(100_002_000, "100 µs");
+            test(100_020_000, "100 µs");
+            test(100_200_000, "100.2 µs");
+            test(102_000_000, "102 µs");
 
-            test(120_000_000, "120µs");
-            test(012_000_000, "12µs");
-            test(001_200_000, "1.2µs");
+            test(120_000_000, "120 µs");
+            test(012_000_000, "12 µs");
+            test(001_200_000, "1.2 µs");
 
-            test(001_020_000, "1.02µs");
-            test(001_002_000, "1.002µs");
-            test(001_000_200, "1µs");
-            test(001_000_020, "1µs");
-            test(001_000_002, "1µs");
+            test(001_020_000, "1.02 µs");
+            test(001_002_000, "1.002 µs");
+            test(001_000_200, "1 µs");
+            test(001_000_020, "1 µs");
+            test(001_000_002, "1 µs");
 
-            test(001_230_000, "1.23µs");
-            test(001_234_000, "1.234µs");
-            test(001_234_500, "1.234µs");
-            test(001_234_560, "1.234µs");
-            test(001_234_567, "1.234µs");
+            test(001_230_000, "1.23 µs");
+            test(001_234_000, "1.234 µs");
+            test(001_234_500, "1.234 µs");
+            test(001_234_560, "1.234 µs");
+            test(001_234_567, "1.234 µs");
         }
 
         #[test]
         fn milli_sec() {
-            test(001_000_000_000, "1ms");
-            test(010_000_000_000, "10ms");
-            test(100_000_000_000, "100ms");
+            test(001_000_000_000, "1 ms");
+            test(010_000_000_000, "10 ms");
+            test(100_000_000_000, "100 ms");
         }
 
         #[test]
         fn sec() {
-            test(picos::SEC, "1s");
-            test(picos::SEC * 10, "10s");
-            test(picos::SEC * 59, "59s");
+            test(picos::SEC, "1 s");
+            test(picos::SEC * 10, "10 s");
+            test(picos::SEC * 59, "59 s");
 
-            test(picos::MILLIS * 59_999, "59.99s");
+            test(picos::MILLIS * 59_999, "59.99 s");
         }
 
         #[test]
         fn min() {
-            test(picos::MIN, "1m");
-            test(picos::MIN * 10, "10m");
-            test(picos::MIN * 59, "59m");
+            test(picos::MIN, "1 m");
+            test(picos::MIN * 10, "10 m");
+            test(picos::MIN * 59, "59 m");
 
-            test(picos::MILLIS * 3_599_000, "59.98m");
-            test(picos::MILLIS * 3_599_999, "59.99m");
-            test(picos::HOUR - 1, "59.99m");
+            test(picos::MILLIS * 3_599_000, "59.98 m");
+            test(picos::MILLIS * 3_599_999, "59.99 m");
+            test(picos::HOUR - 1, "59.99 m");
         }
 
         #[test]
         fn hour() {
-            test(picos::HOUR, "1h");
-            test(picos::HOUR * 10, "10h");
-            test(picos::HOUR * 23, "23h");
+            test(picos::HOUR, "1 h");
+            test(picos::HOUR * 10, "10 h");
+            test(picos::HOUR * 23, "23 h");
 
-            test(picos::MILLIS * 86_300_000, "23.97h");
-            test(picos::MILLIS * 86_399_999, "23.99h");
-            test(picos::DAY - 1, "23.99h");
+            test(picos::MILLIS * 86_300_000, "23.97 h");
+            test(picos::MILLIS * 86_399_999, "23.99 h");
+            test(picos::DAY - 1, "23.99 h");
         }
 
         #[test]
         fn day() {
-            test(picos::DAY, "1d");
+            test(picos::DAY, "1 d");
 
-            test(picos::DAY + picos::DAY / 10, "1.1d");
-            test(picos::DAY + picos::DAY / 100, "1.01d");
-            test(picos::DAY + picos::DAY / 1000, "1.001d");
+            test(picos::DAY + picos::DAY / 10, "1.1 d");
+            test(picos::DAY + picos::DAY / 100, "1.01 d");
+            test(picos::DAY + picos::DAY / 1000, "1.001 d");
 
-            test(picos::DAY * 000010, "10d");
-            test(picos::DAY * 000100, "100d");
-            test(picos::DAY * 001000, "1000d");
-            test(picos::DAY * 010000, "10000d");
-            test(picos::DAY * 100000, "100000d");
+            test(picos::DAY * 000010, "10 d");
+            test(picos::DAY * 000100, "100 d");
+            test(picos::DAY * 001000, "1000 d");
+            test(picos::DAY * 010000, "10000 d");
+            test(picos::DAY * 100000, "100000 d");
 
-            test(u128::MAX / 1000, "3938453320844195178d");
-            test(u128::MAX, "3938453320844195178974d");
+            test(u128::MAX / 1000, "3938453320844195178 d");
+            test(u128::MAX, "3938453320844195178974 d");
         }
     }
 }

@@ -1,7 +1,7 @@
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
 use crate::{
-    config::{FormatStyle, ParsedSeconds, SortingAttr},
+    config::{ParsedSeconds, SortingAttr},
     time::TimerKind,
 };
 
@@ -26,6 +26,8 @@ pub(crate) fn command() -> Command {
     // - sort
     // - sortr
 
+    // TODO: `--format <pretty|terse>`
+
     Command::new("divan")
         .arg(
             Arg::new("filter")
@@ -44,13 +46,6 @@ pub(crate) fn command() -> Command {
                 .help("Controls when to use colors")
                 .value_parser(value_parser!(ColorChoice))
                 .default_value("auto"),
-        )
-        .arg(
-            option("format")
-                .help("Configure formatting of output")
-                .value_name("pretty|terse")
-                .value_parser(value_parser!(FormatStyle))
-                .default_value("pretty"),
         )
         .arg(
             option("bytes-format")
@@ -145,20 +140,6 @@ impl ValueEnum for TimerKind {
         let name = match self {
             Self::Os => "os",
             Self::Tsc => "tsc",
-        };
-        Some(PossibleValue::new(name))
-    }
-}
-
-impl ValueEnum for FormatStyle {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Pretty, Self::Terse]
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        let name = match self {
-            Self::Pretty => "pretty",
-            Self::Terse => "terse",
         };
         Some(PossibleValue::new(name))
     }
