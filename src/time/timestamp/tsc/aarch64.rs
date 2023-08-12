@@ -8,7 +8,7 @@ use crate::time::TscUnavailable;
 /// This value is set on system initialization and thus does not change between
 /// reads.
 #[inline]
-pub fn frequency() -> Result<u64, TscUnavailable> {
+pub(crate) fn frequency() -> Result<u64, TscUnavailable> {
     unsafe {
         let frequency: u64;
         asm!(
@@ -23,7 +23,7 @@ pub fn frequency() -> Result<u64, TscUnavailable> {
 /// Reads the [`cntvct_el0`](https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/CNTVCT-EL0--Counter-timer-Virtual-Count-register?lang=en)
 /// register.
 #[inline(always)]
-pub fn timestamp() -> u64 {
+pub(crate) fn timestamp() -> u64 {
     unsafe {
         let timestamp: u64;
         asm!(

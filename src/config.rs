@@ -48,7 +48,7 @@ impl Action {
 }
 
 /// Filters which benchmark to run based on name.
-pub enum Filter {
+pub(crate) enum Filter {
     Regex(Regex),
     Exact(String),
 }
@@ -65,7 +65,7 @@ impl Filter {
 
 /// How to treat benchmarks based on whether they're marked as `#[ignore]`.
 #[derive(Copy, Clone, Default)]
-pub enum RunIgnored {
+pub(crate) enum RunIgnored {
     /// Skip ignored.
     #[default]
     No,
@@ -97,7 +97,7 @@ impl RunIgnored {
 
 /// The style with which to format output.
 #[derive(Clone, Copy, Default)]
-pub enum FormatStyle {
+pub(crate) enum FormatStyle {
     /// Benchmarks are formatted as a tree.
     #[default]
     Pretty,
@@ -114,7 +114,7 @@ impl FormatStyle {
 
 /// The attribute to sort benchmarks by.
 #[derive(Clone, Copy, Default)]
-pub enum SortingAttr {
+pub(crate) enum SortingAttr {
     /// Sort by kind, then by name and location.
     #[default]
     Kind,

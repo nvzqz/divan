@@ -6,9 +6,9 @@ mod fine_duration;
 mod timer;
 mod timestamp;
 
-pub use fine_duration::*;
-pub use timer::*;
-pub use timestamp::*;
+pub(crate) use fine_duration::*;
+pub(crate) use timer::*;
+pub(crate) use timestamp::*;
 
 /// Private-public trait for being polymorphic over `Duration`.
 pub trait IntoDuration {

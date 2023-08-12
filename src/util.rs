@@ -22,7 +22,7 @@ impl ConfigFnMut for () {
 }
 
 /// Formats an `f64` to the given number of significant figures.
-pub fn format_f64(val: f64, sig_figs: usize) -> String {
+pub(crate) fn format_f64(val: f64, sig_figs: usize) -> String {
     let mut str = val.to_string();
 
     if let Some(dot_index) = str.find('.') {

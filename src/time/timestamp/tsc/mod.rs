@@ -13,7 +13,7 @@ mod arch;
 /// [CPU timestamp counter](https://en.wikipedia.org/wiki/Time_Stamp_Counter).
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct TscTimestamp {
+pub(crate) struct TscTimestamp {
     pub value: u64,
 }
 
@@ -78,7 +78,7 @@ impl TscTimestamp {
 
 /// Reason for why the timestamp counter cannot be used.
 #[derive(Clone, Copy)]
-pub enum TscUnavailable {
+pub(crate) enum TscUnavailable {
     /// Not yet implemented for this platform.
     Unimplemented,
 

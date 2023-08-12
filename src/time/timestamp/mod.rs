@@ -4,11 +4,11 @@ use crate::time::{fence, FineDuration, Timer, TimerKind};
 
 mod tsc;
 
-pub use tsc::*;
+pub(crate) use tsc::*;
 
 /// A measurement timestamp.
 #[derive(Clone, Copy)]
-pub enum Timestamp {
+pub(crate) enum Timestamp {
     /// Time provided by the operating system.
     Os(Instant),
 
@@ -47,7 +47,7 @@ impl Timestamp {
 /// - Reusing the same condition variable
 /// - Reducing the size of the timestamp variables
 #[derive(Clone, Copy)]
-pub union UntaggedTimestamp {
+pub(crate) union UntaggedTimestamp {
     /// [`Timestamp::Os`].
     pub os: Instant,
 

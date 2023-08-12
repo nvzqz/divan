@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use crate::time::{fence, TscUnavailable};
 
 #[inline(always)]
-pub fn start_timestamp() -> u64 {
+pub(crate) fn start_timestamp() -> u64 {
     // Serialize previous operations before `rdtsc` to ensure they are not
     // inside the timed section.
     util::lfence();
@@ -23,7 +23,7 @@ pub fn start_timestamp() -> u64 {
 }
 
 #[inline(always)]
-pub fn end_timestamp() -> u64 {
+pub(crate) fn end_timestamp() -> u64 {
     // `rdtscp` is serialized after all previous operations.
     let tsc = util::rdtscp();
 
@@ -33,7 +33,7 @@ pub fn end_timestamp() -> u64 {
     tsc
 }
 
-pub fn frequency() -> Result<u64, TscUnavailable> {
+pub(crate) fn frequency() -> Result<u64, TscUnavailable> {
     let mut nominal = None;
 
     // If we don't have CPUID, avoid it and assume invariant TSC.

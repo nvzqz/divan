@@ -1,14 +1,14 @@
 use crate::time::FineDuration;
 
 /// Measurement datum.
-pub struct Sample {
+pub(crate) struct Sample {
     /// The time this sample took to run.
     pub duration: FineDuration,
 }
 
 /// [`Sample`] collection.
 #[derive(Default)]
-pub struct SampleCollection {
+pub(crate) struct SampleCollection {
     /// The number of iterations within each sample.
     pub sample_size: u32,
 

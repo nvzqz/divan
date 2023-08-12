@@ -5,7 +5,7 @@ use crate::{
     time::TimerKind,
 };
 
-pub fn command() -> Command {
+pub(crate) fn command() -> Command {
     fn option(name: &'static str) -> Arg {
         Arg::new(name).long(name)
     }

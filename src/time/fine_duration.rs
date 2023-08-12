@@ -5,7 +5,7 @@ use crate::util;
 /// [Picosecond](https://en.wikipedia.org/wiki/Picosecond)-precise [`Duration`].
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct FineDuration {
+pub(crate) struct FineDuration {
     pub picos: u128,
 }
 

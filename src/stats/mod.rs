@@ -6,10 +6,10 @@ use crate::{counter::AnyCounter, time::FineDuration};
 
 mod sample;
 
-pub use sample::*;
+pub(crate) use sample::*;
 
 /// Statistics from samples.
-pub struct Stats {
+pub(crate) struct Stats {
     /// Total number of samples taken.
     pub sample_count: u32,
 

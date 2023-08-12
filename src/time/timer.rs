@@ -4,7 +4,7 @@ use crate::time::{FineDuration, TscTimestamp, TscUnavailable, UntaggedTimestamp}
 
 /// Measures time.
 #[derive(Clone, Copy, Default)]
-pub enum Timer {
+pub(crate) enum Timer {
     /// Operating system timer.
     #[default]
     Os,
@@ -168,7 +168,7 @@ impl Timer {
 
 /// [`Timer`] kind.
 #[derive(Clone, Copy, Default)]
-pub enum TimerKind {
+pub(crate) enum TimerKind {
     /// Operating system timer.
     #[default]
     Os,
