@@ -20,10 +20,10 @@ pub struct Stats {
     pub mean_time: FineDuration,
 
     /// The minimum amount of time taken by an iteration.
-    pub min_time: FineDuration,
+    pub fastest_time: FineDuration,
 
     /// The maximum amount of time taken by an iteration.
-    pub max_time: FineDuration,
+    pub slowest_time: FineDuration,
 
     /// Midpoint time taken by an iteration.
     pub median_time: FineDuration,
@@ -37,8 +37,8 @@ impl fmt::Debug for Stats {
         #[derive(Debug)]
         #[allow(dead_code)]
         struct Set<T> {
-            min: T,
-            max: T,
+            fastest: T,
+            slowest: T,
             median: T,
             mean: T,
         }
@@ -47,8 +47,8 @@ impl fmt::Debug for Stats {
             .field(
                 "time",
                 &Set {
-                    min: self.min_time,
-                    max: self.max_time,
+                    fastest: self.fastest_time,
+                    slowest: self.slowest_time,
                     median: self.median_time,
                     mean: self.mean_time,
                 },
@@ -56,8 +56,8 @@ impl fmt::Debug for Stats {
             .field(
                 "thrpt",
                 &self.counter.as_ref().map(|counter| Set {
-                    min: counter.display_throughput(self.max_time),
-                    max: counter.display_throughput(self.min_time),
+                    fastest: counter.display_throughput(self.fastest_time),
+                    slowest: counter.display_throughput(self.slowest_time),
                     median: counter.display_throughput(self.median_time),
                     mean: counter.display_throughput(self.mean_time),
                 }),

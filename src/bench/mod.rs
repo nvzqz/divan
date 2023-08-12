@@ -757,8 +757,8 @@ impl<'a> BenchContext<'a> {
             sample_count: sample_count as u32,
             total_count,
             mean_time: mean_duration,
-            min_time: min_duration,
-            max_time: max_duration,
+            fastest_time: min_duration,
+            slowest_time: max_duration,
             median_time: median_duration,
             counter: self.counter().cloned(),
         }
