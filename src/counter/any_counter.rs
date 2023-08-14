@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    counter::{BytesFormat, MaxCountUInt},
+    counter::{BytesFormat, Counter, MaxCountUInt, Sealed},
     time::FineDuration,
     util,
 };
@@ -16,13 +16,52 @@ pub enum AnyCounter {
     Items(MaxCountUInt),
 }
 
+impl Sealed for AnyCounter {
+    #[inline]
+    fn into_any_counter(self) -> AnyCounter {
+        self
+    }
+}
+
+impl Counter for AnyCounter {}
+
+/// Kind of `Counter` defined by this crate.
+#[derive(Clone, Copy)]
+pub(crate) enum KnownCounterKind {
+    Bytes,
+    Items,
+}
+
 impl AnyCounter {
+    #[inline]
+    pub(crate) fn known(kind: KnownCounterKind, count: MaxCountUInt) -> Self {
+        match kind {
+            KnownCounterKind::Bytes => Self::Bytes(count),
+            KnownCounterKind::Items => Self::Items(count),
+        }
+    }
+
     pub(crate) fn display_throughput(
         &self,
         duration: FineDuration,
         bytes_format: BytesFormat,
     ) -> DisplayThroughput {
         DisplayThroughput { counter: self, picos: duration.picos as f64, bytes_format }
+    }
+
+    #[inline]
+    pub(crate) fn count(&self) -> MaxCountUInt {
+        match *self {
+            Self::Bytes(count) | Self::Items(count) => count,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn known_kind(&self) -> KnownCounterKind {
+        match *self {
+            Self::Bytes { .. } => KnownCounterKind::Bytes,
+            Self::Items { .. } => KnownCounterKind::Items,
+        }
     }
 }
 

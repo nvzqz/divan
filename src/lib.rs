@@ -356,6 +356,7 @@ pub fn main() {
 /// See also:
 /// - [`#[divan::bench_group(counter = ...)]`](macro@bench_group#counter)
 /// - [`Bencher::counter`]
+/// - [`Bencher::input_counter`]
 ///
 /// ## `min_time`
 /// [`min_time`]: #min_time
@@ -723,6 +724,7 @@ pub use divan_macros::bench;
 /// See also:
 /// - [`#[divan::bench(counter = ...)]`](macro@bench#counter)
 /// - [`Bencher::counter`]
+/// - [`Bencher::input_counter`]
 ///
 /// ## `min_time`
 /// [`min_time`]: #min_time

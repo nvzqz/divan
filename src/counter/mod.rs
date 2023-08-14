@@ -33,7 +33,7 @@ mod sealed;
 mod uint;
 
 pub(crate) use self::{
-    any_counter::AnyCounter,
+    any_counter::{AnyCounter, KnownCounterKind},
     sealed::Sealed,
     uint::{CountUInt, MaxCountUInt},
 };
@@ -46,6 +46,7 @@ pub use into_counter::IntoCounter;
 /// - [`#[divan::bench(counter = ...)]`](macro@crate::bench#counter)
 /// - [`#[divan::bench_group(counter = ...)]`](macro@crate::bench_group#counter)
 /// - [`Bencher::counter`](crate::Bencher::counter)
+/// - [`Bencher::input_counter`](crate::Bencher::input_counter)
 #[doc(alias = "throughput")]
 pub trait Counter: Sized + Any + Sealed {}
 

@@ -64,8 +64,11 @@ mod run_count {
     use super::*;
 
     /// A `Bencher` configured to run code before/after the sample.
-    type Bencher<'a, 'b> =
-        crate::Bencher<'a, 'b, BencherConfig<(), &'a mut dyn FnMut(), &'a mut dyn FnMut()>>;
+    type Bencher<'a, 'b> = crate::Bencher<
+        'a,
+        'b,
+        BencherConfig<(), AnyCounter, &'a mut dyn FnMut(), &'a mut dyn FnMut()>,
+    >;
 
     fn test(run_bench: fn(Bencher, &mut dyn FnMut())) {
         test_with_drop_counter(&AtomicUsize::new(usize::MAX), run_bench);

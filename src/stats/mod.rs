@@ -19,20 +19,23 @@ pub(crate) struct Stats {
     /// Total number of iterations (currently `sample_count * `sample_size`).
     pub total_count: u64,
 
-    /// Average time taken by all iterations.
-    pub mean_time: FineDuration,
+    pub time: StatsSet<FineDuration>,
+    pub counter: Option<StatsSet<AnyCounter>>,
+}
 
-    /// The minimum amount of time taken by an iteration.
-    pub fastest_time: FineDuration,
+#[derive(Debug)]
+pub(crate) struct StatsSet<T> {
+    /// Associated with minimum amount of time taken by an iteration.
+    pub fastest: T,
 
-    /// The maximum amount of time taken by an iteration.
-    pub slowest_time: FineDuration,
+    /// Associated with maximum amount of time taken by an iteration.
+    pub slowest: T,
 
-    /// Midpoint time taken by an iteration.
-    pub median_time: FineDuration,
+    /// Associated with midpoint time taken by an iteration.
+    pub median: T,
 
-    /// Throughput counter.
-    pub counter: Option<AnyCounter>,
+    /// Associated with average time taken by all iterations.
+    pub mean: T,
 }
 
 impl Stats {
@@ -48,38 +51,19 @@ struct DebugStats<'a> {
 
 impl fmt::Debug for DebugStats<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        #[derive(Debug)]
-        #[allow(dead_code)]
-        struct Set<T> {
-            fastest: T,
-            slowest: T,
-            median: T,
-            mean: T,
-        }
-
         let stats = self.stats;
+        let time = &stats.time;
+        let bytes_format = self.bytes_format;
 
         f.debug_struct("Stats")
-            .field(
-                "time",
-                &Set {
-                    fastest: stats.fastest_time,
-                    slowest: stats.slowest_time,
-                    median: stats.median_time,
-                    mean: stats.mean_time,
-                },
-            )
+            .field("time", &stats.time)
             .field(
                 "thrpt",
-                &stats.counter.as_ref().map(|counter| {
-                    let display_throughput = |t| counter.display_throughput(t, self.bytes_format);
-
-                    Set {
-                        fastest: display_throughput(stats.fastest_time),
-                        slowest: display_throughput(stats.slowest_time),
-                        median: display_throughput(stats.median_time),
-                        mean: display_throughput(stats.mean_time),
-                    }
+                &stats.counter.as_ref().map(|counter| StatsSet {
+                    fastest: counter.fastest.display_throughput(time.fastest, bytes_format),
+                    slowest: counter.slowest.display_throughput(time.slowest, bytes_format),
+                    median: counter.median.display_throughput(time.median, bytes_format),
+                    mean: counter.mean.display_throughput(time.mean, bytes_format),
                 }),
             )
             .field("sample_count", &stats.sample_count)

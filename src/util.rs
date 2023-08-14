@@ -21,6 +21,22 @@ impl ConfigFnMut for () {
     fn call_mut(&mut self) {}
 }
 
+/// Returns the values in the middle of `slice`.
+///
+/// If the slice has an even length, two middle values exist.
+#[inline]
+pub(crate) fn slice_middle<T>(slice: &[T]) -> &[T] {
+    let len = slice.len();
+
+    if len == 0 {
+        slice
+    } else if len % 2 == 0 {
+        &slice[(len / 2) - 1..][..2]
+    } else {
+        &slice[len / 2..][..1]
+    }
+}
+
 /// Formats an `f64` to the given number of significant figures.
 pub(crate) fn format_f64(val: f64, sig_figs: usize) -> String {
     let mut str = val.to_string();
@@ -55,4 +71,20 @@ pub(crate) fn format_f64(val: f64, sig_figs: usize) -> String {
     }
 
     str
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn slice_middle() {
+        use super::slice_middle;
+
+        assert_eq!(slice_middle::<i32>(&[]), &[]);
+
+        assert_eq!(slice_middle(&[1]), &[1]);
+        assert_eq!(slice_middle(&[1, 2]), &[1, 2]);
+        assert_eq!(slice_middle(&[1, 2, 3]), &[2]);
+        assert_eq!(slice_middle(&[1, 2, 3, 4]), &[2, 3]);
+        assert_eq!(slice_middle(&[1, 2, 3, 4, 5]), &[3]);
+    }
 }
