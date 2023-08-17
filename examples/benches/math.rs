@@ -34,9 +34,11 @@ fn rem() -> i32 {
 mod fibonacci {
     use super::*;
 
+    const VALUES: &[u64] = &[0, 2, 5, 10, 20, 30, 35, 40];
+
     // O(n)
-    #[divan::bench]
-    fn iterative() -> u64 {
+    #[divan::bench(consts = VALUES)]
+    fn iterative<const N: u64>() -> u64 {
         fn fibonacci(n: u64) -> u64 {
             let mut previous = 1;
             let mut current = 1;
@@ -50,12 +52,12 @@ mod fibonacci {
             current
         }
 
-        fibonacci(black_box(10))
+        fibonacci(black_box(N))
     }
 
     // O(2^n)
-    #[divan::bench]
-    fn recursive() -> u64 {
+    #[divan::bench(consts = VALUES, max_time = 1)]
+    fn recursive<const N: u64>() -> u64 {
         fn fibonacci(n: u64) -> u64 {
             if n <= 1 {
                 1
@@ -64,6 +66,6 @@ mod fibonacci {
             }
         }
 
-        fibonacci(black_box(10))
+        fibonacci(black_box(N))
     }
 }
