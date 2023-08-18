@@ -45,7 +45,12 @@ with your benchmarking code:
 
 [$CARGO_MANIFEST_DIR]: https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-crates
 
-3. Run your benchmarks with [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html).
+3. Run your benchmarks with [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html):
+
+    ```txt
+    my_benchmark  fastest      │ slowest      │ median       │ mean
+    ╰── fibonacci 196.1 ns     │ 217 ns       │ 197.5 ns     │ 198.1 ns
+    ```
 
 ## Examples
 
