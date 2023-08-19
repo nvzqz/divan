@@ -13,8 +13,8 @@ pub use crate::{
 
 /// Used by `#[divan::bench(counter = ...)]`.
 #[inline]
-pub fn into_any_counter<C: crate::counter::IntoCounter>(counter: C) -> crate::counter::AnyCounter {
-    crate::counter::Sealed::into_any_counter(counter.into_counter())
+pub fn into_counter_set(counter: impl crate::counter::IntoCounter) -> crate::counter::CounterSet {
+    crate::counter::CounterSet::default().with(counter)
 }
 
 /// Used by `#[divan::bench]` to truncate arrays for generic `const` benchmarks.

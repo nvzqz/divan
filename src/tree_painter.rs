@@ -3,7 +3,7 @@
 use std::{io::Write, iter::repeat};
 
 use crate::{
-    counter::BytesFormat,
+    counter::{AnyCounter, BytesFormat, KnownCounterKind},
     stats::{Stats, StatsSet},
 };
 
@@ -173,7 +173,11 @@ impl TreePainter {
         println!("{buf}");
 
         // Write counter stats.
-        if let Some(counter_stats) = &stats.counter {
+        for counter_kind in KnownCounterKind::ALL {
+            let Some(counter_stats) = stats.get_counts(counter_kind) else {
+                continue;
+            };
+
             buf.clear();
             buf.push_str(&self.current_prefix);
 
@@ -189,9 +193,11 @@ impl TreePainter {
             buf.extend(repeat(' ').take(pad_len));
 
             TreeColumnData::from_fn(|column| {
-                column
-                    .get_stat(counter_stats)
-                    .display_throughput(*column.get_stat(&stats.time), bytes_format)
+                let count = *column.get_stat(counter_stats);
+                let time = *column.get_stat(&stats.time);
+
+                AnyCounter::known(counter_kind, count)
+                    .display_throughput(time, bytes_format)
                     .to_string()
             })
             .as_ref::<str>()

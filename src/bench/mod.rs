@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     black_box,
-    counter::{self, AnyCounter, IntoCounter, KnownCounterKind, MaxCountUInt},
+    counter::{self, AnyCounter, CounterCollection, IntoCounter, KnownCounterKind, MaxCountUInt},
     divan::SharedContext,
     stats::{Sample, SampleCollection, Stats},
     time::{FineDuration, Timestamp, UntaggedTimestamp},
@@ -50,54 +50,10 @@ pub struct Bencher<'a, 'b, C = BencherConfig> {
 ///
 /// This enables configuring `Bencher` using the builder pattern with zero
 /// runtime cost.
-pub struct BencherConfig<GenI = (), ICounter = AnyCounter, BeforeS = (), AfterS = ()> {
+pub struct BencherConfig<GenI = (), BeforeS = (), AfterS = ()> {
     gen_input: GenI,
-    input_counter: Option<ICounter>,
     before_sample: BeforeS,
     after_sample: AfterS,
-}
-
-/// Abstracts over `AnyCounter` and `FnMut(&I) -> IntoCounter`.
-pub trait InputCounter<I> {
-    type Counter: IntoCounter;
-
-    const IS_CONST: bool = false;
-
-    #[inline]
-    fn get_const(&self) -> Option<AnyCounter> {
-        None
-    }
-
-    fn input_counter(&mut self, input: &I) -> Self::Counter;
-}
-
-impl<I> InputCounter<I> for AnyCounter {
-    type Counter = Self;
-
-    const IS_CONST: bool = true;
-
-    #[inline]
-    fn get_const(&self) -> Option<AnyCounter> {
-        Some(self.clone())
-    }
-
-    #[inline]
-    fn input_counter(&mut self, _input: &I) -> Self::Counter {
-        self.clone()
-    }
-}
-
-impl<I, C, F> InputCounter<I> for F
-where
-    C: IntoCounter,
-    F: for<'i> FnMut(&'i I) -> C,
-{
-    type Counter = C;
-
-    #[inline]
-    fn input_counter(&mut self, input: &I) -> Self::Counter {
-        self(input)
-    }
 }
 
 impl<C> fmt::Debug for Bencher<'_, '_, C> {
@@ -111,17 +67,12 @@ impl<'a, 'b> Bencher<'a, 'b> {
     pub(crate) fn new(context: &'a mut BenchContext<'b>) -> Self {
         Self {
             context,
-            config: BencherConfig {
-                gen_input: (),
-                input_counter: None,
-                before_sample: (),
-                after_sample: (),
-            },
+            config: BencherConfig { gen_input: (), before_sample: (), after_sample: () },
         }
     }
 }
 
-impl<'a, 'b, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<(), AnyCounter, BeforeS, AfterS>>
+impl<'a, 'b, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<(), BeforeS, AfterS>>
 where
     BeforeS: ConfigFnMut,
     AfterS: ConfigFnMut,
@@ -170,7 +121,7 @@ where
     pub fn with_inputs<I, G>(
         self,
         gen_input: G,
-    ) -> Bencher<'a, 'b, BencherConfig<G, AnyCounter, BeforeS, AfterS>>
+    ) -> Bencher<'a, 'b, BencherConfig<G, BeforeS, AfterS>>
     where
         G: FnMut() -> I,
     {
@@ -178,7 +129,6 @@ where
             context: self.context,
             config: BencherConfig {
                 gen_input,
-                input_counter: self.config.input_counter,
                 before_sample: self.config.before_sample,
                 after_sample: self.config.after_sample,
             },
@@ -186,11 +136,13 @@ where
     }
 }
 
-impl<'a, 'b, GenI, ICounter, BeforeS, AfterS>
-    Bencher<'a, 'b, BencherConfig<GenI, ICounter, BeforeS, AfterS>>
-{
+impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS, AfterS>> {
     /// Assign a [`Counter`](crate::counter::Counter) for all iterations of the
     /// benchmarked function.
+    ///
+    /// This will either:
+    /// - Assign a new counter
+    /// - Override an existing counter of the same type
     ///
     /// If the counter depends on [generated inputs](Self::with_inputs), use
     /// [`Bencher::input_counter`] instead.
@@ -221,8 +173,7 @@ impl<'a, 'b, GenI, ICounter, BeforeS, AfterS>
         C: IntoCounter,
     {
         let counter = counter::Sealed::into_any_counter(counter.into_counter());
-        self.context.counter_count = counter.count();
-        self.context.counter_kind = Some(counter.known_kind());
+        self.context.counters.set_counter(counter);
         self
     }
 
@@ -245,7 +196,7 @@ impl<'a, 'b, GenI, ICounter, BeforeS, AfterS>
     pub fn before_sample<F>(
         self,
         before_sample: F,
-    ) -> Bencher<'a, 'b, BencherConfig<GenI, ICounter, F, AfterS>>
+    ) -> Bencher<'a, 'b, BencherConfig<GenI, F, AfterS>>
     where
         F: FnMut(),
     {
@@ -253,7 +204,6 @@ impl<'a, 'b, GenI, ICounter, BeforeS, AfterS>
             context: self.context,
             config: BencherConfig {
                 gen_input: self.config.gen_input,
-                input_counter: self.config.input_counter,
                 before_sample,
                 after_sample: self.config.after_sample,
             },
@@ -282,7 +232,7 @@ impl<'a, 'b, GenI, ICounter, BeforeS, AfterS>
     pub fn after_sample<F>(
         self,
         after_sample: F,
-    ) -> Bencher<'a, 'b, BencherConfig<GenI, ICounter, BeforeS, F>>
+    ) -> Bencher<'a, 'b, BencherConfig<GenI, BeforeS, F>>
     where
         F: FnMut(),
     {
@@ -290,7 +240,6 @@ impl<'a, 'b, GenI, ICounter, BeforeS, AfterS>
             context: self.context,
             config: BencherConfig {
                 gen_input: self.config.gen_input,
-                input_counter: self.config.input_counter,
                 before_sample: self.config.before_sample,
                 after_sample,
             },
@@ -299,16 +248,18 @@ impl<'a, 'b, GenI, ICounter, BeforeS, AfterS>
 }
 
 /// <span id="input-bench"></span> Benchmark over [generated inputs](Self::with_inputs).
-impl<'a, 'b, I, GenI, ICounter, BeforeS, AfterS>
-    Bencher<'a, 'b, BencherConfig<GenI, ICounter, BeforeS, AfterS>>
+impl<'a, 'b, I, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS, AfterS>>
 where
     GenI: FnMut() -> I,
-    ICounter: InputCounter<I>,
     BeforeS: ConfigFnMut,
     AfterS: ConfigFnMut,
 {
     /// Create a [`Counter`](crate::counter::Counter) for each input of the
     /// benchmarked function.
+    ///
+    /// This will either:
+    /// - Assign a new counter
+    /// - Override an existing counter of the same type
     ///
     /// If the counter is constant, use [`Bencher::counter`] instead.
     ///
@@ -335,23 +286,13 @@ where
     ///         });
     /// }
     /// ```
-    pub fn input_counter<C, F>(
-        self,
-        make_counter: F,
-    ) -> Bencher<'a, 'b, BencherConfig<GenI, F, BeforeS, AfterS>>
+    pub fn input_counter<C, F>(self, make_counter: F) -> Self
     where
-        F: FnMut(&I) -> C,
+        F: FnMut(&I) -> C + 'static,
         C: IntoCounter,
     {
-        Bencher {
-            context: self.context,
-            config: BencherConfig {
-                gen_input: self.config.gen_input,
-                input_counter: Some(make_counter),
-                before_sample: self.config.before_sample,
-                after_sample: self.config.after_sample,
-            },
-        }
+        self.context.counters.set_input_counter(make_counter);
+        self
     }
 
     /// Benchmarks a function over per-iteration [generated inputs](Self::with_inputs),
@@ -493,35 +434,22 @@ pub(crate) struct BenchContext<'a> {
     /// Whether the benchmark loop was started.
     pub did_run: bool,
 
-    /// Single `Counter` count.
-    counter_count: MaxCountUInt,
-
-    /// Multiple `Counter` counts if using per-input counters.
-    counter_counts: Vec<MaxCountUInt>,
-
-    /// `Counter` kind.
-    counter_kind: Option<KnownCounterKind>,
-
     /// Recorded samples.
     samples: SampleCollection,
+
+    /// Per-iteration counters grouped by sample.
+    counters: CounterCollection,
 }
 
 impl<'a> BenchContext<'a> {
     /// Creates a new benchmarking context.
     pub fn new(shared_context: &'a SharedContext, options: &'a BenchOptions) -> Self {
-        let (counter_count, counter_kind) = match &options.counter {
-            Some(counter) => (counter.count(), Some(counter.known_kind())),
-            None => (0, None),
-        };
-
         Self {
             shared_context,
             options,
             did_run: false,
-            counter_count,
-            counter_counts: Vec::new(),
-            counter_kind,
             samples: SampleCollection::default(),
+            counters: options.counters.to_collection(),
         }
     }
 
@@ -537,14 +465,12 @@ impl<'a> BenchContext<'a> {
     /// - All instances of `O` returned from `benched` have been dropped.
     /// - The same guarantees for `I` apply as in `benched`, unless `benched`
     ///   escaped references to `I`.
-    pub fn bench_loop<I, O, ICounter>(
+    pub fn bench_loop<I, O>(
         &mut self,
-        mut config: BencherConfig<impl FnMut() -> I, ICounter, impl ConfigFnMut, impl ConfigFnMut>,
+        mut config: BencherConfig<impl FnMut() -> I, impl ConfigFnMut, impl ConfigFnMut>,
         mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
-    ) where
-        ICounter: InputCounter<I>,
-    {
+    ) {
         const DEFAULT_SAMPLE_COUNT: u32 = 100;
 
         self.did_run = true;
@@ -614,27 +540,21 @@ impl<'a> BenchContext<'a> {
             let sample_size = current_mode.sample_size();
             self.samples.sample_size = sample_size;
 
-            let mut sample_counter_total: u128 = 0;
+            let mut sample_counter_totals: [u128; KnownCounterKind::COUNT] =
+                [0; KnownCounterKind::COUNT];
 
             // Updates per-input counter info for this sample.
             let mut count_input = |input: &I| {
-                use crate::counter::Sealed;
-
-                if ICounter::IS_CONST {
-                    return;
+                for counter_kind in KnownCounterKind::ALL {
+                    // SAFETY: The `I` type cannot change since `with_inputs`
+                    // cannot be called more than once on the same `Bencher`.
+                    if let Some(count) =
+                        unsafe { self.counters.get_input_count(counter_kind, input) }
+                    {
+                        let total = &mut sample_counter_totals[counter_kind as usize];
+                        *total = (*total).saturating_add(count as u128);
+                    }
                 }
-
-                let Some(input_counter) = &mut config.input_counter else {
-                    return;
-                };
-
-                let counter = input_counter.input_counter(input).into_counter().into_any_counter();
-
-                // NOTE: `counter_kind` cannot change between inputs because the
-                // type system ensures the same `Counter` is produced each time.
-                self.counter_kind = Some(counter.known_kind());
-
-                sample_counter_total = sample_counter_total.saturating_add(counter.count() as u128);
             };
 
             // The following logic chooses how to efficiently sample the
@@ -816,6 +736,7 @@ impl<'a> BenchContext<'a> {
             if current_mode.is_tune() {
                 // Clear previous smaller samples.
                 self.samples.all.clear();
+                self.counters.clear_input_counts();
 
                 // If within 100x timer precision, continue tuning.
                 let precision_multiple = raw_duration.picos / timer_precision.picos;
@@ -839,12 +760,18 @@ impl<'a> BenchContext<'a> {
             self.samples.all.push(Sample { duration: adjusted_duration });
 
             // Insert per-input counter information.
-            if !ICounter::IS_CONST {
-                // This will not overflow `MaxCountUInt` because `total_counter`
-                // cannot exceed `MaxCountUInt::MAX * sample_size`.
-                let count = (sample_counter_total / sample_size as u128) as MaxCountUInt;
+            for counter_kind in KnownCounterKind::ALL {
+                if !self.counters.uses_input_counts(counter_kind) {
+                    continue;
+                }
 
-                self.counter_counts.push(count);
+                let total_count = sample_counter_totals[counter_kind as usize];
+
+                // This will not overflow `MaxCountUInt` because `total_count`
+                // cannot exceed `MaxCountUInt::MAX * sample_size`.
+                let per_iter_count = (total_count / sample_size as u128) as MaxCountUInt;
+
+                self.counters.push_counter(AnyCounter::known(counter_kind, per_iter_count));
             }
 
             if let Some(rem_samples) = &mut rem_samples {
@@ -898,13 +825,18 @@ impl<'a> BenchContext<'a> {
             (sample - start) / mem::size_of::<Sample>()
         };
 
-        let counter_count_for_sample = |sample: &Sample| -> MaxCountUInt {
-            if self.counter_counts.is_empty() {
-                self.counter_count
-            } else {
-                self.counter_counts[index_of_sample(sample)]
-            }
-        };
+        let counter_count_for_sample =
+            |sample: &Sample, counter_kind: KnownCounterKind| -> Option<MaxCountUInt> {
+                let counts = self.counters.counts(counter_kind);
+
+                let index = if self.counters.uses_input_counts(counter_kind) {
+                    index_of_sample(sample)
+                } else {
+                    0
+                };
+
+                counts.get(index).copied()
+            };
 
         let min_duration =
             sorted_samples.first().map(|s| s.duration / sample_size).unwrap_or_default();
@@ -918,50 +850,30 @@ impl<'a> BenchContext<'a> {
             FineDuration { picos: sum / median_samples.len() as u128 } / sample_size
         };
 
-        let counter = self.counter_kind.map(|counter_kind| {
-            let fastest_count = sorted_samples
-                .first()
-                .map(|s| counter_count_for_sample(s))
-                .unwrap_or(self.counter_count);
-
-            let slowest_count = sorted_samples
-                .last()
-                .map(|s| counter_count_for_sample(s))
-                .unwrap_or(self.counter_count);
-
-            let median_count = if self.counter_counts.is_empty() || median_samples.is_empty() {
-                self.counter_count
-            } else {
+        let counts = KnownCounterKind::ALL.map(|counter_kind| {
+            let median: MaxCountUInt = {
                 let mut sum: u128 = 0;
 
                 for sample in median_samples {
+                    let sample_count = counter_count_for_sample(sample, counter_kind)? as u128;
+
                     // Saturating add in case `MaxUIntCount > u64`.
-                    sum = sum.saturating_add(counter_count_for_sample(sample) as u128);
+                    sum = sum.saturating_add(sample_count);
                 }
 
                 (sum / median_samples.len() as u128) as MaxCountUInt
             };
 
-            let mean_count = if self.counter_counts.is_empty() {
-                self.counter_count
-            } else {
-                let mut sum: u128 = 0;
-
-                for &count in &self.counter_counts {
-                    // Saturating add in case `MaxUIntCount > u64`.
-                    sum = sum.saturating_add(count as u128);
-                }
-
-                (sum / self.counter_counts.len() as u128) as MaxCountUInt
-            };
-
-            let make_counter = |count: MaxCountUInt| AnyCounter::known(counter_kind, count);
-            StatsSet {
-                fastest: make_counter(fastest_count),
-                slowest: make_counter(slowest_count),
-                median: make_counter(median_count),
-                mean: make_counter(mean_count),
-            }
+            Some(StatsSet {
+                fastest: sorted_samples
+                    .first()
+                    .and_then(|s| counter_count_for_sample(s, counter_kind))?,
+                slowest: sorted_samples
+                    .last()
+                    .and_then(|s| counter_count_for_sample(s, counter_kind))?,
+                median,
+                mean: self.counters.mean_count(counter_kind),
+            })
         });
 
         Stats {
@@ -973,7 +885,7 @@ impl<'a> BenchContext<'a> {
                 slowest: max_duration,
                 median: median_duration,
             },
-            counter,
+            counts,
         }
     }
 }

@@ -168,7 +168,7 @@ impl AttrOptions {
                 let wrapped_value: proc_macro2::TokenStream;
                 let value: &dyn ToTokens = match option_name {
                     "counter" => {
-                        wrapped_value = quote! { #private_mod::into_any_counter(#value) };
+                        wrapped_value = quote! { #private_mod::into_counter_set(#value) };
                         &wrapped_value
                     }
 
@@ -183,7 +183,21 @@ impl AttrOptions {
                     _ => value,
                 };
 
-                quote! { #option: #private_mod::Some(#value), }
+                let option_ident: Ident;
+                let option_ident: &Ident = match option_name {
+                    "counter" => {
+                        option_ident = Ident::new("counters", option.span());
+                        &option_ident
+                    }
+                    _ => option,
+                };
+
+                let wrap_some = match option_name {
+                    "counter" | "counters" => proc_macro2::TokenStream::default(),
+                    _ => quote! { #private_mod::Some },
+                };
+
+                quote! { #option_ident: #wrap_some (#value), }
             });
 
             let ignore = match ignore_attr_ident {

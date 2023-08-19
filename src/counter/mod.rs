@@ -28,12 +28,14 @@
 use std::any::Any;
 
 mod any_counter;
+mod collection;
 mod into_counter;
 mod sealed;
 mod uint;
 
 pub(crate) use self::{
     any_counter::{AnyCounter, KnownCounterKind},
+    collection::{CounterCollection, CounterSet},
     sealed::Sealed,
     uint::{CountUInt, MaxCountUInt},
 };
@@ -65,6 +67,8 @@ pub struct Items<N>(
 );
 
 impl<N: CountUInt> Sealed for Bytes<N> {
+    const COUNTER_KIND: KnownCounterKind = KnownCounterKind::Bytes;
+
     #[inline]
     fn into_any_counter(self) -> AnyCounter {
         AnyCounter::Bytes(self.0.into_max_uint())
@@ -72,6 +76,8 @@ impl<N: CountUInt> Sealed for Bytes<N> {
 }
 
 impl<N: CountUInt> Sealed for Items<N> {
+    const COUNTER_KIND: KnownCounterKind = KnownCounterKind::Items;
+
     #[inline]
     fn into_any_counter(self) -> AnyCounter {
         AnyCounter::Items(self.0.into_max_uint())

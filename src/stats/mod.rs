@@ -1,6 +1,9 @@
 //! Measurement statistics.
 
-use crate::{counter::AnyCounter, time::FineDuration};
+use crate::{
+    counter::{KnownCounterKind, MaxCountUInt},
+    time::FineDuration,
+};
 
 mod sample;
 
@@ -17,7 +20,14 @@ pub(crate) struct Stats {
     pub total_count: u64,
 
     pub time: StatsSet<FineDuration>,
-    pub counter: Option<StatsSet<AnyCounter>>,
+
+    pub counts: [Option<StatsSet<MaxCountUInt>>; KnownCounterKind::COUNT],
+}
+
+impl Stats {
+    pub fn get_counts(&self, counter_kind: KnownCounterKind) -> Option<&StatsSet<MaxCountUInt>> {
+        self.counts[counter_kind as usize].as_ref()
+    }
 }
 
 #[derive(Debug)]
