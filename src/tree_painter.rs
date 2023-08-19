@@ -18,8 +18,8 @@ pub(crate) struct TreePainter {
     depth: usize,
 
     /// The current prefix to the name and content, e.g.
-    /// <code>│       │   </code> for three levels of nesting with the second
-    /// level being on the last node.
+    /// <code>│     │  </code> for three levels of nesting with the second level
+    /// being on the last node.
     current_prefix: String,
 
     /// Buffer for writing to before printing to stdout.
@@ -50,9 +50,9 @@ impl TreePainter {
         let branch = if is_top_level {
             ""
         } else if !is_last {
-            "├── "
+            "├─ "
         } else {
-            "╰── "
+            "╰─ "
         };
         buf.extend([self.current_prefix.as_str(), branch, name]);
 
@@ -80,7 +80,7 @@ impl TreePainter {
         self.depth += 1;
 
         if !is_top_level {
-            self.current_prefix.push_str(if !is_last { "│   " } else { "    " });
+            self.current_prefix.push_str(if !is_last { "│  " } else { "   " });
         }
     }
 
@@ -93,10 +93,10 @@ impl TreePainter {
             println!();
         }
 
-        // The prefix is extended by 4 `char`s at a time.
+        // The prefix is extended by 3 `char`s at a time.
         let new_prefix_len = {
             let mut iter = self.current_prefix.chars();
-            _ = iter.by_ref().rev().nth(3);
+            _ = iter.by_ref().rev().nth(2);
             iter.as_str().len()
         };
         self.current_prefix.truncate(new_prefix_len);
@@ -111,7 +111,7 @@ impl TreePainter {
         let buf = &mut self.write_buf;
         buf.clear();
 
-        let branch = if !is_last { "├── " } else { "╰── " };
+        let branch = if !is_last { "├─ " } else { "╰─ " };
         buf.extend([self.current_prefix.as_str(), branch, name]);
 
         // Right-pad buffer.
@@ -140,7 +140,7 @@ impl TreePainter {
         let buf = &mut self.write_buf;
         buf.clear();
 
-        let branch = if !is_last { "├── " } else { "╰── " };
+        let branch = if !is_last { "├─ " } else { "╰─ " };
         buf.extend([self.current_prefix.as_str(), branch, name]);
 
         // Right-pad buffer if this leaf will have info displayed.

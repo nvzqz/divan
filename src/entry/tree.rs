@@ -45,8 +45,9 @@ impl<'a> EntryTree<'a> {
     pub fn max_name_span(tree: &[Self], depth: usize) -> usize {
         tree.iter()
             .map(|node| {
+                let node_prefix_len = depth * 3;
                 let node_name_len = node.display_name().chars().count();
-                let node_name_span = node_name_len + (depth * 4);
+                let node_name_span = node_prefix_len + node_name_len;
 
                 let children_max = Self::max_name_span(node.children(), depth + 1);
 
