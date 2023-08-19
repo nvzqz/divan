@@ -45,8 +45,8 @@ pub use into_counter::IntoCounter;
 /// function.
 ///
 /// This is used via:
-/// - [`#[divan::bench(counter = ...)]`](macro@crate::bench#counter)
-/// - [`#[divan::bench_group(counter = ...)]`](macro@crate::bench_group#counter)
+/// - [`#[divan::bench(counters = ...)]`](macro@crate::bench#counters)
+/// - [`#[divan::bench_group(counters = ...)]`](macro@crate::bench_group#counters)
 /// - [`Bencher::counter`](crate::Bencher::counter)
 /// - [`Bencher::input_counter`](crate::Bencher::input_counter)
 #[doc(alias = "throughput")]

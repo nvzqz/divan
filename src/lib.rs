@@ -158,7 +158,7 @@ pub fn main() {
 /// - [`types`]
 /// - [`sample_count`]
 /// - [`sample_size`]
-/// - [`counter`]
+/// - [`counters`]
 /// - [`min_time`]
 /// - [`max_time`]
 /// - [`skip_ext_time`]
@@ -336,12 +336,35 @@ pub fn main() {
 /// }
 /// ```
 ///
-/// ## `counter`
-/// [`counter`]: #counter
+/// ## `counters`
+/// [`counters`]: #counters
 ///
-/// The [`Counter`](crate::counter::Counter) of each iteration can be set via
-/// the [`counter`] option. The following example emits info for the number of
-/// bytes processed when benchmarking [`char`-counting](std::str::Chars::count):
+/// The [`Counter`s](crate::counter::Counter) of each iteration can be set via
+/// the [`counters`] option. The following example emits info for the number of
+/// bytes and number of ints processed when benchmarking [slice sorting](slice::sort):
+///
+/// ```
+/// use divan::{Bencher, counter::{Bytes, Items}};
+///
+/// const INTS: &[i32] = &[
+///     // ...
+/// ];
+///
+/// #[divan::bench(counters = [
+///     Bytes::size_of_val(INTS),
+///     Items(INTS.len()),
+/// ])]
+/// fn sort(bencher: Bencher) {
+///     bencher
+///         .with_inputs(|| INTS.to_vec())
+///         .bench_refs(|ints| ints.sort());
+/// }
+/// ```
+///
+/// For convenience, singular `counter` allows a single
+/// [`Counter`](crate::counter::Counter) to be set. The following example emits
+/// info for the number of bytes processed when benchmarking
+/// [`char`-counting](std::str::Chars::count):
 ///
 /// ```
 /// use divan::counter::Bytes;
@@ -355,7 +378,7 @@ pub fn main() {
 /// ```
 ///
 /// See also:
-/// - [`#[divan::bench_group(counter = ...)]`](macro@bench_group#counter)
+/// - [`#[divan::bench_group(counters = ...)]`](macro@bench_group#counters)
 /// - [`Bencher::counter`]
 /// - [`Bencher::input_counter`]
 ///
@@ -609,7 +632,7 @@ pub use divan_macros::bench;
 /// - [`crate`]
 /// - [`sample_count`]
 /// - [`sample_size`]
-/// - [`counter`]
+/// - [`counters`]
 /// - [`min_time`]
 /// - [`max_time`]
 /// - [`skip_ext_time`]
@@ -690,14 +713,49 @@ pub use divan_macros::bench;
 /// }
 /// ```
 ///
-/// ## `counter`
-/// [`counter`]: #counter
+/// ## `counters`
+/// [`counters`]: #counters
 ///
-/// The [`Counter`](crate::counter::Counter) of each iteration of benchmarked
-/// functions in a group can be set via the [`counter`] option.
+/// The [`Counter`s](crate::counter::Counter) of each iteration of benchmarked
+/// functions in a group can be set via the [`counters`] option. The following
+/// example emits info for the number of bytes and number of ints processed when
+/// benchmarking [slice sorting](slice::sort):
 ///
-/// The following example emits info for the number of bytes processed when
-/// benchmarking [`char`-counting](std::str::Chars::count) and
+/// ```
+/// use divan::{Bencher, counter::{Bytes, Items}};
+///
+/// const INTS: &[i32] = &[
+///     // ...
+/// ];
+///
+/// #[divan::bench_group(counters = [
+///     Bytes::size_of_val(INTS),
+///     Items(INTS.len()),
+/// ])]
+/// mod sort {
+///     use super::*;
+///
+///     #[divan::bench]
+///     fn default(bencher: Bencher) {
+///         bencher
+///             .with_inputs(|| INTS.to_vec())
+///             .bench_refs(|ints| ints.sort());
+///     }
+///
+///     #[divan::bench]
+///     fn unstable(bencher: Bencher) {
+///         bencher
+///             .with_inputs(|| INTS.to_vec())
+///             .bench_refs(|ints| ints.sort_unstable());
+///     }
+/// }
+/// # fn main() {}
+/// ```
+///
+/// For convenience, singular `counter` allows a single
+/// [`Counter`](crate::counter::Counter) to be set. The following example emits
+/// info for the number of bytes processed when benchmarking
+/// [`char`-counting](std::str::Chars::count) and
 /// [`char`-collecting](std::str::Chars::collect):
 ///
 /// ```
@@ -723,7 +781,7 @@ pub use divan_macros::bench;
 /// ```
 ///
 /// See also:
-/// - [`#[divan::bench(counter = ...)]`](macro@bench#counter)
+/// - [`#[divan::bench(counters = ...)]`](macro@bench#counters)
 /// - [`Bencher::counter`]
 /// - [`Bencher::input_counter`]
 ///

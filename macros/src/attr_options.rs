@@ -3,7 +3,7 @@ use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, Parser},
     spanned::Spanned,
-    Expr, Ident, Token, Type,
+    Expr, ExprArray, Ident, Token, Type,
 };
 
 use crate::Macro;
@@ -33,6 +33,9 @@ pub(crate) struct AttrOptions {
     /// Options for generic functions.
     pub generic: GenericOptions,
 
+    /// The `BenchOptions.counters` field and its value, followed by a comma.
+    pub counters: proc_macro2::TokenStream,
+
     /// Options used directly as `BenchOptions` fields.
     ///
     /// Option reuse is handled by the compiler ensuring `BenchOptions` fields
@@ -47,6 +50,9 @@ impl AttrOptions {
         let mut divan_crate = None::<syn::Path>;
         let mut name_expr = None::<Expr>;
         let mut bench_options = Vec::new();
+
+        let mut counters = Vec::<Expr>::new();
+        let mut counters_ident = None::<Ident>;
 
         let mut generic = GenericOptions::default();
 
@@ -102,6 +108,22 @@ impl AttrOptions {
 
                     parse!(generic.consts);
                 }
+                "counter" => {
+                    if counters_ident.is_some() {
+                        return repeat_error();
+                    }
+                    let value: Expr = meta.value()?.parse()?;
+                    counters.push(value);
+                    counters_ident = Some(Ident::new("counters", ident.span()));
+                }
+                "counters" => {
+                    if counters_ident.is_some() {
+                        return repeat_error();
+                    }
+                    let values: ExprArray = meta.value()?.parse()?;
+                    counters.extend(values.elems);
+                    counters_ident = Some(ident.clone());
+                }
                 _ => {
                     let value: Expr = match meta.value() {
                         Ok(value) => value.parse()?,
@@ -128,12 +150,21 @@ impl AttrOptions {
         let divan_crate = divan_crate.unwrap_or_else(|| syn::parse_quote!(::divan));
         let private_mod = quote! { #divan_crate::__private };
 
+        let counters = counters_ident
+            .map(|ident| {
+                quote! {
+                    #ident: #private_mod::new_counter_set() #(.with(#counters))* ,
+                }
+            })
+            .unwrap_or_default();
+
         Ok(Self {
             std_crate: quote! { #private_mod::std },
             linkme_crate: quote! { #private_mod::linkme },
             private_mod,
             name_expr,
             generic,
+            counters,
             bench_options,
         })
     }
@@ -158,7 +189,8 @@ impl AttrOptions {
         // twice, even if raw identifiers are used. This also has the accidental
         // benefit of Rust Analyzer recognizing fields and emitting suggestions
         // with docs and type info.
-        if self.bench_options.is_empty() && ignore_attr_ident.is_none() {
+        if self.bench_options.is_empty() && self.counters.is_empty() && ignore_attr_ident.is_none()
+        {
             quote! { #private_mod::None }
         } else {
             let options_iter = self.bench_options.iter().map(|(option, value)| {
@@ -167,11 +199,6 @@ impl AttrOptions {
 
                 let wrapped_value: proc_macro2::TokenStream;
                 let value: &dyn ToTokens = match option_name {
-                    "counter" => {
-                        wrapped_value = quote! { #private_mod::into_counter_set(#value) };
-                        &wrapped_value
-                    }
-
                     // If the option is a `Duration`, use `IntoDuration` to be
                     // polymorphic over `Duration` or `u64`/`f64` seconds.
                     "min_time" | "max_time" => {
@@ -183,27 +210,15 @@ impl AttrOptions {
                     _ => value,
                 };
 
-                let option_ident: Ident;
-                let option_ident: &Ident = match option_name {
-                    "counter" => {
-                        option_ident = Ident::new("counters", option.span());
-                        &option_ident
-                    }
-                    _ => option,
-                };
-
-                let wrap_some = match option_name {
-                    "counter" | "counters" => proc_macro2::TokenStream::default(),
-                    _ => quote! { #private_mod::Some },
-                };
-
-                quote! { #option_ident: #wrap_some (#value), }
+                quote! { #option: #private_mod::Some(#value), }
             });
 
             let ignore = match ignore_attr_ident {
                 Some(ignore_attr_ident) => quote! { #ignore_attr_ident: #private_mod::Some(true), },
                 None => Default::default(),
             };
+
+            let counters = &self.counters;
 
             quote! {
                 #private_mod::Some(|| {
@@ -214,6 +229,8 @@ impl AttrOptions {
                         // Ignore comes after options so that options take
                         // priority in compiler error diagnostics.
                         #ignore
+
+                        #counters
 
                         ..#private_mod::Default::default()
                     }

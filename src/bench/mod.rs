@@ -148,7 +148,7 @@ impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS,
     /// [`Bencher::input_counter`] instead.
     ///
     /// If context is not needed, the counter can instead be set via
-    /// [`#[divan::bench(counter = ...)]`](macro@crate::bench#counter).
+    /// [`#[divan::bench(counters = ...)]`](macro@crate::bench#counters).
     ///
     /// # Examples
     ///

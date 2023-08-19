@@ -11,10 +11,10 @@ pub use crate::{
     time::IntoDuration,
 };
 
-/// Used by `#[divan::bench(counter = ...)]`.
+/// Used by `#[divan::bench(counters = [...])]`.
 #[inline]
-pub fn into_counter_set(counter: impl crate::counter::IntoCounter) -> crate::counter::CounterSet {
-    crate::counter::CounterSet::default().with(counter)
+pub fn new_counter_set() -> crate::counter::CounterSet {
+    Default::default()
 }
 
 /// Used by `#[divan::bench]` to truncate arrays for generic `const` benchmarks.
