@@ -4,9 +4,9 @@ use crate::counter::{IntoCounter, Items};
 
 /// The largest unsigned integer usable by counters provided by this crate.
 ///
-/// If `usize < u64`, this is a type alias to `u64`. Otherwise, it is a type
-/// alias to `usize`.
-pub type MaxCountUInt = condtype::CondType<{ std::mem::size_of::<usize>() < 8 }, u64, usize>;
+/// If `usize > u64`, this is a type alias to `usize`. Otherwise, it is a type
+/// alias to `u64`.
+pub type MaxCountUInt = condtype::num::Usize64;
 
 /// `u8`-`u64` and `usize`.
 ///

@@ -17,7 +17,7 @@ divan-macros = { version = "0.0.0", path = "macros" }
 
 clap = { version = "4", default-features = false, features = ["std", "env"] }
 core_affinity = { version = "0.8", default-features = false }
-condtype = "1"
+condtype = "1.3"
 linkme = { version = "0.3", default-features = false }
 regex = { package = "regex-lite", version = "0.1", default-features = false, features = ["std", "string"] }
 
