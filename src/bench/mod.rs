@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     black_box,
-    counter::{self, AnyCounter, CounterCollection, IntoCounter, KnownCounterKind, MaxCountUInt},
+    counter::{AnyCounter, CounterCollection, IntoCounter, KnownCounterKind, MaxCountUInt},
     divan::SharedContext,
     stats::{Sample, SampleCollection, Stats},
     time::{FineDuration, Timestamp, UntaggedTimestamp},
@@ -172,7 +172,7 @@ impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS,
     where
         C: IntoCounter,
     {
-        let counter = counter::Sealed::into_any_counter(counter.into_counter());
+        let counter = AnyCounter::new(counter);
         self.context.counters.set_counter(counter);
         self
     }

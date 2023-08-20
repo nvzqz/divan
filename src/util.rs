@@ -1,3 +1,5 @@
+use std::any::{Any, TypeId};
+
 /// Public-in-private trait for abstracting over either `FnMut` or `()` (no-op).
 pub trait ConfigFnMut {
     type Output;
@@ -19,6 +21,16 @@ impl ConfigFnMut for () {
 
     #[inline(always)]
     fn call_mut(&mut self) {}
+}
+
+#[inline]
+pub(crate) fn cast_ref<T: Any>(r: &impl Any) -> Option<&T> {
+    if r.type_id() == TypeId::of::<T>() {
+        // SAFETY: `r` is `&T`.
+        Some(unsafe { &*(r as *const _ as *const T) })
+    } else {
+        None
+    }
 }
 
 /// Returns the values in the middle of `slice`.

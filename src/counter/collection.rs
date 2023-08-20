@@ -1,4 +1,4 @@
-use crate::counter::{AnyCounter, IntoCounter, KnownCounterKind, MaxCountUInt, Sealed};
+use crate::counter::{AnyCounter, IntoCounter, KnownCounterKind, MaxCountUInt};
 
 /// Multi-map from counters to their counts and input-based initializer.
 #[derive(Default)]
@@ -63,7 +63,7 @@ impl CounterCollection {
         F: FnMut(&I) -> C + 'static,
         C: IntoCounter,
     {
-        let info = self.info_mut(<C::Counter as Sealed>::COUNTER_KIND);
+        let info = self.info_mut(KnownCounterKind::of::<C::Counter>());
 
         // Ignore previously-set counts.
         info.counts.clear();
@@ -73,7 +73,7 @@ impl CounterCollection {
             // is passed.
             let counter = unsafe { make_counter(&*input.cast::<I>()) };
 
-            counter.into_counter().into_any_counter().count()
+            AnyCounter::new(counter).count()
         }));
     }
 
@@ -113,7 +113,7 @@ pub struct CounterSet {
 
 impl CounterSet {
     pub fn with(mut self, counter: impl IntoCounter) -> Self {
-        let counter = counter.into_counter().into_any_counter();
+        let counter = AnyCounter::new(counter);
         self.counts[counter.known_kind() as usize] = Some(counter.count());
         self
     }

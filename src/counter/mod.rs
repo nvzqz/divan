@@ -64,23 +64,9 @@ pub struct Items {
     count: MaxCountUInt,
 }
 
-impl Sealed for Bytes {
-    const COUNTER_KIND: KnownCounterKind = KnownCounterKind::Bytes;
+impl Sealed for Bytes {}
 
-    #[inline]
-    fn into_any_counter(self) -> AnyCounter {
-        AnyCounter::Bytes(self.count)
-    }
-}
-
-impl Sealed for Items {
-    const COUNTER_KIND: KnownCounterKind = KnownCounterKind::Items;
-
-    #[inline]
-    fn into_any_counter(self) -> AnyCounter {
-        AnyCounter::Items(self.count)
-    }
-}
+impl Sealed for Items {}
 
 impl Counter for Bytes {}
 

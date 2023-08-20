@@ -1,7 +1,7 @@
-use std::fmt;
+use std::{any::TypeId, fmt};
 
 use crate::{
-    counter::{BytesFormat, MaxCountUInt},
+    counter::{Bytes, BytesFormat, IntoCounter, Items, MaxCountUInt},
     time::FineDuration,
     util,
 };
@@ -11,12 +11,24 @@ use crate::{
 /// This does not implement `Copy` because in the future it will contain
 /// user-defined counters.
 #[derive(Clone)]
-pub enum AnyCounter {
+pub(crate) enum AnyCounter {
     Bytes(MaxCountUInt),
     Items(MaxCountUInt),
 }
 
 impl AnyCounter {
+    #[inline]
+    pub(crate) fn new<C: IntoCounter>(counter: C) -> Self {
+        let counter = counter.into_counter();
+        if let Some(bytes) = util::cast_ref::<Bytes>(&counter) {
+            Self::Bytes(bytes.count)
+        } else if let Some(items) = util::cast_ref::<Items>(&counter) {
+            Self::Bytes(items.count)
+        } else {
+            unreachable!()
+        }
+    }
+
     #[inline]
     pub(crate) fn known(kind: KnownCounterKind, count: MaxCountUInt) -> Self {
         match kind {
@@ -51,7 +63,7 @@ impl AnyCounter {
 
 /// Kind of `Counter` defined by this crate.
 #[derive(Clone, Copy)]
-pub enum KnownCounterKind {
+pub(crate) enum KnownCounterKind {
     Bytes,
     Items,
 }
@@ -60,6 +72,18 @@ impl KnownCounterKind {
     pub const COUNT: usize = 2;
 
     pub const ALL: [Self; Self::COUNT] = [Self::Bytes, Self::Items];
+
+    #[inline]
+    pub fn of<C: IntoCounter>() -> Self {
+        let id = TypeId::of::<C::Counter>();
+        if id == TypeId::of::<Bytes>() {
+            Self::Bytes
+        } else if id == TypeId::of::<Items>() {
+            Self::Items
+        } else {
+            unreachable!()
+        }
+    }
 }
 
 pub(crate) struct DisplayThroughput<'a> {
