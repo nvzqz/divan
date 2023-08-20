@@ -12,12 +12,12 @@ A statistically-comfy benchmarking library for Rust projects, brought to you by
     divan = "0.0.0"
 
     [[bench]]
-    name = "my_benchmark"
+    name = "example"
     harness = false
     ```
 
-2. Create your benchmarks file at <code>[$CARGO_MANIFEST_DIR]/benches/my_benchmark.rs</code>
-with your benchmarking code:
+2. Create a benchmarks file at
+`benches/example.rs`<sup>[\[1\]](#footnotes)</sup> with your benchmarking code:
 
     ```rust
     fn main() {
@@ -40,17 +40,14 @@ with your benchmarking code:
     }
     ```
 
-    See [`#[divan::bench]`][bench_attr] for info on benchmark function
-    registration.
-
-[$CARGO_MANIFEST_DIR]: https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-crates
-
 3. Run your benchmarks with [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html):
 
     ```txt
-    my_benchmark  fastest      │ slowest      │ median       │ mean
+    example       fastest      │ slowest      │ median       │ mean
     ╰─ f​ibonacci  196.1 ns     │ 217 ns       │ 197.5 ns     │ 198.1 ns
     ```
+
+See [`#[divan::bench]`][bench_attr] for info on benchmark function registration.
 
 ## Examples
 
@@ -74,3 +71,7 @@ Like the Rust project, this library may be used under either the
 
 [bench_attr]: https://docs.rs/divan/latest/divan/attr.bench.html
 [bench_attr_examples]: https://docs.rs/divan/latest/divan/attr.bench.html#examples
+
+## Footnotes
+
+1. Within your crate directory, i.e. [`$CARGO_MANIFEST_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-crates)
