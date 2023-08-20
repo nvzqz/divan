@@ -7,6 +7,8 @@ use crate::{
     stats::{Stats, StatsSet},
 };
 
+const TREE_COL_BUF: usize = 2;
+
 /// Paints tree-style output using box-drawing characters.
 pub(crate) struct TreePainter {
     /// The maximum number of characters taken by a name and its prefix. Emitted
@@ -60,7 +62,7 @@ impl TreePainter {
         if has_columns {
             let max_span = self.max_name_span;
             let buf_len = buf.chars().count();
-            let pad_len = 1 + max_span.saturating_sub(buf_len);
+            let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
             buf.extend(repeat(' ').take(pad_len));
         }
 
@@ -118,7 +120,7 @@ impl TreePainter {
         {
             let max_span = self.max_name_span;
             let buf_len = buf.chars().count();
-            let pad_len = 1 + max_span.saturating_sub(buf_len);
+            let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
             buf.extend(repeat(' ').take(pad_len));
         }
 
@@ -147,7 +149,7 @@ impl TreePainter {
         if has_columns {
             let max_span = self.max_name_span;
             let buf_len = buf.chars().count();
-            let pad_len = 1 + max_span.saturating_sub(buf_len);
+            let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
             buf.extend(repeat(' ').take(pad_len));
         }
 
@@ -188,7 +190,7 @@ impl TreePainter {
             // Right-pad buffer.
             let pad_len = {
                 let buf_len = buf.chars().count();
-                1 + self.max_name_span.saturating_sub(buf_len)
+                TREE_COL_BUF + self.max_name_span.saturating_sub(buf_len)
             };
             buf.extend(repeat(' ').take(pad_len));
 

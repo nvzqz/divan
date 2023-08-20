@@ -48,8 +48,8 @@ with your benchmarking code:
 3. Run your benchmarks with [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html):
 
     ```txt
-    my_benchmark fastest      │ slowest      │ median       │ mean
-    ╰─ f​ibonacci 196.1 ns     │ 217 ns       │ 197.5 ns     │ 198.1 ns
+    my_benchmark  fastest      │ slowest      │ median       │ mean
+    ╰─ f​ibonacci  196.1 ns     │ 217 ns       │ 197.5 ns     │ 198.1 ns
     ```
 
 ## Examples
