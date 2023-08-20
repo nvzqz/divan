@@ -161,7 +161,7 @@ impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS,
     ///     # String::new();
     ///
     ///     bencher
-    ///         .counter(Bytes(s.len()))
+    ///         .counter(Bytes::new(s.len()))
     ///         .bench(|| {
     ///             divan::black_box(&s).chars().count()
     ///         });
@@ -279,7 +279,7 @@ where
     ///             # String::new()
     ///         })
     ///         .input_counter(|s| {
-    ///             Bytes(s.len())
+    ///             Bytes::new(s.len())
     ///         })
     ///         .bench_refs(|s| {
     ///             s.chars().count()

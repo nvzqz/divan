@@ -54,52 +54,64 @@ pub trait Counter: Sized + Any + Sealed {}
 
 /// Process N bytes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Bytes<N>(
-    /// The number of bytes processed.
-    pub N,
-);
+pub struct Bytes {
+    count: MaxCountUInt,
+}
 
 /// Process N items.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Items<N>(
-    /// The number of items processed.
-    pub N,
-);
+pub struct Items {
+    count: MaxCountUInt,
+}
 
-impl<N: CountUInt> Sealed for Bytes<N> {
+impl Sealed for Bytes {
     const COUNTER_KIND: KnownCounterKind = KnownCounterKind::Bytes;
 
     #[inline]
     fn into_any_counter(self) -> AnyCounter {
-        AnyCounter::Bytes(self.0.into_max_uint())
+        AnyCounter::Bytes(self.count)
     }
 }
 
-impl<N: CountUInt> Sealed for Items<N> {
+impl Sealed for Items {
     const COUNTER_KIND: KnownCounterKind = KnownCounterKind::Items;
 
     #[inline]
     fn into_any_counter(self) -> AnyCounter {
-        AnyCounter::Items(self.0.into_max_uint())
+        AnyCounter::Items(self.count)
     }
 }
 
-impl<N: CountUInt> Counter for Bytes<N> {}
+impl Counter for Bytes {}
 
-impl<N: CountUInt> Counter for Items<N> {}
+impl Counter for Items {}
 
-impl Bytes<usize> {
+impl Bytes {
+    /// Count N bytes.
+    #[inline]
+    pub fn new<N: CountUInt>(count: N) -> Self {
+        Self { count: count.into_max_uint() }
+    }
+
     /// Counts the size of a type with [`std::mem::size_of`].
     #[inline]
     pub const fn size_of<T>() -> Self {
-        Self(std::mem::size_of::<T>())
+        Self { count: std::mem::size_of::<T>() as MaxCountUInt }
     }
 
     /// Counts the size of a value with [`std::mem::size_of_val`].
     #[inline]
     pub fn size_of_val<T: ?Sized>(val: &T) -> Self {
         // TODO: Make const, https://github.com/rust-lang/rust/issues/46571
-        Self(std::mem::size_of_val(val))
+        Self { count: std::mem::size_of_val(val) as MaxCountUInt }
+    }
+}
+
+impl Items {
+    /// Count N items.
+    #[inline]
+    pub fn new<N: CountUInt>(count: N) -> Self {
+        Self { count: count.into_max_uint() }
     }
 }
 

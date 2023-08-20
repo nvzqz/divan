@@ -18,7 +18,7 @@ fn copy_from(bencher: Bencher) {
     let mut dst = make_image(Rgba([0u8, 0, 0, 255]));
 
     bencher
-        .counter(Bytes(src.len()))
+        .counter(Bytes::new(src.len()))
         .bench(|| black_box(&mut dst).copy_from(black_box(&src), 0, 0));
 }
 
@@ -29,6 +29,6 @@ fn memcpy(bencher: Bencher) {
     let mut dst = vec![0; src.len()];
 
     bencher
-        .counter(Bytes(src.len()))
+        .counter(Bytes::new(src.len()))
         .bench(|| black_box(&mut dst).copy_from_slice(black_box(&src)));
 }

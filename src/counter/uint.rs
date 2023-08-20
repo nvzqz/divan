@@ -29,11 +29,11 @@ macro_rules! impl_uint {
         })+
 
         $(impl IntoCounter for $i {
-            type Counter = Items<$i>;
+            type Counter = Items;
 
             #[inline]
-            fn into_counter(self) -> Items<$i> {
-                Items(self)
+            fn into_counter(self) -> Items {
+                Items::new(self)
             }
         })+
     };
