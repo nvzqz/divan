@@ -49,7 +49,7 @@ with your benchmarking code:
 
     ```txt
     my_benchmark fastest      │ slowest      │ median       │ mean
-    ╰─ fibonacci 196.1 ns     │ 217 ns       │ 197.5 ns     │ 198.1 ns
+    ╰─ f​ibonacci 196.1 ns     │ 217 ns       │ 197.5 ns     │ 198.1 ns
     ```
 
 ## Examples
