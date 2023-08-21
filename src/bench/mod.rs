@@ -13,6 +13,10 @@ use crate::{
     util::{self, ConfigFnMut},
 };
 
+// Used for intra-doc links.
+#[allow(unused)]
+use crate::counter::Bytes;
+
 #[cfg(test)]
 mod tests;
 
@@ -161,7 +165,7 @@ impl<'a, 'b, GenI, BeforeS, AfterS> Bencher<'a, 'b, BencherConfig<GenI, BeforeS,
     ///     # String::new();
     ///
     ///     bencher
-    ///         .counter(Bytes::new(s.len()))
+    ///         .counter(Bytes::of_str(&s))
     ///         .bench(|| {
     ///             divan::black_box(&s).chars().count()
     ///         });
@@ -266,7 +270,9 @@ where
     /// # Examples
     ///
     /// The following example emits info for the number of bytes processed when
-    /// benchmarking [`char`-counting](std::str::Chars::count):
+    /// benchmarking [`char`-counting](std::str::Chars::count). The byte count
+    /// is gotten by calling [`Bytes::of_str`] on each iteration's input
+    /// [`String`].
     ///
     /// ```
     /// use divan::{Bencher, counter::Bytes};
@@ -278,9 +284,7 @@ where
     ///             // ...
     ///             # String::new()
     ///         })
-    ///         .input_counter(|s| {
-    ///             Bytes::new(s.len())
-    ///         })
+    ///         .input_counter(Bytes::of_str)
     ///         .bench_refs(|s| {
     ///             s.chars().count()
     ///         });

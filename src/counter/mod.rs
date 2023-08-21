@@ -15,7 +15,7 @@
 //!         // ...
 //!     ];
 //!
-//!     let bytes = Bytes::of_val(ints);
+//!     let bytes = Bytes::of_slice(ints);
 //!
 //!     bencher
 //!         .counter(bytes)
@@ -103,6 +103,28 @@ impl Bytes {
         // TODO: Make const, https://github.com/rust-lang/rust/issues/46571
         Self { count: std::mem::size_of_val(val) as MaxCountUInt }
     }
+
+    /// Counts the bytes of a [`&str`].
+    ///
+    /// This is like [`Bytes::of_val`] with the convenience of behaving as
+    /// expected for [`&String`](String) and other types that convert to
+    /// [`&str`].
+    ///
+    /// [`&str`]: prim@str
+    #[inline]
+    pub fn of_str<S: ?Sized + AsRef<str>>(s: &S) -> Self {
+        Self::of_val(s.as_ref())
+    }
+
+    /// Counts the bytes of a [slice](prim@slice).
+    ///
+    /// This is like [`Bytes::of_val`] with the convenience of behaving as
+    /// expected for [`&Vec<T>`](Vec) and other types that convert to
+    /// [`&[T]`](prim@slice).
+    #[inline]
+    pub fn of_slice<T, S: ?Sized + AsRef<[T]>>(s: &S) -> Self {
+        Self::of_val(s.as_ref())
+    }
 }
 
 impl Chars {
@@ -110,6 +132,12 @@ impl Chars {
     #[inline]
     pub fn new<N: CountUInt>(count: N) -> Self {
         Self { count: count.into_max_uint() }
+    }
+
+    /// Counts the [`char`s](prim@char) of a [`&str`](prim@str).
+    #[inline]
+    pub fn of_str<S: ?Sized + AsRef<str>>(s: &S) -> Self {
+        Self::new(s.as_ref().chars().count())
     }
 }
 

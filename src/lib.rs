@@ -351,7 +351,7 @@ pub fn main() {
 /// ];
 ///
 /// #[divan::bench(counters = [
-///     Bytes::of_val(INTS),
+///     Bytes::of_slice(INTS),
 ///     Items::new(INTS.len()),
 /// ])]
 /// fn sort(bencher: Bencher) {
@@ -371,7 +371,7 @@ pub fn main() {
 ///
 /// const STR: &str = "...";
 ///
-/// #[divan::bench(counter = Bytes::new(STR.len()))]
+/// #[divan::bench(counter = Bytes::of_str(STR))]
 /// fn char_count() -> usize {
 ///     divan::black_box(STR).chars().count()
 /// }
@@ -729,7 +729,7 @@ pub use divan_macros::bench;
 /// ];
 ///
 /// #[divan::bench_group(counters = [
-///     Bytes::of_val(INTS),
+///     Bytes::of_slice(INTS),
 ///     Items::new(INTS.len()),
 /// ])]
 /// mod sort {
@@ -763,7 +763,7 @@ pub use divan_macros::bench;
 ///
 /// const STR: &str = "...";
 ///
-/// #[divan::bench_group(counter = Bytes::new(STR.len()))]
+/// #[divan::bench_group(counter = Bytes::of_str(STR))]
 /// mod chars {
 ///     use super::STR;
 ///
