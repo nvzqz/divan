@@ -9,7 +9,7 @@ use crate::{
     counter::{BytesFormat, PrivBytesFormat},
     entry::{AnyBenchEntry, EntryTree},
     time::{FineDuration, Timer, TimerKind},
-    tree_painter::TreePainter,
+    tree_painter::{TreeColumn, TreePainter},
 };
 
 /// The benchmark runner.
@@ -163,7 +163,12 @@ impl Divan {
             },
         };
 
-        let column_widths = if action.is_bench() { 12 } else { 0 };
+        let column_widths = if action.is_bench() {
+            TreeColumn::ALL.map(|column| EntryTree::common_column_width(&tree, column))
+        } else {
+            [0; TreeColumn::COUNT]
+        };
+
         let mut tree_painter = TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths);
 
         self.run_tree(action, &tree, &shared_context, None, &mut tree_painter);

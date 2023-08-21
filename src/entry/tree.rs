@@ -3,7 +3,9 @@ use std::{cmp::Ordering, ptr::NonNull};
 use crate::{
     bench::BenchOptions,
     config::SortingAttr,
+    counter::KnownCounterKind,
     entry::{AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry},
+    tree_painter::TreeColumn,
 };
 
 /// `BenchEntry` tree organized by path components.
@@ -53,6 +55,30 @@ impl<'a> EntryTree<'a> {
                 let children_max = Self::max_name_span(node.children(), depth + 1);
 
                 node_name_span.max(children_max)
+            })
+            .max()
+            .unwrap_or_default()
+    }
+
+    /// Returns the likely span for a given column.
+    pub fn common_column_width(tree: &[Self], column: TreeColumn) -> usize {
+        // Time and throughput info.
+        if column.is_time_stat() {
+            return KnownCounterKind::MAX_COMMON_COLUMN_WIDTH;
+        }
+
+        tree.iter()
+            .map(|tree| {
+                let width = match column {
+                    // TODO: Prepare widths based on `sample_count` and
+                    // `sample_size`.
+                    TreeColumn::Iters => 12,
+                    TreeColumn::Samples => 12,
+
+                    _ => 0,
+                };
+
+                width.max(Self::common_column_width(tree.children(), column))
             })
             .max()
             .unwrap_or_default()

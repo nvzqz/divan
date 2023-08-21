@@ -118,8 +118,8 @@ impl CounterSet {
         self
     }
 
-    pub(crate) fn get(&self, known_kind: KnownCounterKind) -> Option<MaxCountUInt> {
-        self.counts[known_kind as usize]
+    pub(crate) fn get(&self, counter_kind: KnownCounterKind) -> Option<MaxCountUInt> {
+        self.counts[counter_kind as usize]
     }
 
     /// Overwrites `other` with values set in `self`.

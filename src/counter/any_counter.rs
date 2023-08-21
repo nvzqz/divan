@@ -84,6 +84,9 @@ impl KnownCounterKind {
 
     pub const ALL: [Self; Self::COUNT] = [Self::Bytes, Self::Chars, Self::Items];
 
+    /// The maximum width for columns displaying counters.
+    pub const MAX_COMMON_COLUMN_WIDTH: usize = "1.111 Kitem/s".len();
+
     #[inline]
     pub fn of<C: IntoCounter>() -> Self {
         let id = TypeId::of::<C::Counter>();

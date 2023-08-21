@@ -29,10 +29,10 @@ pub(crate) struct TreePainter {
 }
 
 impl TreePainter {
-    pub fn new(max_name_span: usize, column_widths: usize) -> Self {
+    pub fn new(max_name_span: usize, column_widths: [usize; TreeColumn::COUNT]) -> Self {
         Self {
             max_name_span,
-            column_widths: [column_widths; TreeColumn::COUNT],
+            column_widths,
             depth: 0,
             current_prefix: String::new(),
             write_buf: String::new(),
@@ -167,6 +167,36 @@ impl TreePainter {
         let buf = &mut self.write_buf;
         buf.clear();
 
+        // Serialize counter stats early so we can resize columns early.
+        let serialized_counters = KnownCounterKind::ALL.map(|counter_kind| {
+            let counter_stats = stats.get_counts(counter_kind);
+
+            TreeColumn::ALL
+                .map(|column| -> Option<String> {
+                    let count = *column.get_stat(counter_stats?)?;
+                    let time = *column.get_stat(&stats.time)?;
+
+                    Some(
+                        AnyCounter::known(counter_kind, count)
+                            .display_throughput(time, bytes_format)
+                            .to_string(),
+                    )
+                })
+                .map(Option::unwrap_or_default)
+        });
+
+        let max_counter_width = serialized_counters
+            .iter()
+            .flatten()
+            .map(|s| s.chars().count())
+            .max()
+            .unwrap_or_default();
+
+        for column in TreeColumn::time_stats() {
+            let width = &mut self.column_widths[column as usize];
+            *width = (*width).max(max_counter_width);
+        }
+
         // Write time stats with iter and sample counts.
         TreeColumnData::from_fn(|column| -> String {
             let stat: &dyn ToString = match column {
@@ -185,10 +215,14 @@ impl TreePainter {
         println!("{buf}");
 
         // Write counter stats.
+        let counter_stats = serialized_counters.map(TreeColumnData);
         for counter_kind in KnownCounterKind::ALL {
-            let Some(counter_stats) = stats.get_counts(counter_kind) else {
+            let counter_stats = counter_stats[counter_kind as usize].as_ref::<str>();
+
+            // Skip empty rows.
+            if counter_stats.0.iter().all(|s| s.is_empty()) {
                 continue;
-            };
+            }
 
             buf.clear();
             buf.push_str(&self.current_prefix);
@@ -204,21 +238,7 @@ impl TreePainter {
             };
             buf.extend(repeat(' ').take(pad_len));
 
-            TreeColumnData::from_fn(|column| -> String {
-                let (Some(&count), Some(&time)) = (
-                    column.get_stat(counter_stats),
-                    column.get_stat(&stats.time)
-                ) else {
-                    return String::new();
-                };
-
-                AnyCounter::known(counter_kind, count)
-                    .display_throughput(time, bytes_format)
-                    .to_string()
-            })
-            .as_ref::<str>()
-            .write(buf, &mut self.column_widths);
-
+            counter_stats.write(buf, &mut self.column_widths);
             println!("{buf}");
         }
     }
@@ -240,12 +260,18 @@ pub(crate) enum TreeColumn {
 }
 
 impl TreeColumn {
-    const COUNT: usize = 6;
+    pub const COUNT: usize = 6;
 
-    const ALL: [Self; Self::COUNT] = {
+    pub const ALL: [Self; Self::COUNT] = {
         use TreeColumn::*;
         [Fastest, Slowest, Median, Mean, Iters, Samples]
     };
+
+    #[inline]
+    pub fn time_stats() -> impl Iterator<Item = Self> {
+        use TreeColumn::*;
+        [Fastest, Slowest, Median, Mean].into_iter()
+    }
 
     fn name(self) -> &'static str {
         match self {
@@ -256,6 +282,12 @@ impl TreeColumn {
             Self::Iters => "iters",
             Self::Samples => "samples",
         }
+    }
+
+    #[inline]
+    pub fn is_time_stat(self) -> bool {
+        use TreeColumn::*;
+        matches!(self, Fastest | Slowest | Median | Mean)
     }
 
     #[inline]
