@@ -58,6 +58,16 @@ pub struct Bytes {
     count: MaxCountUInt,
 }
 
+/// Process N [`char`s](char).
+///
+/// This is beneficial when comparing benchmarks between ASCII and Unicode
+/// implementations, since the number of code points is a common baseline
+/// reference.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Chars {
+    count: MaxCountUInt,
+}
+
 /// Process N items.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Items {
@@ -65,11 +75,11 @@ pub struct Items {
 }
 
 impl Sealed for Bytes {}
-
+impl Sealed for Chars {}
 impl Sealed for Items {}
 
 impl Counter for Bytes {}
-
+impl Counter for Chars {}
 impl Counter for Items {}
 
 impl Bytes {
@@ -90,6 +100,14 @@ impl Bytes {
     pub fn size_of_val<T: ?Sized>(val: &T) -> Self {
         // TODO: Make const, https://github.com/rust-lang/rust/issues/46571
         Self { count: std::mem::size_of_val(val) as MaxCountUInt }
+    }
+}
+
+impl Chars {
+    /// Count N [`char`s](char).
+    #[inline]
+    pub fn new<N: CountUInt>(count: N) -> Self {
+        Self { count: count.into_max_uint() }
     }
 }
 

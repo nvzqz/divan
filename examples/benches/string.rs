@@ -1,4 +1,8 @@
-use divan::{black_box, counter::Bytes, Bencher};
+use divan::{
+    black_box,
+    counter::{Bytes, Chars},
+    Bencher,
+};
 
 fn main() {
     divan::main();
@@ -39,6 +43,7 @@ impl GenString for Unicode {
 fn clear<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_refs(String::clear);
@@ -51,6 +56,7 @@ fn clear<G: GenString, const N: usize>(bencher: Bencher) {
 fn drop<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_values(std::mem::drop);
@@ -62,12 +68,14 @@ fn drop<G: GenString, const N: usize>(bencher: Bencher) {
 )]
 fn validate_utf8<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
-    bencher.with_inputs(|| gen.gen_string(N)).input_counter(|s| Bytes::new(s.len())).bench_refs(
-        |s| {
+    bencher
+        .counter(Chars::new(N))
+        .with_inputs(|| gen.gen_string(N))
+        .input_counter(|s| Bytes::new(s.len()))
+        .bench_refs(|s| {
             let bytes = black_box(s.as_bytes());
             _ = black_box(std::str::from_utf8(bytes));
-        },
-    );
+        });
 }
 
 #[divan::bench(
@@ -77,6 +85,7 @@ fn validate_utf8<G: GenString, const N: usize>(bencher: Bencher) {
 fn char_count<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_refs(|s| s.chars().count());
@@ -89,6 +98,7 @@ fn char_count<G: GenString, const N: usize>(bencher: Bencher) {
 fn make_ascii_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_refs(|s| s.make_ascii_lowercase());
@@ -101,6 +111,7 @@ fn make_ascii_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
 fn make_ascii_uppercase<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_refs(|s| s.make_ascii_uppercase());
@@ -113,6 +124,7 @@ fn make_ascii_uppercase<G: GenString, const N: usize>(bencher: Bencher) {
 fn to_ascii_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_refs(|s| s.to_ascii_lowercase());
@@ -125,6 +137,7 @@ fn to_ascii_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
 fn to_ascii_uppercase<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_refs(|s| s.to_ascii_uppercase());
@@ -137,6 +150,7 @@ fn to_ascii_uppercase<G: GenString, const N: usize>(bencher: Bencher) {
 fn to_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_refs(|s| s.to_lowercase());
@@ -149,6 +163,7 @@ fn to_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
 fn to_uppercase<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
     bencher
+        .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(|s| Bytes::new(s.len()))
         .bench_refs(|s| s.to_uppercase());

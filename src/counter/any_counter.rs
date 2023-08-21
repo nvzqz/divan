@@ -1,7 +1,7 @@
 use std::{any::TypeId, fmt};
 
 use crate::{
-    counter::{Bytes, BytesFormat, IntoCounter, Items, MaxCountUInt},
+    counter::{Bytes, BytesFormat, Chars, IntoCounter, Items, MaxCountUInt},
     time::FineDuration,
     util,
 };
@@ -11,19 +11,22 @@ use crate::{
 /// This does not implement `Copy` because in the future it will contain
 /// user-defined counters.
 #[derive(Clone)]
-pub(crate) enum AnyCounter {
-    Bytes(MaxCountUInt),
-    Items(MaxCountUInt),
+pub(crate) struct AnyCounter {
+    kind: KnownCounterKind,
+    count: MaxCountUInt,
 }
 
 impl AnyCounter {
     #[inline]
     pub(crate) fn new<C: IntoCounter>(counter: C) -> Self {
         let counter = counter.into_counter();
+
         if let Some(bytes) = util::cast_ref::<Bytes>(&counter) {
-            Self::Bytes(bytes.count)
+            Self::bytes(bytes.count)
+        } else if let Some(chars) = util::cast_ref::<Chars>(&counter) {
+            Self::chars(chars.count)
         } else if let Some(items) = util::cast_ref::<Items>(&counter) {
-            Self::Bytes(items.count)
+            Self::items(items.count)
         } else {
             unreachable!()
         }
@@ -31,10 +34,22 @@ impl AnyCounter {
 
     #[inline]
     pub(crate) fn known(kind: KnownCounterKind, count: MaxCountUInt) -> Self {
-        match kind {
-            KnownCounterKind::Bytes => Self::Bytes(count),
-            KnownCounterKind::Items => Self::Items(count),
-        }
+        Self { kind, count }
+    }
+
+    #[inline]
+    pub(crate) fn bytes(count: MaxCountUInt) -> Self {
+        Self::known(KnownCounterKind::Bytes, count)
+    }
+
+    #[inline]
+    pub(crate) fn chars(count: MaxCountUInt) -> Self {
+        Self::known(KnownCounterKind::Chars, count)
+    }
+
+    #[inline]
+    pub(crate) fn items(count: MaxCountUInt) -> Self {
+        Self::known(KnownCounterKind::Items, count)
     }
 
     pub(crate) fn display_throughput(
@@ -47,17 +62,12 @@ impl AnyCounter {
 
     #[inline]
     pub(crate) fn count(&self) -> MaxCountUInt {
-        match *self {
-            Self::Bytes(count) | Self::Items(count) => count,
-        }
+        self.count
     }
 
     #[inline]
     pub(crate) fn known_kind(&self) -> KnownCounterKind {
-        match *self {
-            Self::Bytes { .. } => KnownCounterKind::Bytes,
-            Self::Items { .. } => KnownCounterKind::Items,
-        }
+        self.kind
     }
 }
 
@@ -65,19 +75,22 @@ impl AnyCounter {
 #[derive(Clone, Copy)]
 pub(crate) enum KnownCounterKind {
     Bytes,
+    Chars,
     Items,
 }
 
 impl KnownCounterKind {
-    pub const COUNT: usize = 2;
+    pub const COUNT: usize = 3;
 
-    pub const ALL: [Self; Self::COUNT] = [Self::Bytes, Self::Items];
+    pub const ALL: [Self; Self::COUNT] = [Self::Bytes, Self::Chars, Self::Items];
 
     #[inline]
     pub fn of<C: IntoCounter>() -> Self {
         let id = TypeId::of::<C::Counter>();
         if id == TypeId::of::<Bytes>() {
             Self::Bytes
+        } else if id == TypeId::of::<Chars>() {
+            Self::Chars
         } else if id == TypeId::of::<Items>() {
             Self::Items
         } else {
@@ -100,14 +113,15 @@ impl fmt::Debug for DisplayThroughput<'_> {
 
 impl fmt::Display for DisplayThroughput<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let (val, suffix) = match (self.counter, self.bytes_format) {
-            (&AnyCounter::Bytes(bytes), BytesFormat::Binary) => {
-                bytes_throughput_binary(bytes, self.picos)
-            }
-            (&AnyCounter::Bytes(bytes), BytesFormat::Decimal) => {
-                bytes_throughput_decimal(bytes, self.picos)
-            }
-            (&AnyCounter::Items(items), _) => items_throughput(items, self.picos),
+        let count = self.counter.count();
+
+        let (val, suffix) = match self.counter.kind {
+            KnownCounterKind::Bytes => match self.bytes_format {
+                BytesFormat::Binary => bytes_throughput_binary(count, self.picos),
+                BytesFormat::Decimal => bytes_throughput_decimal(count, self.picos),
+            },
+            KnownCounterKind::Chars => chars_throughput(count, self.picos),
+            KnownCounterKind::Items => items_throughput(count, self.picos),
         };
 
         let sig_figs = f.precision().unwrap_or(4);
@@ -189,6 +203,28 @@ fn bytes_throughput_decimal(bytes: MaxCountUInt, picos: f64) -> (f64, &'static s
     (bytes_per_sec / scale, suffix)
 }
 
+/// Returns `char`s per second at the appropriate scale along with the scale's
+/// suffix.
+fn chars_throughput(chars: MaxCountUInt, picos: f64) -> (f64, &'static str) {
+    let chars_per_sec = if chars == 0 { 0. } else { chars as f64 * (1e12 / picos) };
+
+    let (scale, suffix) = if chars_per_sec.is_infinite() || chars_per_sec < scale::K {
+        (1., " char/s")
+    } else if chars_per_sec < scale::M {
+        (scale::K, " Kchar/s")
+    } else if chars_per_sec < scale::G {
+        (scale::M, " Mchar/s")
+    } else if chars_per_sec < scale::T {
+        (scale::G, " Gchar/s")
+    } else if chars_per_sec < scale::P {
+        (scale::T, " Tchar/s")
+    } else {
+        (scale::P, " Pchar/s")
+    };
+
+    (chars_per_sec / scale, suffix)
+}
+
 /// Returns items per second at the appropriate scale along with the scale's
 /// suffix.
 fn items_throughput(items: MaxCountUInt, picos: f64) -> (f64, &'static str) {
@@ -232,7 +268,7 @@ mod tests {
                     (BytesFormat::Decimal, expected_decimal),
                 ] {
                     assert_eq!(
-                        AnyCounter::Bytes(bytes)
+                        AnyCounter::bytes(bytes)
                             .display_throughput(FineDuration { picos }, bytes_format)
                             .to_string(),
                         expected
@@ -254,11 +290,31 @@ mod tests {
         }
 
         #[test]
+        fn chars() {
+            #[track_caller]
+            fn test(chars: MaxCountUInt, picos: u128, expected: &str) {
+                assert_eq!(
+                    AnyCounter::chars(chars)
+                        .display_throughput(FineDuration { picos }, BytesFormat::default())
+                        .to_string(),
+                    expected
+                );
+            }
+
+            test(1, 0, "inf char/s");
+            test(MaxCountUInt::MAX, 0, "inf char/s");
+
+            test(0, 0, "0 char/s");
+            test(0, 1, "0 char/s");
+            test(0, u128::MAX, "0 char/s");
+        }
+
+        #[test]
         fn items() {
             #[track_caller]
             fn test(items: MaxCountUInt, picos: u128, expected: &str) {
                 assert_eq!(
-                    AnyCounter::Items(items)
+                    AnyCounter::items(items)
                         .display_throughput(FineDuration { picos }, BytesFormat::default())
                         .to_string(),
                     expected
