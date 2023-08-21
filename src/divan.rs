@@ -195,10 +195,10 @@ impl Divan {
                     tree_painter.start_parent(name, is_last);
 
                     let options: BenchOptions;
-                    let options: &BenchOptions = match group.and_then(|g| g.meta.bench_options) {
+                    let options: &BenchOptions = match group.and_then(|g| g.meta.bench_options()) {
                         None => parent_options,
                         Some(group_options) => {
-                            options = group_options().overwrite(parent_options);
+                            options = group_options.overwrite(parent_options);
                             &options
                         }
                     };
@@ -226,10 +226,9 @@ impl Divan {
         let entry_meta = bench_entry.meta();
 
         let mut options = entry_meta
-            .bench_options
-            .map(|bench_options| bench_options())
-            .unwrap_or_default()
-            .overwrite(parent_options);
+            .bench_options()
+            .map(|entry_options| entry_options.overwrite(parent_options))
+            .unwrap_or_else(|| parent_options.clone());
 
         // User runtime options override all other options.
         options = self.bench_options.overwrite(&options);

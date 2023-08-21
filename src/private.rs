@@ -1,4 +1,4 @@
-pub use std::{self, any, default::Default, option::Option::*};
+pub use std::{self, any, default::Default, option::Option::*, sync::OnceLock};
 
 pub use linkme;
 

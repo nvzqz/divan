@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use crate::bench::BenchOptions;
 
 /// Metadata common to `#[divan::bench]` and `#[divan::bench_group]`.
@@ -17,11 +19,14 @@ pub struct EntryMeta {
     pub location: EntryLocation,
 
     /// Configures the benchmarker via attribute options.
-    pub bench_options: Option<fn() -> BenchOptions>,
+    pub get_bench_options: Option<fn() -> BenchOptions>,
+
+    /// Cached `BenchOptions`.
+    pub cached_bench_options: OnceLock<BenchOptions>,
 }
 
 /// Where an entry is located.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(missing_docs)]
 pub struct EntryLocation {
     pub file: &'static str,
@@ -30,6 +35,11 @@ pub struct EntryLocation {
 }
 
 impl EntryMeta {
+    #[inline]
+    pub(crate) fn bench_options(&self) -> Option<&BenchOptions> {
+        Some(self.cached_bench_options.get_or_init(self.get_bench_options?))
+    }
+
     #[inline]
     pub(crate) fn module_path_components<'a>(&self) -> impl Iterator<Item = &'a str> {
         self.module_path.split("::")

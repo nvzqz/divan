@@ -359,7 +359,8 @@ fn entry_meta_expr(
                 col: #std_crate::column!(),
             },
 
-            bench_options: #bench_options_fn,
+            get_bench_options: #bench_options_fn,
+            cached_bench_options: #private_mod::OnceLock::new(),
         }
     }
 }
