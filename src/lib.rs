@@ -351,7 +351,7 @@ pub fn main() {
 /// ];
 ///
 /// #[divan::bench(counters = [
-///     Bytes::size_of_val(INTS),
+///     Bytes::of_val(INTS),
 ///     Items::new(INTS.len()),
 /// ])]
 /// fn sort(bencher: Bencher) {
@@ -729,7 +729,7 @@ pub use divan_macros::bench;
 /// ];
 ///
 /// #[divan::bench_group(counters = [
-///     Bytes::size_of_val(INTS),
+///     Bytes::of_val(INTS),
 ///     Items::new(INTS.len()),
 /// ])]
 /// mod sort {

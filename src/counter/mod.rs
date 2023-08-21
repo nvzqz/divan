@@ -15,7 +15,7 @@
 //!         // ...
 //!     ];
 //!
-//!     let bytes = Bytes::size_of_val(ints);
+//!     let bytes = Bytes::of_val(ints);
 //!
 //!     bencher
 //!         .counter(bytes)
@@ -91,13 +91,15 @@ impl Bytes {
 
     /// Counts the size of a type with [`std::mem::size_of`].
     #[inline]
-    pub const fn size_of<T>() -> Self {
+    #[doc(alias = "size_of")]
+    pub const fn of<T>() -> Self {
         Self { count: std::mem::size_of::<T>() as MaxCountUInt }
     }
 
     /// Counts the size of a value with [`std::mem::size_of_val`].
     #[inline]
-    pub fn size_of_val<T: ?Sized>(val: &T) -> Self {
+    #[doc(alias = "size_of_val")]
+    pub fn of_val<T: ?Sized>(val: &T) -> Self {
         // TODO: Make const, https://github.com/rust-lang/rust/issues/46571
         Self { count: std::mem::size_of_val(val) as MaxCountUInt }
     }
