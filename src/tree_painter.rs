@@ -249,7 +249,7 @@ impl TreePainter {
 }
 
 /// Columns of the table next to the tree.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TreeColumn {
     Fastest,
     Slowest,
@@ -271,6 +271,12 @@ impl TreeColumn {
     pub fn time_stats() -> impl Iterator<Item = Self> {
         use TreeColumn::*;
         [Fastest, Slowest, Median, Mean].into_iter()
+    }
+
+    #[inline]
+    pub fn is_last(self) -> bool {
+        let [.., last] = Self::ALL;
+        self == last
     }
 
     fn name(self) -> &'static str {

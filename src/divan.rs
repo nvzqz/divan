@@ -164,7 +164,14 @@ impl Divan {
         };
 
         let column_widths = if action.is_bench() {
-            TreeColumn::ALL.map(|column| EntryTree::common_column_width(&tree, column))
+            TreeColumn::ALL.map(|column| {
+                if column.is_last() {
+                    // The last column doesn't use padding.
+                    0
+                } else {
+                    EntryTree::common_column_width(&tree, column)
+                }
+            })
         } else {
             [0; TreeColumn::COUNT]
         };
