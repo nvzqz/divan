@@ -760,14 +760,13 @@ impl<'a> BenchContext<'a> {
                 }
             }
 
-            // The per-sample benchmarking overhead.
-            let sample_overhead = FineDuration {
-                picos: self.shared_context.bench_overhead.picos.saturating_mul(sample_size as u128),
-            };
-
             // Account for the per-sample benchmarking overhead.
-            let mut adjusted_duration =
-                FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead.picos) };
+            let mut adjusted_duration = {
+                let sample_overhead =
+                    self.shared_context.bench_overhead.picos.saturating_mul(sample_size as u128);
+
+                FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead) }
+            };
 
             // Round up to timer precision if the duration is zero. We do this a
             // second time in case subtracting `sample_overhead` caused the
