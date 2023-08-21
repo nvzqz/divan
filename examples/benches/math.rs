@@ -10,6 +10,7 @@ fn add() -> i32 {
 }
 
 #[divan::bench]
+#[ignore]
 fn sub() -> i32 {
     black_box(2) - black_box(1)
 }
@@ -25,7 +26,6 @@ fn div() -> i32 {
 }
 
 #[divan::bench]
-#[ignore]
 fn rem() -> i32 {
     black_box(2) % black_box(1)
 }
