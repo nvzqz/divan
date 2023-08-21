@@ -728,7 +728,15 @@ impl<'a> BenchContext<'a> {
                 [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
             };
 
-            let raw_duration = sample_end.duration_since(sample_start, timer);
+            let mut raw_duration = sample_end.duration_since(sample_start, timer);
+
+            // Round up to timer precision if the duration is zero.
+            //
+            // This is deliberately done again later after subtracting
+            // `sample_overhead`.
+            if raw_duration.is_zero() {
+                raw_duration = timer_precision;
+            }
 
             // TODO: Make tuning be less influenced by early runs. Currently if
             // early runs are very quick but later runs are slow, benchmarking
@@ -758,8 +766,15 @@ impl<'a> BenchContext<'a> {
             };
 
             // Account for the per-sample benchmarking overhead.
-            let adjusted_duration =
+            let mut adjusted_duration =
                 FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead.picos) };
+
+            // Round up to timer precision if the duration is zero. We do this a
+            // second time in case subtracting `sample_overhead` caused the
+            // duration to become zero.
+            if adjusted_duration.is_zero() {
+                adjusted_duration = timer_precision;
+            }
 
             self.samples.all.push(Sample { duration: adjusted_duration });
 
