@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, ptr::NonNull};
 
 use crate::{
-    bench::BenchOptions,
+    bench::{BenchOptions, DEFAULT_SAMPLE_COUNT},
     config::SortingAttr,
     counter::KnownCounterKind,
     entry::{AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry},
@@ -69,12 +69,18 @@ impl<'a> EntryTree<'a> {
 
         tree.iter()
             .map(|tree| {
-                let width = match column {
-                    // TODO: Prepare widths based on `sample_count` and
-                    // `sample_size`.
-                    TreeColumn::Iters => 12,
-                    TreeColumn::Samples => 12,
+                let Some(options) = tree.bench_options() else {
+                    return 0;
+                };
 
+                let width = match column {
+                    TreeColumn::Samples => {
+                        let sample_count = options.sample_count.unwrap_or(DEFAULT_SAMPLE_COUNT);
+                        1 + sample_count.checked_ilog10().unwrap_or_default() as usize
+                    }
+
+                    // Iters is the last column, so it does not need pad width.
+                    // All other columns are time stats handled previously.
                     _ => 0,
                 };
 

@@ -26,6 +26,8 @@ mod options;
 use defer::{DeferSlot, DeferStore};
 pub use options::BenchOptions;
 
+pub(crate) const DEFAULT_SAMPLE_COUNT: u32 = 100;
+
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
 ///
 /// # Examples
@@ -475,8 +477,6 @@ impl<'a> BenchContext<'a> {
         mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
     ) {
-        const DEFAULT_SAMPLE_COUNT: u32 = 100;
-
         self.did_run = true;
 
         let mut current_mode = self.initial_mode();

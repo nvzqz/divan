@@ -204,8 +204,8 @@ impl TreePainter {
                 TreeColumn::Slowest => &stats.time.slowest,
                 TreeColumn::Median => &stats.time.median,
                 TreeColumn::Mean => &stats.time.mean,
-                TreeColumn::Iters => &stats.iter_count,
                 TreeColumn::Samples => &stats.sample_count,
+                TreeColumn::Iters => &stats.iter_count,
             };
             stat.to_string()
         })
@@ -255,8 +255,8 @@ pub(crate) enum TreeColumn {
     Slowest,
     Median,
     Mean,
-    Iters,
     Samples,
+    Iters,
 }
 
 impl TreeColumn {
@@ -264,7 +264,7 @@ impl TreeColumn {
 
     pub const ALL: [Self; Self::COUNT] = {
         use TreeColumn::*;
-        [Fastest, Slowest, Median, Mean, Iters, Samples]
+        [Fastest, Slowest, Median, Mean, Samples, Iters]
     };
 
     #[inline]
@@ -285,8 +285,8 @@ impl TreeColumn {
             Self::Slowest => "slowest",
             Self::Median => "median",
             Self::Mean => "mean",
-            Self::Iters => "iters",
             Self::Samples => "samples",
+            Self::Iters => "iters",
         }
     }
 
@@ -303,7 +303,7 @@ impl TreeColumn {
             Self::Slowest => Some(&stats.slowest),
             Self::Median => Some(&stats.median),
             Self::Mean => Some(&stats.mean),
-            Self::Iters | Self::Samples => None,
+            Self::Samples | Self::Iters => None,
         }
     }
 }
