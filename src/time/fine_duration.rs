@@ -99,6 +99,11 @@ impl<I: Into<u128>> ops::Div<I> for FineDuration {
 
 impl FineDuration {
     pub const MAX: Self = Self { picos: u128::MAX };
+
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.picos == 0
+    }
 }
 
 mod picos {

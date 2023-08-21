@@ -96,7 +96,7 @@ impl Timer {
                 let sample = sample_end.duration_since(sample_start, self);
 
                 // Discard sample if irrelevant.
-                if sample.picos == 0 {
+                if sample.is_zero() {
                     continue;
                 }
 
@@ -155,9 +155,9 @@ impl Timer {
             let mut sample = end.duration_since(start, self);
             sample.picos /= sample_size as u128;
 
-            if min_sample.picos == 0 {
+            if min_sample.is_zero() {
                 min_sample = sample;
-            } else if sample.picos > 0 {
+            } else if !sample.is_zero() {
                 min_sample = min_sample.min(sample);
             }
         }
