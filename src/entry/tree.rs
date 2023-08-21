@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, ptr::NonNull};
 
 use crate::{
+    bench::BenchOptions,
     config::SortingAttr,
     entry::{AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry},
 };
@@ -244,6 +245,10 @@ impl<'a> EntryTree<'a> {
             Self::Parent { group, .. } => Some(&(*group)?.meta),
             Self::Leaf(bench) => Some(bench.meta()),
         }
+    }
+
+    pub fn bench_options(&self) -> Option<&'a BenchOptions> {
+        self.meta()?.bench_options()
     }
 
     pub fn raw_name(&self) -> &'a str {

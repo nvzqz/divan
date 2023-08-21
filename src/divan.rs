@@ -7,7 +7,7 @@ use crate::{
     bench::{BenchOptions, Bencher},
     config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
     counter::{BytesFormat, PrivBytesFormat},
-    entry::{AnyBenchEntry, EntryMeta, EntryTree},
+    entry::{AnyBenchEntry, EntryTree},
     time::{FineDuration, Timer, TimerKind},
     tree_painter::TreePainter,
 };
@@ -182,7 +182,7 @@ impl Divan {
 
             let name = child.display_name();
 
-            let child_options = child.meta().and_then(EntryMeta::bench_options);
+            let child_options = child.bench_options();
 
             // Overwrite `parent_options` with `child_options` if applicable.
             let options: BenchOptions;
