@@ -8,7 +8,7 @@ fn main() {
     divan::main();
 }
 
-const LENS: &[usize] = &[0, 1, 4, 32, 1024];
+const LENS: &[usize] = &[0, 8, 64, 1024];
 
 #[derive(Default)]
 struct Ascii {

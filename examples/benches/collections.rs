@@ -6,7 +6,7 @@ fn main() {
     divan::main();
 }
 
-const LENS: &[usize] = &[0, 1, 4, 32, 128, 1024, 8192];
+const LENS: &[usize] = &[0, 8, 64, 1024];
 
 mod util {
     use super::*;

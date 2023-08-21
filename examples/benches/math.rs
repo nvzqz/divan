@@ -34,7 +34,7 @@ fn rem() -> i32 {
 mod fibonacci {
     use super::*;
 
-    const VALUES: &[u64] = &[0, 2, 5, 10, 20, 30, 35, 40];
+    const VALUES: &[u64] = &[0, 5, 10, 20, 30, 40];
 
     // O(n)
     #[divan::bench(consts = VALUES)]
