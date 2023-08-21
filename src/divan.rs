@@ -7,7 +7,7 @@ use crate::{
     bench::{BenchOptions, Bencher},
     config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
     counter::{BytesFormat, PrivBytesFormat},
-    entry::{AnyBenchEntry, EntryTree},
+    entry::{AnyBenchEntry, EntryMeta, EntryTree},
     time::{FineDuration, Timer, TimerKind},
     tree_painter::TreePainter,
 };
@@ -166,7 +166,7 @@ impl Divan {
         let column_widths = if action.is_bench() { 12 } else { 0 };
         let mut tree_painter = TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths);
 
-        self.run_tree(action, &tree, &shared_context, &BenchOptions::default(), &mut tree_painter);
+        self.run_tree(action, &tree, &shared_context, None, &mut tree_painter);
     }
 
     fn run_tree(
@@ -174,7 +174,7 @@ impl Divan {
         action: Action,
         tree: &[EntryTree],
         shared_context: &SharedContext,
-        parent_options: &BenchOptions,
+        parent_options: Option<&BenchOptions>,
         tree_painter: &mut TreePainter,
     ) {
         for (i, child) in tree.iter().enumerate() {
@@ -182,26 +182,30 @@ impl Divan {
 
             let name = child.display_name();
 
+            let child_options = child.meta().and_then(EntryMeta::bench_options);
+
+            // Overwrite `parent_options` with `child_options` if applicable.
+            let options: BenchOptions;
+            let options: Option<&BenchOptions> = match (parent_options, child_options) {
+                (None, None) => None,
+                (Some(options), None) | (None, Some(options)) => Some(options),
+                (Some(parent_options), Some(child_options)) => {
+                    options = child_options.overwrite(parent_options);
+                    Some(&options)
+                }
+            };
+
             match child {
                 EntryTree::Leaf(child) => self.run_bench_entry(
                     action,
                     *child,
                     shared_context,
-                    parent_options,
+                    options,
                     tree_painter,
                     is_last,
                 ),
-                EntryTree::Parent { children, group, .. } => {
+                EntryTree::Parent { children, .. } => {
                     tree_painter.start_parent(name, is_last);
-
-                    let options: BenchOptions;
-                    let options: &BenchOptions = match group.and_then(|g| g.meta.bench_options()) {
-                        None => parent_options,
-                        Some(group_options) => {
-                            options = group_options.overwrite(parent_options);
-                            &options
-                        }
-                    };
 
                     self.run_tree(action, children, shared_context, options, tree_painter);
 
@@ -216,22 +220,23 @@ impl Divan {
         action: Action,
         bench_entry: AnyBenchEntry,
         shared_context: &SharedContext,
-        parent_options: &BenchOptions,
+        entry_options: Option<&BenchOptions>,
         tree_painter: &mut TreePainter,
         is_last: bool,
     ) {
         use crate::bench::BenchContext;
 
         let display_name = bench_entry.display_name();
-        let entry_meta = bench_entry.meta();
-
-        let mut options = entry_meta
-            .bench_options()
-            .map(|entry_options| entry_options.overwrite(parent_options))
-            .unwrap_or_else(|| parent_options.clone());
 
         // User runtime options override all other options.
-        options = self.bench_options.overwrite(&options);
+        let options: BenchOptions;
+        let options: &BenchOptions = match entry_options {
+            None => &self.bench_options,
+            Some(entry_options) => {
+                options = self.bench_options.overwrite(entry_options);
+                &options
+            }
+        };
 
         if self.should_ignore(options.ignore.unwrap_or_default()) {
             tree_painter.ignore_leaf(display_name, is_last);
@@ -245,7 +250,7 @@ impl Divan {
             return;
         }
 
-        let mut bench_context = BenchContext::new(shared_context, &options);
+        let mut bench_context = BenchContext::new(shared_context, options);
         bench_entry.bench(Bencher::new(&mut bench_context));
 
         let should_compute_stats = bench_context.did_run && shared_context.action.is_bench();
