@@ -112,6 +112,7 @@ fn drop<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
         BTreeSet<i32>,
     ],
     consts = LENS,
+    max_time = 1,
 )]
 fn clear<T: FromIterator<i32> + util::Clear, const N: usize>(bencher: Bencher) {
     bencher.counter(N).with_inputs(|| util::collect_nums::<T>(N)).bench_refs(T::clear);

@@ -39,6 +39,7 @@ impl GenString for Unicode {
 #[divan::bench(
     types = [Ascii, Unicode],
     consts = LENS,
+    max_time = 1,
 )]
 fn clear<G: GenString, const N: usize>(bencher: Bencher) {
     let mut gen = G::default();
