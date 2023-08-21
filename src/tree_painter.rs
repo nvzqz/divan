@@ -167,10 +167,20 @@ impl TreePainter {
         let buf = &mut self.write_buf;
         buf.clear();
 
-        // Write time stats.
-        TreeColumnData::from_fn(|column| column.get_stat(&stats.time).to_string())
-            .as_ref::<str>()
-            .write(buf, &mut self.column_widths);
+        // Write time stats with iter and sample counts.
+        TreeColumnData::from_fn(|column| -> String {
+            let stat: &dyn ToString = match column {
+                TreeColumn::Fastest => &stats.time.fastest,
+                TreeColumn::Slowest => &stats.time.slowest,
+                TreeColumn::Median => &stats.time.median,
+                TreeColumn::Mean => &stats.time.mean,
+                TreeColumn::Iters => &stats.iter_count,
+                TreeColumn::Samples => &stats.sample_count,
+            };
+            stat.to_string()
+        })
+        .as_ref::<str>()
+        .write(buf, &mut self.column_widths);
 
         println!("{buf}");
 
@@ -194,9 +204,13 @@ impl TreePainter {
             };
             buf.extend(repeat(' ').take(pad_len));
 
-            TreeColumnData::from_fn(|column| {
-                let count = *column.get_stat(counter_stats);
-                let time = *column.get_stat(&stats.time);
+            TreeColumnData::from_fn(|column| -> String {
+                let (Some(&count), Some(&time)) = (
+                    column.get_stat(counter_stats),
+                    column.get_stat(&stats.time)
+                ) else {
+                    return String::new();
+                };
 
                 AnyCounter::known(counter_kind, count)
                     .display_throughput(time, bytes_format)
@@ -221,12 +235,17 @@ pub(crate) enum TreeColumn {
     Slowest,
     Median,
     Mean,
+    Iters,
+    Samples,
 }
 
 impl TreeColumn {
-    const COUNT: usize = 4;
+    const COUNT: usize = 6;
 
-    const ALL: [Self; Self::COUNT] = [Self::Fastest, Self::Slowest, Self::Median, Self::Mean];
+    const ALL: [Self; Self::COUNT] = {
+        use TreeColumn::*;
+        [Fastest, Slowest, Median, Mean, Iters, Samples]
+    };
 
     fn name(self) -> &'static str {
         match self {
@@ -234,16 +253,19 @@ impl TreeColumn {
             Self::Slowest => "slowest",
             Self::Median => "median",
             Self::Mean => "mean",
+            Self::Iters => "iters",
+            Self::Samples => "samples",
         }
     }
 
     #[inline]
-    fn get_stat<T>(self, stats: &StatsSet<T>) -> &T {
+    fn get_stat<T>(self, stats: &StatsSet<T>) -> Option<&T> {
         match self {
-            Self::Fastest => &stats.fastest,
-            Self::Slowest => &stats.slowest,
-            Self::Median => &stats.median,
-            Self::Mean => &stats.mean,
+            Self::Fastest => Some(&stats.fastest),
+            Self::Slowest => Some(&stats.slowest),
+            Self::Median => Some(&stats.median),
+            Self::Mean => Some(&stats.mean),
+            Self::Iters | Self::Samples => None,
         }
     }
 }

@@ -12,12 +12,10 @@ pub(crate) use sample::*;
 /// Statistics from samples.
 pub(crate) struct Stats {
     /// Total number of samples taken.
-    #[allow(dead_code)]
     pub sample_count: u32,
 
     /// Total number of iterations (currently `sample_count * `sample_size`).
-    #[allow(dead_code)]
-    pub total_count: u64,
+    pub iter_count: u64,
 
     pub time: StatsSet<FineDuration>,
 

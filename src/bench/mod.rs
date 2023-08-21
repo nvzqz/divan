@@ -878,7 +878,7 @@ impl<'a> BenchContext<'a> {
 
         Stats {
             sample_count: sample_count as u32,
-            total_count,
+            iter_count: total_count,
             time: StatsSet {
                 mean: mean_duration,
                 fastest: min_duration,
