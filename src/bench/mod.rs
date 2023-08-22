@@ -383,8 +383,8 @@ impl<'a> BenchContext<'a> {
     ///   escaped references to `I`.
     pub fn bench_loop<I, O>(
         &mut self,
-        mut config: BencherConfig<impl FnMut() -> I>,
-        mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
+        config: BencherConfig<impl FnMut() -> I>,
+        benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
     ) {
         self.did_run = true;
@@ -412,13 +412,7 @@ impl<'a> BenchContext<'a> {
         let timer = self.shared_context.timer;
         let timer_kind = timer.kind();
 
-        // Defer:
-        // - Usage of `gen_input` values.
-        // - Drop destructor for `O`, preventing it from affecting sample
-        //   measurements. Outputs are stored into a pre-allocated buffer during
-        //   the sample loop. The allocation is reused between samples to reduce
-        //   time spent between samples.
-        let mut defer_store: DeferStore<I, O> = DeferStore::default();
+        let mut record_sample = self.sample_recorder(config.gen_input, benched, drop_input);
 
         let mut rem_samples = if current_mode.is_collect() {
             Some(self.options.sample_count.unwrap_or(DEFAULT_SAMPLE_COUNT))
@@ -471,166 +465,13 @@ impl<'a> BenchContext<'a> {
                 }
             };
 
-            // The following logic chooses how to efficiently sample the
-            // benchmark function once and assigns `sample_start`/`sample_end`
-            // before/after the sample loop.
-            //
-            // NOTE: Testing and benchmarking should behave exactly the same
-            // when getting the sample time span. We don't want to introduce
-            // extra work that may worsen measurement quality for real
-            // benchmarking.
-            let sample_start: UntaggedTimestamp;
-            let sample_end: UntaggedTimestamp;
-
-            if (mem::size_of::<I>() == 0 && mem::size_of::<O>() == 0)
-                || (mem::size_of::<I>() == 0 && !mem::needs_drop::<O>())
-            {
-                // Use a range instead of `defer_store` to make the benchmarking
-                // loop cheaper.
-
-                // Run `gen_input` the expected number of times in case it
-                // updates external state used by `benched`.
-                for _ in 0..sample_size {
-                    let input = (config.gen_input)();
-                    count_input(&input);
-
-                    // Inputs are consumed/dropped later.
-                    mem::forget(input);
-                }
-
-                sample_start = UntaggedTimestamp::start(timer_kind);
-
-                // Sample loop:
-                for _ in 0..sample_size {
-                    // SAFETY: Input is a ZST, so we can construct one out of
-                    // thin air.
-                    let input = unsafe { UnsafeCell::new(MaybeUninit::<I>::zeroed()) };
-
-                    mem::forget(black_box(benched(&input)));
-                }
-
-                sample_end = UntaggedTimestamp::end(timer_kind);
-
-                // Drop outputs and inputs.
-                for _ in 0..sample_size {
-                    // Output only needs drop if ZST.
-                    if mem::size_of::<O>() == 0 {
-                        // SAFETY: Output is a ZST, so we can construct one out
-                        // of thin air.
-                        unsafe { _ = mem::zeroed::<O>() }
-                    }
-
-                    if mem::needs_drop::<I>() {
-                        // SAFETY: Input is a ZST, so we can construct one out
-                        // of thin air and not worry about aliasing.
-                        unsafe { drop_input(&UnsafeCell::new(MaybeUninit::<I>::zeroed())) }
-                    }
-                }
-            } else {
-                defer_store.prepare(sample_size as usize);
-
-                match defer_store.slots() {
-                    // Output needs to be dropped. We defer drop in the sample
-                    // loop by inserting it into `defer_store`.
-                    Ok(defer_slots_slice) => {
-                        // Initialize and store inputs.
-                        for DeferSlot { input, .. } in defer_slots_slice {
-                            // SAFETY: We have exclusive access to `input`.
-                            let input = unsafe { &mut *input.get() };
-                            let input = input.write((config.gen_input)());
-                            count_input(input);
-                        }
-
-                        // Create iterator before the sample timing section to
-                        // reduce benchmarking overhead.
-                        let defer_slots_iter = black_box(defer_slots_slice.iter());
-
-                        sample_start = UntaggedTimestamp::start(timer_kind);
-
-                        // Sample loop:
-                        for defer_slot in defer_slots_iter {
-                            // SAFETY: All inputs in `defer_store` were
-                            // initialized and we have exclusive access to the
-                            // output slot.
-                            unsafe {
-                                let output = benched(&defer_slot.input);
-                                *defer_slot.output.get() = MaybeUninit::new(output);
-                            }
-
-                            // PERF: `black_box` the slot address because:
-                            // - It prevents `input` mutation from being
-                            //   optimized out.
-                            // - `black_box` writes its input to the stack.
-                            //   Using the slot address instead of the output
-                            //   by-value reduces overhead when `O` is a larger
-                            //   type like `String` since then it will write a
-                            //   single word instead of three words.
-                            _ = black_box(defer_slot);
-                        }
-
-                        sample_end = UntaggedTimestamp::end(timer_kind);
-
-                        // Drop outputs and inputs.
-                        for DeferSlot { input, output } in defer_slots_slice {
-                            // SAFETY: All outputs were initialized in the
-                            // sample loop and we have exclusive access.
-                            unsafe { (*output.get()).assume_init_drop() }
-
-                            if mem::needs_drop::<I>() {
-                                // SAFETY: The output was dropped and thus we
-                                // have exclusive access to inputs.
-                                unsafe { drop_input(input) }
-                            }
-                        }
-                    }
-
-                    // Output does not need to be dropped.
-                    Err(defer_inputs_slice) => {
-                        // Initialize and store inputs.
-                        for input in defer_inputs_slice {
-                            // SAFETY: We have exclusive access to `input`.
-                            let input = unsafe { &mut *input.get() };
-                            let input = input.write((config.gen_input)());
-                            count_input(input);
-                        }
-
-                        // Create iterator before the sample timing section to
-                        // reduce benchmarking overhead.
-                        let defer_inputs_iter = black_box(defer_inputs_slice.iter());
-
-                        sample_start = UntaggedTimestamp::start(timer_kind);
-
-                        // Sample loop:
-                        for input in defer_inputs_iter {
-                            // SAFETY: All inputs in `defer_store` were
-                            // initialized.
-                            _ = black_box(unsafe { benched(input) });
-                        }
-
-                        sample_end = UntaggedTimestamp::end(timer_kind);
-
-                        // Drop inputs.
-                        if mem::needs_drop::<I>() {
-                            for input in defer_inputs_slice {
-                                // SAFETY: We have exclusive access to inputs.
-                                unsafe { drop_input(input) }
-                            }
-                        }
-                    }
-                }
-            }
+            let [sample_start, sample_end] = record_sample(sample_size as usize, &mut count_input);
 
             // If testing, exit the benchmarking loop immediately after timing a
             // single run.
             if is_test {
                 break;
             }
-
-            // SAFETY: These values are guaranteed to be the correct variant
-            // because they were created from the same `timer_kind`.
-            let [sample_start, sample_end] = unsafe {
-                [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
-            };
 
             let mut raw_duration = sample_end.duration_since(sample_start, timer);
 
@@ -707,6 +548,182 @@ impl<'a> BenchContext<'a> {
                 // functions from taking forever when `min_time` is set.
                 let progress_picos = raw_duration.picos.max(1_000);
                 elapsed_picos = elapsed_picos.saturating_add(progress_picos);
+            }
+        }
+    }
+
+    /// Returns a closure that takes the sample size and input counter, and then
+    /// returns a newly recorded sample.
+    fn sample_recorder<I, O>(
+        &self,
+        mut gen_input: impl FnMut() -> I,
+        mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
+        drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
+    ) -> impl FnMut(usize, &mut dyn FnMut(&I)) -> [Timestamp; 2] {
+        // Defer:
+        // - Usage of `gen_input` values.
+        // - Drop destructor for `O`, preventing it from affecting sample
+        //   measurements. Outputs are stored into a pre-allocated buffer during
+        //   the sample loop. The allocation is reused between samples to reduce
+        //   time spent between samples.
+        let mut defer_store: DeferStore<I, O> = DeferStore::default();
+
+        let timer_kind = self.shared_context.timer.kind();
+
+        move |sample_size: usize, count_input: &mut dyn FnMut(&I)| {
+            // The following logic chooses how to efficiently sample the
+            // benchmark function once and assigns `sample_start`/`sample_end`
+            // before/after the sample loop.
+            //
+            // NOTE: Testing and benchmarking should behave exactly the same
+            // when getting the sample time span. We don't want to introduce
+            // extra work that may worsen measurement quality for real
+            // benchmarking.
+            let sample_start: UntaggedTimestamp;
+            let sample_end: UntaggedTimestamp;
+
+            if (mem::size_of::<I>() == 0 && mem::size_of::<O>() == 0)
+                || (mem::size_of::<I>() == 0 && !mem::needs_drop::<O>())
+            {
+                // Use a range instead of `defer_store` to make the benchmarking
+                // loop cheaper.
+
+                // Run `gen_input` the expected number of times in case it
+                // updates external state used by `benched`.
+                for _ in 0..sample_size {
+                    let input = gen_input();
+                    count_input(&input);
+
+                    // Inputs are consumed/dropped later.
+                    mem::forget(input);
+                }
+
+                sample_start = UntaggedTimestamp::start(timer_kind);
+
+                // Sample loop:
+                for _ in 0..sample_size {
+                    // SAFETY: Input is a ZST, so we can construct one out of
+                    // thin air.
+                    let input = unsafe { UnsafeCell::new(MaybeUninit::<I>::zeroed()) };
+
+                    mem::forget(black_box(benched(&input)));
+                }
+
+                sample_end = UntaggedTimestamp::end(timer_kind);
+
+                // Drop outputs and inputs.
+                for _ in 0..sample_size {
+                    // Output only needs drop if ZST.
+                    if mem::size_of::<O>() == 0 {
+                        // SAFETY: Output is a ZST, so we can construct one out
+                        // of thin air.
+                        unsafe { _ = mem::zeroed::<O>() }
+                    }
+
+                    if mem::needs_drop::<I>() {
+                        // SAFETY: Input is a ZST, so we can construct one out
+                        // of thin air and not worry about aliasing.
+                        unsafe { drop_input(&UnsafeCell::new(MaybeUninit::<I>::zeroed())) }
+                    }
+                }
+            } else {
+                defer_store.prepare(sample_size);
+
+                match defer_store.slots() {
+                    // Output needs to be dropped. We defer drop in the sample
+                    // loop by inserting it into `defer_store`.
+                    Ok(defer_slots_slice) => {
+                        // Initialize and store inputs.
+                        for DeferSlot { input, .. } in defer_slots_slice {
+                            // SAFETY: We have exclusive access to `input`.
+                            let input = unsafe { &mut *input.get() };
+                            let input = input.write(gen_input());
+                            count_input(input);
+                        }
+
+                        // Create iterator before the sample timing section to
+                        // reduce benchmarking overhead.
+                        let defer_slots_iter = black_box(defer_slots_slice.iter());
+
+                        sample_start = UntaggedTimestamp::start(timer_kind);
+
+                        // Sample loop:
+                        for defer_slot in defer_slots_iter {
+                            // SAFETY: All inputs in `defer_store` were
+                            // initialized and we have exclusive access to the
+                            // output slot.
+                            unsafe {
+                                let output = benched(&defer_slot.input);
+                                *defer_slot.output.get() = MaybeUninit::new(output);
+                            }
+
+                            // PERF: `black_box` the slot address because:
+                            // - It prevents `input` mutation from being
+                            //   optimized out.
+                            // - `black_box` writes its input to the stack.
+                            //   Using the slot address instead of the output
+                            //   by-value reduces overhead when `O` is a larger
+                            //   type like `String` since then it will write a
+                            //   single word instead of three words.
+                            _ = black_box(defer_slot);
+                        }
+
+                        sample_end = UntaggedTimestamp::end(timer_kind);
+
+                        // Drop outputs and inputs.
+                        for DeferSlot { input, output } in defer_slots_slice {
+                            // SAFETY: All outputs were initialized in the
+                            // sample loop and we have exclusive access.
+                            unsafe { (*output.get()).assume_init_drop() }
+
+                            if mem::needs_drop::<I>() {
+                                // SAFETY: The output was dropped and thus we
+                                // have exclusive access to inputs.
+                                unsafe { drop_input(input) }
+                            }
+                        }
+                    }
+
+                    // Output does not need to be dropped.
+                    Err(defer_inputs_slice) => {
+                        // Initialize and store inputs.
+                        for input in defer_inputs_slice {
+                            // SAFETY: We have exclusive access to `input`.
+                            let input = unsafe { &mut *input.get() };
+                            let input = input.write(gen_input());
+                            count_input(input);
+                        }
+
+                        // Create iterator before the sample timing section to
+                        // reduce benchmarking overhead.
+                        let defer_inputs_iter = black_box(defer_inputs_slice.iter());
+
+                        sample_start = UntaggedTimestamp::start(timer_kind);
+
+                        // Sample loop:
+                        for input in defer_inputs_iter {
+                            // SAFETY: All inputs in `defer_store` were
+                            // initialized.
+                            _ = black_box(unsafe { benched(input) });
+                        }
+
+                        sample_end = UntaggedTimestamp::end(timer_kind);
+
+                        // Drop inputs.
+                        if mem::needs_drop::<I>() {
+                            for input in defer_inputs_slice {
+                                // SAFETY: We have exclusive access to inputs.
+                                unsafe { drop_input(input) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // SAFETY: These values are guaranteed to be the correct variant
+            // because they were created from the same `timer_kind`.
+            unsafe {
+                [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
             }
         }
     }
