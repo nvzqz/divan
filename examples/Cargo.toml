@@ -12,6 +12,7 @@ publish = false
 divan = { workspace = true }
 fastrand = "2"
 image = { version = "0.24", optional = true }
+libc = "0.2.147"
 rayon = "1"
 
 [[bench]]
@@ -37,6 +38,10 @@ harness = false
 
 [[bench]]
 name = "string"
+harness = false
+
+[[bench]]
+name = "threads"
 harness = false
 
 [[bench]]
