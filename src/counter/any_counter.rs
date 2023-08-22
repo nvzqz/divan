@@ -116,16 +116,20 @@ impl fmt::Debug for DisplayThroughput<'_> {
 
 impl fmt::Display for DisplayThroughput<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let picos = self.picos;
         let count = self.counter.count();
+        let count_per_sec = if count == 0 { 0. } else { count as f64 * (1e12 / picos) };
 
-        let (val, suffix) = match self.counter.kind {
+        let (scales, suffixes) = match self.counter.kind {
             KnownCounterKind::Bytes => match self.bytes_format {
-                BytesFormat::Binary => bytes_throughput_binary(count, self.picos),
-                BytesFormat::Decimal => bytes_throughput_decimal(count, self.picos),
+                BytesFormat::Binary => (scale::BINARY_SCALES, scale::BYTES_BINARY_SUFFIXES),
+                BytesFormat::Decimal => (scale::DECIMAL_SCALES, scale::BYTES_DECIMAL_SUFFIXES),
             },
-            KnownCounterKind::Chars => chars_throughput(count, self.picos),
-            KnownCounterKind::Items => items_throughput(count, self.picos),
+            KnownCounterKind::Chars => (scale::DECIMAL_SCALES, scale::CHARS_SUFFIXES),
+            KnownCounterKind::Items => (scale::DECIMAL_SCALES, scale::ITEMS_SUFFIXES),
         };
+
+        let (val, suffix) = scale_throughput(count_per_sec, scales, suffixes);
 
         let sig_figs = f.precision().unwrap_or(4);
 
@@ -147,108 +151,58 @@ impl fmt::Display for DisplayThroughput<'_> {
     }
 }
 
+/// Returns throughput at the appropriate scale along with the scale's suffix.
+fn scale_throughput(
+    count_per_sec: f64,
+    scales: &scale::Scales,
+    suffixes: &scale::Suffixes,
+) -> (f64, &'static str) {
+    let (scale, suffix) = if count_per_sec.is_infinite() || count_per_sec < scales[0] {
+        (1., suffixes[0])
+    } else if count_per_sec < scales[1] {
+        (scales[0], suffixes[1])
+    } else if count_per_sec < scales[2] {
+        (scales[1], suffixes[2])
+    } else if count_per_sec < scales[3] {
+        (scales[2], suffixes[3])
+    } else if count_per_sec < scales[4] {
+        (scales[3], suffixes[4])
+    } else {
+        (scales[4], suffixes[5])
+    };
+
+    (count_per_sec / scale, suffix)
+}
+
 mod scale {
-    // Stop at pebibyte because `f64` cannot represent exibyte exactly.
-    pub const KIB: f64 = 1024.;
-    pub const MIB: f64 = 1024u64.pow(2) as f64;
-    pub const GIB: f64 = 1024u64.pow(3) as f64;
-    pub const TIB: f64 = 1024u64.pow(4) as f64;
-    pub const PIB: f64 = 1024u64.pow(5) as f64;
+    /// Scales increasing in powers of 1000 (decimal) or 1024 (binary).
+    pub type Scales = [f64; 5];
+
+    /// Throughput suffixes.
+    pub type Suffixes = [&'static str; 6];
 
     // Stop at peta because bytes stops at pebibyte.
-    pub const K: f64 = 1e3;
-    pub const M: f64 = 1e6;
-    pub const G: f64 = 1e9;
-    pub const T: f64 = 1e12;
-    pub const P: f64 = 1e15;
-}
+    pub const DECIMAL_SCALES: &Scales = &[1e3, 1e6, 1e9, 1e12, 1e15];
 
-/// Returns bytes per second at the appropriate binary scale along with the
-/// scale's suffix.
-fn bytes_throughput_binary(bytes: MaxCountUInt, picos: f64) -> (f64, &'static str) {
-    let bytes_per_sec = if bytes == 0 { 0. } else { bytes as f64 * (1e12 / picos) };
+    // Stop at pebibyte because `f64` cannot represent exibyte exactly.
+    pub const BINARY_SCALES: &Scales = &[
+        1024., // KiB
+        1024u64.pow(2) as f64,
+        1024u64.pow(3) as f64,
+        1024u64.pow(4) as f64,
+        1024u64.pow(5) as f64, // PiB
+    ];
 
-    let (scale, suffix) = if bytes_per_sec.is_infinite() || bytes_per_sec < scale::KIB {
-        (1., "B/s")
-    } else if bytes_per_sec < scale::MIB {
-        (scale::KIB, "KiB/s")
-    } else if bytes_per_sec < scale::GIB {
-        (scale::MIB, "MiB/s")
-    } else if bytes_per_sec < scale::TIB {
-        (scale::GIB, "GiB/s")
-    } else if bytes_per_sec < scale::PIB {
-        (scale::TIB, "TiB/s")
-    } else {
-        (scale::PIB, "PiB/s")
-    };
+    pub const BYTES_BINARY_SUFFIXES: &Suffixes =
+        &["B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s", "PiB/s"];
 
-    (bytes_per_sec / scale, suffix)
-}
+    pub const BYTES_DECIMAL_SUFFIXES: &Suffixes = &["B/s", "KB/s", "MB/s", "GB/s", "TB/s", "PB/s"];
 
-/// Returns bytes per second at the appropriate decimal scale along with the
-/// scale's suffix.
-fn bytes_throughput_decimal(bytes: MaxCountUInt, picos: f64) -> (f64, &'static str) {
-    let bytes_per_sec = if bytes == 0 { 0. } else { bytes as f64 * (1e12 / picos) };
+    pub const CHARS_SUFFIXES: &Suffixes =
+        &["char/s", "Kchar/s", "Mchar/s", "Gchar/s", "Tchar/s", "Pchar/s"];
 
-    let (scale, suffix) = if bytes_per_sec.is_infinite() || bytes_per_sec < scale::K {
-        (1., "B/s")
-    } else if bytes_per_sec < scale::M {
-        (scale::K, "KB/s")
-    } else if bytes_per_sec < scale::G {
-        (scale::M, "MB/s")
-    } else if bytes_per_sec < scale::T {
-        (scale::G, "GB/s")
-    } else if bytes_per_sec < scale::P {
-        (scale::T, "TB/s")
-    } else {
-        (scale::P, "PB/s")
-    };
-
-    (bytes_per_sec / scale, suffix)
-}
-
-/// Returns `char`s per second at the appropriate scale along with the scale's
-/// suffix.
-fn chars_throughput(chars: MaxCountUInt, picos: f64) -> (f64, &'static str) {
-    let chars_per_sec = if chars == 0 { 0. } else { chars as f64 * (1e12 / picos) };
-
-    let (scale, suffix) = if chars_per_sec.is_infinite() || chars_per_sec < scale::K {
-        (1., "char/s")
-    } else if chars_per_sec < scale::M {
-        (scale::K, "Kchar/s")
-    } else if chars_per_sec < scale::G {
-        (scale::M, "Mchar/s")
-    } else if chars_per_sec < scale::T {
-        (scale::G, "Gchar/s")
-    } else if chars_per_sec < scale::P {
-        (scale::T, "Tchar/s")
-    } else {
-        (scale::P, "Pchar/s")
-    };
-
-    (chars_per_sec / scale, suffix)
-}
-
-/// Returns items per second at the appropriate scale along with the scale's
-/// suffix.
-fn items_throughput(items: MaxCountUInt, picos: f64) -> (f64, &'static str) {
-    let items_per_sec = if items == 0 { 0. } else { items as f64 * (1e12 / picos) };
-
-    let (scale, suffix) = if items_per_sec.is_infinite() || items_per_sec < scale::K {
-        (1., "item/s")
-    } else if items_per_sec < scale::M {
-        (scale::K, "Kitem/s")
-    } else if items_per_sec < scale::G {
-        (scale::M, "Mitem/s")
-    } else if items_per_sec < scale::T {
-        (scale::G, "Gitem/s")
-    } else if items_per_sec < scale::P {
-        (scale::T, "Titem/s")
-    } else {
-        (scale::P, "Pitem/s")
-    };
-
-    (items_per_sec / scale, suffix)
+    pub const ITEMS_SUFFIXES: &Suffixes =
+        &["item/s", "Kitem/s", "Mitem/s", "Gitem/s", "Titem/s", "Pitem/s"];
 }
 
 #[cfg(test)]
