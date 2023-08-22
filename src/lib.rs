@@ -1,5 +1,6 @@
 //! [bench_attr]: macro@bench
 //! [bench_attr_examples]: macro@bench#examples
+//! [bench_attr_threads]: macro@bench#threads
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![allow(unused_unsafe, clippy::needless_doctest_main)]
@@ -15,6 +16,7 @@ mod compile_fail;
 mod config;
 mod divan;
 mod entry;
+mod miri;
 mod stats;
 mod time;
 mod tree_painter;
@@ -81,7 +83,7 @@ pub fn main() {
 ///     let src = (0..100).collect::<Vec<i32>>();
 ///     let mut dst = vec![0; src.len()];
 ///
-///     bencher.bench(move || {
+///     bencher.bench_local(move || {
 ///         black_box(&mut dst).copy_from_slice(black_box(&src));
 ///     });
 /// }
@@ -158,6 +160,7 @@ pub fn main() {
 /// - [`types`]
 /// - [`sample_count`]
 /// - [`sample_size`]
+/// - [`threads`]
 /// - [`counters`]
 /// - [`min_time`]
 /// - [`max_time`]
@@ -320,6 +323,11 @@ pub fn main() {
 /// }
 /// ```
 ///
+/// If the [`threads`] option is enabled, sample count becomes a multiple of the
+/// number of threads. This is because each thread operates over the same sample
+/// size to ensure there are always N competing threads doing the same amount of
+/// work.
+///
 /// ## `sample_size`
 /// [`sample_size`]: #sample_size
 ///
@@ -333,6 +341,55 @@ pub fn main() {
 /// fn add() -> i32 {
 ///     // ...
 ///     # 0
+/// }
+/// ```
+///
+/// ## `threads`
+/// [`threads`]: #threads
+///
+/// Benchmarked functions can be run across multiple threads via the [`threads`]
+/// option. This enables you to measure contention on [atomics and
+/// locks][std::sync]. The default thread count is the [available parallelism].
+///
+/// ```
+/// use std::sync::Arc;
+///
+/// #[divan::bench(threads)]
+/// fn arc_clone(bencher: divan::Bencher) {
+///     let arc = Arc::new(42);
+///
+///     bencher.bench(|| arc.clone());
+/// }
+/// ```
+///
+/// The [`threads`] option can be set to any of:
+/// - [`bool`] for [available parallelism] (true) or no parallelism.
+/// - [`usize`] for a specific number of threads. 0 means use [available
+///   parallelism] and 1 means no parallelism.
+/// - [`IntoIterator`] over [`usize`] for multiple thread counts, such as:
+///     - [`Range<usize>`](std::ops::Range)
+///     - [`[usize; N]`](prim@array)
+///     - [`&[usize]`](prim@slice)
+///
+/// ```
+/// #[divan::bench(threads = false)]
+/// fn single() {
+///     // ...
+/// }
+///
+/// #[divan::bench(threads = 10)]
+/// fn specific() {
+///     // ...
+/// }
+///
+/// #[divan::bench(threads = 0..=8)]
+/// fn range() {
+///     // Note: Includes 0 for available parallelism.
+/// }
+///
+/// #[divan::bench(threads = [0, 1, 4, 8, 16])]
+/// fn selection() {
+///     // ...
 /// }
 /// ```
 ///
@@ -377,7 +434,7 @@ pub fn main() {
 /// }
 /// ```
 ///
-/// See also:
+/// See:
 /// - [`#[divan::bench_group(counters = ...)]`](macro@bench_group#counters)
 /// - [`Bencher::counter`]
 /// - [`Bencher::input_counter`]
@@ -546,6 +603,7 @@ pub fn main() {
 /// ```
 ///
 /// [`Duration`]: std::time::Duration
+/// [available parallelism]: std::thread::available_parallelism
 pub use divan_macros::bench;
 
 /// Registers a benchmarking group.
@@ -632,6 +690,7 @@ pub use divan_macros::bench;
 /// - [`crate`]
 /// - [`sample_count`]
 /// - [`sample_size`]
+/// - [`threads`]
 /// - [`counters`]
 /// - [`min_time`]
 /// - [`max_time`]
@@ -694,6 +753,11 @@ pub use divan_macros::bench;
 /// }
 /// ```
 ///
+/// If the [`threads`] option is enabled, sample count becomes a multiple of the
+/// number of threads. This is because each thread operates over the same sample
+/// size to ensure there are always N competing threads doing the same amount of
+/// work.
+///
 /// ## `sample_size`
 /// [`sample_size`]: #sample_size
 ///
@@ -712,6 +776,11 @@ pub use divan_macros::bench;
 ///     }
 /// }
 /// ```
+///
+/// ## `threads`
+/// [`threads`]: #threads
+///
+/// See [`#[divan::bench(threads = ...)]`](macro@bench#threads).
 ///
 /// ## `counters`
 /// [`counters`]: #counters
@@ -780,7 +849,7 @@ pub use divan_macros::bench;
 /// # fn main() {}
 /// ```
 ///
-/// See also:
+/// See:
 /// - [`#[divan::bench(counters = ...)]`](macro@bench#counters)
 /// - [`Bencher::counter`]
 /// - [`Bencher::input_counter`]

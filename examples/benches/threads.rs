@@ -1,15 +1,150 @@
 use std::{
     cell::UnsafeCell,
-    sync::atomic::{AtomicUsize, Ordering::Relaxed},
+    sync::{
+        atomic::{AtomicUsize, Ordering::Relaxed},
+        Arc, Mutex, RwLock,
+    },
     thread::{Thread, ThreadId},
 };
+
+use divan::{black_box, Bencher};
 
 fn main() {
     divan::main();
 }
 
+// Available parallelism (0), baseline (1), and common CPU core counts.
+const THREADS: &[usize] = &[0, 1, 4, 16];
+
+#[divan::bench_group(threads = THREADS)]
+mod arc {
+    use super::*;
+
+    #[divan::bench]
+    fn clone(bencher: Bencher) {
+        let arc = Arc::new(42);
+        bencher.bench(|| arc.clone());
+    }
+
+    #[divan::bench]
+    fn drop(bencher: Bencher) {
+        let arc = Arc::new(42);
+        bencher.with_inputs(|| arc.clone()).bench_values(std::mem::drop);
+    }
+
+    #[divan::bench]
+    fn get_mut(bencher: Bencher) {
+        let arc = Arc::new(42);
+
+        bencher.with_inputs(|| arc.clone()).bench_refs(|arc| {
+            // Black box the branched value to ensure a branch gets emitted.
+            // This more closely simulates `Arc::get_mut` usage in practice.
+            if let Some(val) = Arc::get_mut(arc) {
+                _ = black_box(val);
+            }
+        });
+    }
+}
+
+#[divan::bench_group(threads = THREADS)]
+mod mutex {
+    use super::*;
+
+    mod lock {
+        use super::*;
+
+        #[divan::bench]
+        fn block() {
+            static M: Mutex<u64> = Mutex::new(0);
+            _ = black_box(M.lock());
+        }
+
+        #[divan::bench]
+        fn r#try() {
+            static M: Mutex<u64> = Mutex::new(0);
+            _ = black_box(M.try_lock());
+        }
+    }
+
+    mod set {
+        use super::*;
+
+        #[divan::bench]
+        fn block() {
+            static M: Mutex<u64> = Mutex::new(0);
+            *black_box(M.lock().unwrap()) = black_box(42);
+        }
+
+        #[divan::bench]
+        fn r#try() {
+            static M: Mutex<u64> = Mutex::new(0);
+
+            if let Ok(lock) = M.try_lock() {
+                *black_box(lock) = black_box(42);
+            }
+        }
+    }
+}
+
+#[divan::bench_group(threads = THREADS)]
+mod rw_lock {
+    use super::*;
+
+    mod read {
+        use super::*;
+
+        #[divan::bench]
+        fn block() {
+            static L: RwLock<u64> = RwLock::new(0);
+            _ = black_box(L.read());
+        }
+
+        #[divan::bench]
+        fn r#try() {
+            static L: RwLock<u64> = RwLock::new(0);
+            _ = black_box(L.try_read());
+        }
+    }
+
+    mod write {
+        use super::*;
+
+        #[divan::bench]
+        fn block() {
+            static L: RwLock<u64> = RwLock::new(0);
+            _ = black_box(L.write());
+        }
+
+        #[divan::bench]
+        fn r#try() {
+            static L: RwLock<u64> = RwLock::new(0);
+            _ = black_box(L.try_write());
+        }
+    }
+
+    mod set {
+        use super::*;
+
+        #[divan::bench]
+        fn block() {
+            static L: RwLock<u64> = RwLock::new(0);
+            *black_box(L.write().unwrap()) = black_box(42);
+        }
+
+        #[divan::bench]
+        fn r#try() {
+            static L: RwLock<u64> = RwLock::new(0);
+
+            if let Ok(lock) = L.try_write() {
+                *black_box(lock) = black_box(42);
+            }
+        }
+    }
+}
+
 /// Benchmark getting an integer or pointer uniquely identifying the current
 /// thread or core.
+#[divan::bench_group(threads = THREADS)]
 mod thread_id {
     use super::*;
 

@@ -88,6 +88,13 @@ impl ops::Add for FineDuration {
     }
 }
 
+impl ops::AddAssign for FineDuration {
+    #[inline]
+    fn add_assign(&mut self, other: Self) {
+        self.picos += other.picos
+    }
+}
+
 impl<I: Into<u128>> ops::Div<I> for FineDuration {
     type Output = Self;
 
@@ -103,6 +110,28 @@ impl FineDuration {
     #[inline]
     pub fn is_zero(&self) -> bool {
         self.picos == 0
+    }
+
+    /// Round up to `other` if `self` is zero.
+    #[inline]
+    pub fn clamp_to(self, other: Self) -> Self {
+        if self.is_zero() {
+            other
+        } else {
+            self
+        }
+    }
+
+    /// Returns the smaller non-zero value.
+    #[inline]
+    pub fn clamp_to_min(self, other: Self) -> Self {
+        if self.is_zero() {
+            other
+        } else if other.is_zero() {
+            self
+        } else {
+            self.min(other)
+        }
     }
 }
 
@@ -198,6 +227,68 @@ impl TimeScale {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clamp_to() {
+        #[track_caller]
+        fn test(a: u128, b: u128, expected: u128) {
+            assert_eq!(
+                FineDuration { picos: a }.clamp_to(FineDuration { picos: b }),
+                FineDuration { picos: expected }
+            );
+        }
+
+        test(0, 0, 0);
+        test(0, 1, 1);
+        test(0, 2, 2);
+        test(0, 3, 3);
+
+        test(1, 0, 1);
+        test(1, 1, 1);
+        test(1, 2, 1);
+        test(1, 3, 1);
+
+        test(2, 0, 2);
+        test(2, 1, 2);
+        test(2, 2, 2);
+        test(2, 3, 2);
+
+        test(3, 0, 3);
+        test(3, 1, 3);
+        test(3, 2, 3);
+        test(3, 3, 3);
+    }
+
+    #[test]
+    fn clamp_to_min() {
+        #[track_caller]
+        fn test(a: u128, b: u128, expected: u128) {
+            assert_eq!(
+                FineDuration { picos: a }.clamp_to_min(FineDuration { picos: b }),
+                FineDuration { picos: expected }
+            );
+        }
+
+        test(0, 0, 0);
+        test(0, 1, 1);
+        test(0, 2, 2);
+        test(0, 3, 3);
+
+        test(1, 0, 1);
+        test(1, 1, 1);
+        test(1, 2, 1);
+        test(1, 3, 1);
+
+        test(2, 0, 2);
+        test(2, 1, 1);
+        test(2, 2, 2);
+        test(2, 3, 2);
+
+        test(3, 0, 3);
+        test(3, 1, 1);
+        test(3, 2, 2);
+        test(3, 3, 3);
+    }
 
     #[allow(clippy::zero_prefixed_literal)]
     mod fmt {

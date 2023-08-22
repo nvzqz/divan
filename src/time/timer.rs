@@ -155,11 +155,7 @@ impl Timer {
             let mut sample = end.duration_since(start, self);
             sample.picos /= sample_size as u128;
 
-            if min_sample.is_zero() {
-                min_sample = sample;
-            } else if !sample.is_zero() {
-                min_sample = min_sample.min(sample);
-            }
+            min_sample = min_sample.clamp_to_min(sample);
         }
 
         min_sample

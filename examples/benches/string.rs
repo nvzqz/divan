@@ -47,7 +47,7 @@ fn clear<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(String::clear);
+        .bench_local_refs(String::clear);
 }
 
 #[divan::bench(
@@ -60,7 +60,7 @@ fn drop<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_values(std::mem::drop);
+        .bench_local_values(std::mem::drop);
 }
 
 #[divan::bench(
@@ -73,7 +73,7 @@ fn validate_utf8<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(|s| {
+        .bench_local_refs(|s| {
             let bytes = black_box(s.as_bytes());
             _ = black_box(std::str::from_utf8(bytes));
         });
@@ -89,7 +89,7 @@ fn char_count<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(|s| s.chars().count());
+        .bench_local_refs(|s| s.chars().count());
 }
 
 #[divan::bench(
@@ -102,7 +102,7 @@ fn make_ascii_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(|s| s.make_ascii_lowercase());
+        .bench_local_refs(|s| s.make_ascii_lowercase());
 }
 
 #[divan::bench(
@@ -115,7 +115,7 @@ fn make_ascii_uppercase<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(|s| s.make_ascii_uppercase());
+        .bench_local_refs(|s| s.make_ascii_uppercase());
 }
 
 #[divan::bench(
@@ -128,7 +128,7 @@ fn to_ascii_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(|s| s.to_ascii_lowercase());
+        .bench_local_refs(|s| s.to_ascii_lowercase());
 }
 
 #[divan::bench(
@@ -141,7 +141,7 @@ fn to_ascii_uppercase<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(|s| s.to_ascii_uppercase());
+        .bench_local_refs(|s| s.to_ascii_uppercase());
 }
 
 #[divan::bench(
@@ -154,7 +154,7 @@ fn to_lowercase<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(|s| s.to_lowercase());
+        .bench_local_refs(|s| s.to_lowercase());
 }
 
 #[divan::bench(
@@ -167,5 +167,5 @@ fn to_uppercase<G: GenString, const N: usize>(bencher: Bencher) {
         .counter(Chars::new(N))
         .with_inputs(|| gen.gen_string(N))
         .input_counter(Bytes::of_str)
-        .bench_refs(|s| s.to_uppercase());
+        .bench_local_refs(|s| s.to_uppercase());
 }

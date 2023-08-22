@@ -7,7 +7,7 @@ mod tsc;
 pub(crate) use tsc::*;
 
 /// A measurement timestamp.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Timestamp {
     /// Time provided by the operating system.
     Os(Instant),

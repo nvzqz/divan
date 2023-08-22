@@ -13,7 +13,7 @@ struct KnownCounterInfo {
 
     /// `BencherConfig::with_inputs` can only be called once, so the input type
     /// cannot change.
-    count_input: Option<Box</* unsafe */ dyn FnMut(*const ()) -> MaxCountUInt>>,
+    count_input: Option<Box</* unsafe */ dyn Fn(*const ()) -> MaxCountUInt + Sync>>,
 }
 
 impl CounterCollection {
@@ -58,9 +58,9 @@ impl CounterCollection {
     }
 
     /// Set the input-based count generator function for a counter.
-    pub(crate) fn set_input_counter<I, C, F>(&mut self, mut make_counter: F)
+    pub(crate) fn set_input_counter<I, C, F>(&mut self, make_counter: F)
     where
-        F: FnMut(&I) -> C + 'static,
+        F: Fn(&I) -> C + Sync + 'static,
         C: IntoCounter,
     {
         let info = self.info_mut(KnownCounterKind::of::<C::Counter>());
@@ -84,11 +84,11 @@ impl CounterCollection {
     ///
     /// The `I` type must be the same as that used by `set_input_counter`.
     pub(crate) unsafe fn get_input_count<I>(
-        &mut self,
+        &self,
         counter_kind: KnownCounterKind,
         input: &I,
     ) -> Option<MaxCountUInt> {
-        let from_input = self.info_mut(counter_kind).count_input.as_mut()?;
+        let from_input = self.info(counter_kind).count_input.as_ref()?;
 
         // SAFETY: The caller ensures that this is called on the same input type
         // used for calling `set_input_counter`.

@@ -1,4 +1,4 @@
-use std::{fmt, time::Duration};
+use std::{fmt, num::NonZeroUsize, time::Duration};
 
 use clap::ColorChoice;
 use regex::Regex;
@@ -39,6 +39,9 @@ pub(crate) struct SharedContext {
     ///
     /// `min_time` and `max_time` do not consider this as benchmarking time.
     pub bench_overhead: FineDuration,
+
+    /// [`std::mem::available_parallelism`].
+    pub available_parallelism: NonZeroUsize,
 }
 
 impl fmt::Debug for Divan {
@@ -161,6 +164,15 @@ impl Divan {
             } else {
                 FineDuration::default()
             },
+            available_parallelism: match std::thread::available_parallelism() {
+                Ok(n) => n,
+                Err(error) => {
+                    eprintln!(
+                        "warning: Could not get available thread parallelism ({error}), defaulting to OS"
+                    );
+                    NonZeroUsize::MIN
+                }
+            },
         };
 
         let column_widths = if action.is_bench() {
@@ -255,29 +267,68 @@ impl Divan {
             return;
         }
 
-        tree_painter.start_leaf(display_name, is_last);
-
+        // Paint empty leaf when simply listing.
         if action.is_list() {
+            tree_painter.start_leaf(display_name, is_last);
             tree_painter.finish_empty_leaf();
             return;
         }
 
-        let mut bench_context = BenchContext::new(shared_context, options);
-        bench_entry.bench(Bencher::new(&mut bench_context));
+        // TODO: Add threads options to `Divan`.
+        let mut thread_counts: Vec<NonZeroUsize> = entry_options
+            .and_then(|options| options.threads)
+            .unwrap_or_default()
+            .iter()
+            .map(|&n| match NonZeroUsize::new(n) {
+                Some(n) => n,
+                None => shared_context.available_parallelism,
+            })
+            .collect();
 
-        let should_compute_stats = bench_context.did_run && shared_context.action.is_bench();
+        thread_counts.sort_unstable();
+        thread_counts.dedup();
 
-        if !bench_context.did_run {
-            eprintln!("warning: No benchmark function registered for '{display_name}'");
+        let thread_counts: &[NonZeroUsize] =
+            if thread_counts.is_empty() { &[NonZeroUsize::MIN] } else { &thread_counts };
+
+        // Whether we should emit child branches for thread counts.
+        let has_thread_branches = thread_counts.len() > 1;
+
+        if has_thread_branches {
+            tree_painter.start_parent(display_name, is_last);
+        } else {
+            tree_painter.start_leaf(display_name, is_last);
         }
 
-        if !should_compute_stats {
-            tree_painter.finish_empty_leaf();
-            return;
+        for (i, &thread_count) in thread_counts.iter().enumerate() {
+            let is_last = if has_thread_branches { i == thread_counts.len() - 1 } else { is_last };
+
+            if has_thread_branches {
+                tree_painter.start_leaf(&format!("t={thread_count}"), is_last);
+            }
+
+            let mut bench_context = BenchContext::new(shared_context, options, thread_count);
+            bench_entry.bench(Bencher::new(&mut bench_context));
+
+            let should_compute_stats = bench_context.did_run && shared_context.action.is_bench();
+
+            if !bench_context.did_run {
+                eprintln!("warning: No benchmark function registered for '{display_name}'");
+            }
+
+            if !should_compute_stats {
+                tree_painter.finish_empty_leaf();
+                continue;
+            }
+
+            let stats = bench_context.compute_stats();
+
+            tree_painter.finish_leaf(is_last, &stats, self.bytes_format);
         }
 
-        let stats = bench_context.compute_stats();
-        tree_painter.finish_leaf(is_last, &stats, self.bytes_format);
+        if has_thread_branches {
+            tree_painter.finish_parent();
+        }
     }
 }
 
@@ -521,6 +572,11 @@ impl Divan {
     /// Sets the number of sampling iterations.
     ///
     /// This option is equivalent to the `--sample-count` CLI argument.
+    ///
+    /// If a benchmark enables [`threads`](macro@crate::bench#threads), sample
+    /// count becomes a multiple of the number of threads. This is because each
+    /// thread operates over the same sample size to ensure there are always N
+    /// competing threads doing the same amount of work.
     #[inline]
     pub fn sample_count(mut self, count: u32) -> Self {
         self.bench_options.sample_count = Some(count);

@@ -15,7 +15,7 @@ use crate::counter::Counter;
 ///     # Vec::new();
 ///     bencher
 ///         .counter(values.len())
-///         .bench(|| {
+///         .bench_local(|| {
 ///             divan::black_box(&mut values).sort();
 ///         });
 /// }

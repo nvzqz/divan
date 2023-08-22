@@ -15,6 +15,14 @@ pub struct BenchOptions {
     /// The number of iterations inside a single sample.
     pub sample_size: Option<u32>,
 
+    /// The number of threads to benchmark the sample. This is 1 by default.
+    ///
+    /// If set to 0, this will use [`std::thread::available_parallelism`].
+    ///
+    /// We use `&'static [usize]` by leaking the input because `BenchOptions` is
+    /// cached on first retrieval.
+    pub threads: Option<&'static [usize]>,
+
     /// Counts the number of values processed each iteration of a benchmarked
     /// function.
     pub counters: CounterSet,
@@ -45,6 +53,7 @@ impl BenchOptions {
             // `Copy` values:
             sample_count: self.sample_count.or(other.sample_count),
             sample_size: self.sample_size.or(other.sample_size),
+            threads: self.threads.or(other.threads),
             min_time: self.min_time.or(other.min_time),
             max_time: self.max_time.or(other.max_time),
             skip_ext_time: self.skip_ext_time.or(other.skip_ext_time),

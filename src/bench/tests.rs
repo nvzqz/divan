@@ -1,7 +1,10 @@
 //! Tests every benchmarking loop combination in `Bencher`. When run under Miri,
 //! this catches memory leaks and UB in `unsafe` code.
 
-use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+use std::{
+    collections::HashSet,
+    sync::atomic::{AtomicUsize, Ordering::SeqCst},
+};
 
 use super::*;
 use crate::{
@@ -10,11 +13,28 @@ use crate::{
 };
 
 // We use a small number of runs because Miri is very slow.
-const SAMPLE_COUNT: u32 = 2;
+const SAMPLE_COUNT: u32 = 3;
+
 const SAMPLE_SIZE: u32 = 2;
+
+// Tests `SAMPLE_COUNT` by including it in the middle and having higher numbers
+// where `SAMPLE_COUNT % n != 0`.
+const THREAD_COUNTS: &[usize] = if cfg!(miri) {
+    // Speed up Miri tests while still catching UB/memory issues.
+    &[1, 2]
+} else {
+    // Exhaustively test expectations.
+    //
+    // Tests `SAMPLE_COUNT` by:
+    // - Including it in the middle
+    // - Having numbers where `SAMPLE_COUNT % n` varies
+    &[1, 2, 3, 4, 5, 6, 9]
+};
 
 #[track_caller]
 fn test_bencher(test: &mut dyn FnMut(Bencher)) {
+    let available_parallelism = thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
+
     let bench_options = BenchOptions {
         sample_count: Some(SAMPLE_COUNT),
         sample_size: Some(SAMPLE_SIZE),
@@ -23,19 +43,33 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
 
     for timer in Timer::available() {
         for action in [Action::Bench, Action::Test] {
-            let shared_context =
-                SharedContext { action, timer, bench_overhead: FineDuration::default() };
+            let shared_context = SharedContext {
+                action,
+                timer,
+                bench_overhead: FineDuration::default(),
+                available_parallelism,
+            };
 
-            let mut bench_context = BenchContext::new(&shared_context, &bench_options);
+            for &thread_count in THREAD_COUNTS {
+                let mut bench_context = BenchContext::new(
+                    &shared_context,
+                    &bench_options,
+                    NonZeroUsize::new(thread_count).unwrap(),
+                );
 
-            test(Bencher::new(&mut bench_context));
+                test(Bencher::new(&mut bench_context));
 
-            assert!(bench_context.did_run);
+                assert!(bench_context.did_run);
 
-            // '--test' should run the expected number of times but not allocate
-            // any samples.
-            if action.is_test() {
-                assert_eq!(bench_context.samples.all.capacity(), 0);
+                // '--test' should run the expected number of times but not
+                // allocate any samples.
+                if action.is_test() {
+                    assert_eq!(bench_context.samples.all.capacity(), 0);
+                }
+
+                if action.is_test() || thread_count == 1 {
+                    assert_eq!(bench_context.samples.threads.capacity(), 0);
+                }
             }
         }
     }
@@ -60,35 +94,64 @@ fn make_string() -> String {
 mod run_count {
     use super::*;
 
-    fn test(run_bench: fn(Bencher, &mut dyn FnMut())) {
+    fn test(run_bench: fn(Bencher, &(dyn Fn() + Sync))) {
         test_with_drop_counter(&AtomicUsize::new(usize::MAX), run_bench);
     }
 
-    fn test_with_drop_counter(drop_count: &AtomicUsize, run_bench: fn(Bencher, &mut dyn FnMut())) {
+    fn test_with_drop_counter(
+        drop_count: &AtomicUsize,
+        run_bench: fn(Bencher, &(dyn Fn() + Sync)),
+    ) {
         let test_drop_count = drop_count.load(SeqCst) != usize::MAX;
 
-        let mut bench_count: u32 = 0;
-        let mut test_count: u32 = 0;
+        let bench_count = AtomicUsize::new(0);
+        let test_count = AtomicUsize::new(0);
 
+        let mut thread_counts = HashSet::<u32>::new();
         let mut timer_os = false;
         let mut timer_tsc = false;
 
-        test_bencher(&mut |b| {
-            match b.context.shared_context.timer.kind() {
+        test_bencher(&mut |bencher| {
+            let context = &bencher.context;
+
+            let thread_count = context.thread_count.get();
+            thread_counts.insert(thread_count as u32);
+
+            match context.shared_context.timer.kind() {
                 TimerKind::Os => timer_os = true,
                 TimerKind::Tsc => timer_tsc = true,
             }
 
-            let is_test = b.context.shared_context.action.is_test();
+            let is_test = context.shared_context.action.is_test();
 
-            run_bench(b, &mut || {
-                if is_test {
-                    test_count += 1;
-                } else {
-                    bench_count += 1
-                }
+            let shared_run_count = if is_test { &test_count } else { &bench_count };
+            let start_run_count = shared_run_count.load(SeqCst);
+
+            run_bench(bencher, &|| {
+                shared_run_count.fetch_add(1, SeqCst);
             });
+
+            let end_run_count = shared_run_count.load(SeqCst);
+            let run_count = end_run_count - start_run_count;
+
+            if is_test {
+                assert_eq!(run_count, thread_count);
+            } else {
+                let expected_samples = match SAMPLE_COUNT as usize % thread_count {
+                    0 => SAMPLE_COUNT,
+                    rem => SAMPLE_COUNT + (thread_count - rem) as u32,
+                };
+
+                let expected_iters = (expected_samples * SAMPLE_SIZE) as usize;
+                assert_eq!(run_count, expected_iters);
+            }
         });
+
+        let thread_count = thread_counts.into_iter().sum::<u32>();
+
+        let timer_count = timer_os as u32 + timer_tsc as u32;
+        let bench_count = bench_count.into_inner() as u32;
+        let test_count = test_count.into_inner() as u32;
 
         let total_count = bench_count + test_count;
         assert_ne!(total_count, 0);
@@ -98,9 +161,7 @@ mod run_count {
             assert_eq!(drop_count.load(SeqCst), total_count as usize);
         }
 
-        let timer_count = timer_os as u32 + timer_tsc as u32;
-        assert_eq!(bench_count, timer_count * SAMPLE_COUNT * SAMPLE_SIZE);
-        assert_eq!(test_count, timer_count);
+        assert_eq!(test_count, timer_count * thread_count);
     }
 
     #[test]

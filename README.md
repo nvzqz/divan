@@ -63,6 +63,24 @@ cargo bench -p examples
 
 More thorough usage examples can be found in the [`#[divan::bench]` documentation][bench_attr_examples].
 
+## Multi-Threaded Benchmarks
+
+Benchmarks can be made multi-threaded via the
+[`threads` option][bench_attr_threads]. This enables you to measure contention
+on [atomics and locks][std_sync]. The default thread count is the [available
+parallelism].
+
+```rust
+use std::sync::Arc;
+
+#[divan::bench(threads)]
+fn arc_clone(bencher: divan::Bencher) {
+    let arc = Arc::new(42);
+
+    bencher.bench(|| arc.clone());
+}
+```
+
 ## License
 
 Like the Rust project, this library may be used under either the
@@ -71,6 +89,10 @@ Like the Rust project, this library may be used under either the
 
 [bench_attr]: https://docs.rs/divan/latest/divan/attr.bench.html
 [bench_attr_examples]: https://docs.rs/divan/latest/divan/attr.bench.html#examples
+[bench_attr_threads]: https://docs.rs/divan/latest/divan/attr.bench.html#threads
+
+[std_sync]: https://doc.rust-lang.org/std/sync/index.html
+[available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
 
 ## Footnotes
 

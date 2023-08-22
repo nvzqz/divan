@@ -2,15 +2,18 @@ use std::{
     cell::UnsafeCell,
     fmt,
     mem::{self, MaybeUninit},
+    num::NonZeroUsize,
+    sync::Barrier,
+    thread,
 };
 
 use crate::{
     black_box,
     counter::{AnyCounter, CounterCollection, IntoCounter, KnownCounterKind, MaxCountUInt},
     divan::SharedContext,
-    stats::{Sample, SampleCollection, Stats},
+    stats::{RawSample, Sample, SampleCollection, Stats, ThreadSample},
     time::{FineDuration, Timestamp, UntaggedTimestamp},
-    util,
+    util::{self, SyncWrap, Unit},
 };
 
 // Used for intra-doc links.
@@ -41,7 +44,7 @@ pub(crate) const DEFAULT_SAMPLE_COUNT: u32 = 100;
 ///     let src = (0..100).collect::<Vec<i32>>();
 ///     let mut dst = vec![0; src.len()];
 ///
-///     bencher.bench(|| {
+///     bencher.bench_local(|| {
 ///         black_box(&mut dst).copy_from_slice(black_box(&src));
 ///     });
 /// }
@@ -56,7 +59,7 @@ pub struct Bencher<'a, 'b, C = BencherConfig> {
 ///
 /// This enables configuring `Bencher` using the builder pattern with zero
 /// runtime cost.
-pub struct BencherConfig<GenI = ()> {
+pub struct BencherConfig<GenI = Unit> {
     gen_input: GenI,
 }
 
@@ -69,12 +72,16 @@ impl<C> fmt::Debug for Bencher<'_, '_, C> {
 impl<'a, 'b> Bencher<'a, 'b> {
     #[inline]
     pub(crate) fn new(context: &'a mut BenchContext<'b>) -> Self {
-        Self { context, config: BencherConfig { gen_input: () } }
+        Self { context, config: BencherConfig { gen_input: Unit } }
     }
 }
 
 impl<'a, 'b> Bencher<'a, 'b> {
     /// Benchmarks a function.
+    ///
+    /// The function can be benchmarked in parallel using the [`threads`
+    /// option](macro@crate::bench#threads). If the function is strictly
+    /// single-threaded, use [`Bencher::bench_local`] instead.
     ///
     /// # Examples
     ///
@@ -86,18 +93,43 @@ impl<'a, 'b> Bencher<'a, 'b> {
     ///     });
     /// }
     /// ```
-    pub fn bench<O, B>(self, mut benched: B)
+    pub fn bench<O, B>(self, benched: B)
     where
-        B: FnMut() -> O,
+        B: Fn() -> O + Sync,
     {
         // Reusing `bench_values` for a zero-sized non-drop input type should
         // have no overhead.
         self.with_inputs(|| ()).bench_values(|_: ()| benched());
     }
 
+    /// Benchmarks a function on the current thread.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     bencher.bench_local(|| {
+    ///         // Benchmarked code...
+    ///     });
+    /// }
+    /// ```
+    pub fn bench_local<O, B>(self, mut benched: B)
+    where
+        B: FnMut() -> O,
+    {
+        // Reusing `bench_local_values` for a zero-sized non-drop input type
+        // should have no overhead.
+        self.with_inputs(|| ()).bench_local_values(|_: ()| benched());
+    }
+
     /// Generate inputs for the [benchmarked function](#input-bench).
     ///
     /// Time spent generating inputs does not affect benchmark timing.
+    ///
+    /// When [benchmarking in parallel](macro@crate::bench#threads), the input
+    /// generator is called on the same thread as the sample loop that uses that
+    /// input.
     ///
     /// # Examples
     ///
@@ -115,10 +147,7 @@ impl<'a, 'b> Bencher<'a, 'b> {
     ///         });
     /// }
     /// ```
-    pub fn with_inputs<I, G>(self, gen_input: G) -> Bencher<'a, 'b, BencherConfig<G>>
-    where
-        G: FnMut() -> I,
-    {
+    pub fn with_inputs<G>(self, gen_input: G) -> Bencher<'a, 'b, BencherConfig<G>> {
         Bencher { context: self.context, config: BencherConfig { gen_input } }
     }
 }
@@ -179,6 +208,10 @@ where
     ///
     /// If the counter is constant, use [`Bencher::counter`] instead.
     ///
+    /// When [benchmarking in parallel](macro@crate::bench#threads), the input
+    /// counter is called on the same thread as the sample loop that generates
+    /// and uses that input.
+    ///
     /// # Examples
     ///
     /// The following example emits info for the number of bytes processed when
@@ -204,7 +237,7 @@ where
     /// ```
     pub fn input_counter<C, F>(self, make_counter: F) -> Self
     where
-        F: FnMut(&I) -> C + 'static,
+        F: Fn(&I) -> C + Sync + 'static,
         C: IntoCounter,
     {
         self.context.counters.set_input_counter(make_counter);
@@ -216,6 +249,10 @@ where
     ///
     /// Per-iteration means the benchmarked function is called exactly once for
     /// each generated input.
+    ///
+    /// The function can be benchmarked in parallel using the [`threads`
+    /// option](macro@crate::bench#threads). If the function is strictly
+    /// single-threaded, use [`Bencher::bench_local_values`] instead.
     ///
     /// # Examples
     ///
@@ -233,12 +270,54 @@ where
     ///         });
     /// }
     /// ```
-    pub fn bench_values<O, B>(self, mut benched: B)
+    pub fn bench_values<O, B>(self, benched: B)
+    where
+        B: Fn(I) -> O + Sync,
+        GenI: Fn() -> I + Sync,
+    {
+        self.context.bench_loop_threaded(
+            self.config.gen_input,
+            |input| {
+                // SAFETY: Input is guaranteed to be initialized and not
+                // currently referenced by anything else.
+                let input = unsafe { input.get().read().assume_init() };
+
+                benched(input)
+            },
+            // Input ownership is transferred to `benched`.
+            |_input| {},
+        );
+    }
+
+    /// Benchmarks a function over per-iteration [generated inputs](Self::with_inputs),
+    /// provided by-value.
+    ///
+    /// Per-iteration means the benchmarked function is called exactly once for
+    /// each generated input.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     let mut values = Vec::new();
+    ///     bencher
+    ///         .with_inputs(|| {
+    ///             // Generate input:
+    ///             String::from("...")
+    ///         })
+    ///         .bench_local_values(|s| {
+    ///             // Use input by-value:
+    ///             values.push(s);
+    ///         });
+    /// }
+    /// ```
+    pub fn bench_local_values<O, B>(self, mut benched: B)
     where
         B: FnMut(I) -> O,
     {
-        self.context.bench_loop(
-            self.config,
+        self.context.bench_loop_local(
+            self.config.gen_input,
             |input| {
                 // SAFETY: Input is guaranteed to be initialized and not
                 // currently referenced by anything else.
@@ -273,13 +352,59 @@ where
     ///         });
     /// }
     /// ```
-    pub fn bench_refs<O, B>(self, mut benched: B)
+    pub fn bench_refs<O, B>(self, benched: B)
+    where
+        B: Fn(&mut I) -> O + Sync,
+        GenI: Fn() -> I + Sync,
+    {
+        // TODO: Allow `O` to reference `&mut I` as long as `I` outlives `O`.
+        self.context.bench_loop_threaded(
+            self.config.gen_input,
+            |input| {
+                // SAFETY: Input is guaranteed to be initialized and not
+                // currently referenced by anything else.
+                let input = unsafe { (*input.get()).assume_init_mut() };
+
+                benched(input)
+            },
+            // Input ownership was not transferred to `benched`.
+            |input| {
+                // SAFETY: This function is called after `benched` outputs are
+                // dropped, so we have exclusive access.
+                unsafe { (*input.get()).assume_init_drop() }
+            },
+        );
+    }
+
+    /// Benchmarks a function over per-iteration [generated inputs](Self::with_inputs),
+    /// provided by-reference.
+    ///
+    /// Per-iteration means the benchmarked function is called exactly once for
+    /// each generated input.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[divan::bench]
+    /// fn bench(bencher: divan::Bencher) {
+    ///     bencher
+    ///         .with_inputs(|| {
+    ///             // Generate input:
+    ///             String::from("...")
+    ///         })
+    ///         .bench_local_refs(|s| {
+    ///             // Use input by-reference:
+    ///             *s += "123";
+    ///         });
+    /// }
+    /// ```
+    pub fn bench_local_refs<O, B>(self, mut benched: B)
     where
         B: FnMut(&mut I) -> O,
     {
         // TODO: Allow `O` to reference `&mut I` as long as `I` outlives `O`.
-        self.context.bench_loop(
-            self.config,
+        self.context.bench_loop_local(
+            self.config.gen_input,
             |input| {
                 // SAFETY: Input is guaranteed to be initialized and not
                 // currently referenced by anything else.
@@ -350,6 +475,12 @@ pub(crate) struct BenchContext<'a> {
     /// Whether the benchmark loop was started.
     pub did_run: bool,
 
+    /// The number of threads to run the benchmark. The default is 1.
+    ///
+    /// When set to 1, the benchmark loop is guaranteed to stay on the current
+    /// thread and not spawn any threads.
+    pub thread_count: NonZeroUsize,
+
     /// Recorded samples.
     samples: SampleCollection,
 
@@ -359,19 +490,55 @@ pub(crate) struct BenchContext<'a> {
 
 impl<'a> BenchContext<'a> {
     /// Creates a new benchmarking context.
-    pub fn new(shared_context: &'a SharedContext, options: &'a BenchOptions) -> Self {
+    pub fn new(
+        shared_context: &'a SharedContext,
+        options: &'a BenchOptions,
+        thread_count: NonZeroUsize,
+    ) -> Self {
         Self {
             shared_context,
             options,
+            thread_count,
             did_run: false,
             samples: SampleCollection::default(),
             counters: options.counters.to_collection(),
         }
     }
 
-    /// Runs the loop for benchmarking `benched`.
+    /// Runs the single-threaded loop for benchmarking `benched`.
     ///
     /// # Safety
+    ///
+    /// See `bench_loop_threaded`.
+    pub fn bench_loop_local<I, O>(
+        &mut self,
+        gen_input: impl FnMut() -> I,
+        benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
+        drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
+    ) {
+        // SAFETY: Closures are guaranteed to run on the current thread, so they
+        // can safely be mutable and non-`Sync`.
+        unsafe {
+            let gen_input = SyncWrap::new(UnsafeCell::new(gen_input));
+            let benched = SyncWrap::new(UnsafeCell::new(benched));
+            let drop_input = SyncWrap::new(drop_input);
+
+            self.thread_count = NonZeroUsize::MIN;
+            self.bench_loop_threaded::<I, O>(
+                || (*gen_input.get())(),
+                |input| (*benched.get())(input),
+                |input| drop_input(input),
+            )
+        }
+    }
+
+    /// Runs the multi-threaded loop for benchmarking `benched`.
+    ///
+    /// # Safety
+    ///
+    /// If `self.threads` is 1, the incoming closures will not escape the
+    /// current thread. This guarantee ensures `bench_loop_local` can soundly
+    /// reuse this method with mutable non-`Sync` closures.
     ///
     /// When `benched` is called:
     /// - `I` is guaranteed to be initialized.
@@ -381,16 +548,30 @@ impl<'a> BenchContext<'a> {
     /// - All instances of `O` returned from `benched` have been dropped.
     /// - The same guarantees for `I` apply as in `benched`, unless `benched`
     ///   escaped references to `I`.
-    pub fn bench_loop<I, O>(
+    fn bench_loop_threaded<I, O>(
         &mut self,
-        config: BencherConfig<impl FnMut() -> I>,
-        benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
-        drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
+        gen_input: impl Fn() -> I + Sync,
+        benched: impl Fn(&UnsafeCell<MaybeUninit<I>>) -> O + Sync,
+        drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>) + Sync,
     ) {
         self.did_run = true;
 
         let mut current_mode = self.initial_mode();
         let is_test = current_mode.is_test();
+
+        let record_sample = self.sample_recorder(gen_input, benched, drop_input);
+        let mut defer_store = DeferStore::default();
+
+        let thread_count = self.thread_count.get();
+        let aux_thread_count = thread_count - 1;
+
+        let is_single_thread = aux_thread_count == 0;
+        let is_multi_thread = !is_single_thread;
+
+        // Per-thread sample info returned by `record_sample`. These are
+        // processed locally to emit user-facing sample info. As a result, this
+        // only contains `thread_count` many elements at a time.
+        let mut raw_samples = Vec::<RawSample>::new();
 
         // The time spent benchmarking, in picoseconds.
         //
@@ -411,8 +592,6 @@ impl<'a> BenchContext<'a> {
 
         let timer = self.shared_context.timer;
         let timer_kind = timer.kind();
-
-        let mut record_sample = self.sample_recorder(config.gen_input, benched, drop_input);
 
         let mut rem_samples = if current_mode.is_collect() {
             Some(self.options.sample_count.unwrap_or(DEFAULT_SAMPLE_COUNT))
@@ -448,24 +627,79 @@ impl<'a> BenchContext<'a> {
             let sample_size = current_mode.sample_size();
             self.samples.sample_size = sample_size;
 
-            let mut sample_counter_totals: [u128; KnownCounterKind::COUNT] =
-                [0; KnownCounterKind::COUNT];
+            let barrier = if is_single_thread { None } else { Some(Barrier::new(thread_count)) };
 
-            // Updates per-input counter info for this sample.
-            let mut count_input = |input: &I| {
-                for counter_kind in KnownCounterKind::ALL {
-                    // SAFETY: The `I` type cannot change since `with_inputs`
-                    // cannot be called more than once on the same `Bencher`.
-                    if let Some(count) =
-                        unsafe { self.counters.get_input_count(counter_kind, input) }
-                    {
-                        let total = &mut sample_counter_totals[counter_kind as usize];
-                        *total = (*total).saturating_add(count as u128);
+            // Sample loop helper:
+            let record_sample = |defer_store: &mut DeferStore<I, O>| -> RawSample {
+                let mut counter_totals: [u128; KnownCounterKind::COUNT] =
+                    [0; KnownCounterKind::COUNT];
+
+                // Updates per-input counter info for this sample.
+                let mut count_input = |input: &I| {
+                    for counter_kind in KnownCounterKind::ALL {
+                        // SAFETY: The `I` type cannot change since `with_inputs`
+                        // cannot be called more than once on the same `Bencher`.
+                        if let Some(count) =
+                            unsafe { self.counters.get_input_count(counter_kind, input) }
+                        {
+                            let total = &mut counter_totals[counter_kind as usize];
+                            *total = (*total).saturating_add(count as u128);
+                        }
                     }
-                }
+                };
+
+                // Sample loop:
+                let [start, end] = record_sample(
+                    sample_size as usize,
+                    barrier.as_ref(),
+                    defer_store,
+                    &mut count_input,
+                );
+
+                RawSample { start, end, timer, counter_totals }
             };
 
-            let [sample_start, sample_end] = record_sample(sample_size as usize, &mut count_input);
+            // Sample loop:
+            raw_samples.clear();
+            if is_single_thread {
+                let sample = record_sample(&mut defer_store);
+                if !is_test {
+                    raw_samples.push(sample);
+                }
+            } else {
+                // TODO: Reuse auxiliary threads across samples.
+                thread::scope(|scope| {
+                    let thread_handles: Vec<_> = (0..aux_thread_count)
+                        .map(|_| scope.spawn(|| record_sample(&mut DeferStore::default())))
+                        .collect();
+
+                    let local_sample = record_sample(&mut defer_store);
+
+                    if !is_test {
+                        raw_samples.extend(
+                            thread_handles
+                                .into_iter()
+                                .map(|handle| {
+                                    // Propagate panics to behave the same as
+                                    // automatic joining.
+                                    handle
+                                        .join()
+                                        .unwrap_or_else(|error| std::panic::resume_unwind(error))
+                                })
+                                .chain(Some(local_sample)),
+                        );
+                    }
+                });
+            }
+
+            #[cfg(test)]
+            if is_test {
+                // '--test' should run the expected number of times but not
+                // allocate any samples.
+                assert_eq!(raw_samples.capacity(), 0);
+            } else {
+                assert_eq!(raw_samples.len(), thread_count);
+            }
 
             // If testing, exit the benchmarking loop immediately after timing a
             // single run.
@@ -473,15 +707,8 @@ impl<'a> BenchContext<'a> {
                 break;
             }
 
-            let mut raw_duration = sample_end.duration_since(sample_start, timer);
-
-            // Round up to timer precision if the duration is zero.
-            //
-            // This is deliberately done again later after subtracting
-            // `sample_overhead`.
-            if raw_duration.is_zero() {
-                raw_duration = timer_precision;
-            }
+            let slowest_sample = raw_samples.iter().max_by_key(|s| s.duration()).unwrap();
+            let slowest_time = slowest_sample.duration();
 
             // TODO: Make tuning be less influenced by early runs. Currently if
             // early runs are very quick but later runs are slow, benchmarking
@@ -496,7 +723,7 @@ impl<'a> BenchContext<'a> {
                 self.counters.clear_input_counts();
 
                 // If within 100x timer precision, continue tuning.
-                let precision_multiple = raw_duration.picos / timer_precision.picos;
+                let precision_multiple = slowest_time.picos / timer_precision.picos;
                 if precision_multiple <= 100 {
                     current_mode = BenchMode::Tune { sample_size: sample_size * 2 };
                 } else {
@@ -505,48 +732,64 @@ impl<'a> BenchContext<'a> {
                 }
             }
 
-            // Account for the per-sample benchmarking overhead.
-            let mut adjusted_duration = {
-                let sample_overhead =
+            // Account the sample duration for the per-sample benchmarking
+            // overhead.
+            let sub_sample_overhead = {
+                let overhead =
                     self.shared_context.bench_overhead.picos.saturating_mul(sample_size as u128);
 
-                FineDuration { picos: raw_duration.picos.saturating_sub(sample_overhead) }
+                move |d: FineDuration| {
+                    FineDuration {
+                        picos: d.clamp_to(timer_precision).picos.saturating_sub(overhead),
+                    }
+                    .clamp_to(timer_precision)
+                }
             };
 
-            // Round up to timer precision if the duration is zero. We do this a
-            // second time in case subtracting `sample_overhead` caused the
-            // duration to become zero.
-            if adjusted_duration.is_zero() {
-                adjusted_duration = timer_precision;
+            if is_multi_thread {
+                // The total wall clock time spent over the current
+                // multi-threaded sample set.
+                let total_wall_time = {
+                    let first_start = raw_samples.iter().map(|s| s.start).min().unwrap();
+                    let last_end = raw_samples.iter().map(|s| s.end).max().unwrap();
+                    sub_sample_overhead(last_end.duration_since(first_start, timer))
+                };
+
+                self.samples.threads.push(ThreadSample { total_wall_time });
             }
 
-            self.samples.all.push(Sample { duration: adjusted_duration });
+            for raw_sample in &raw_samples {
+                self.samples
+                    .all
+                    .push(Sample { duration: sub_sample_overhead(raw_sample.duration()) });
 
-            // Insert per-input counter information.
-            for counter_kind in KnownCounterKind::ALL {
-                if !self.counters.uses_input_counts(counter_kind) {
-                    continue;
+                // Insert per-input counter information.
+                for counter_kind in KnownCounterKind::ALL {
+                    if !self.counters.uses_input_counts(counter_kind) {
+                        continue;
+                    }
+
+                    let total_count = raw_sample.counter_totals[counter_kind as usize];
+
+                    // Cannot overflow `MaxCountUInt` because `total_count`
+                    // cannot exceed `MaxCountUInt::MAX * sample_size`.
+                    let per_iter_count = (total_count / sample_size as u128) as MaxCountUInt;
+
+                    self.counters.push_counter(AnyCounter::known(counter_kind, per_iter_count));
                 }
 
-                let total_count = sample_counter_totals[counter_kind as usize];
-
-                // This will not overflow `MaxCountUInt` because `total_count`
-                // cannot exceed `MaxCountUInt::MAX * sample_size`.
-                let per_iter_count = (total_count / sample_size as u128) as MaxCountUInt;
-
-                self.counters.push_counter(AnyCounter::known(counter_kind, per_iter_count));
-            }
-
-            if let Some(rem_samples) = &mut rem_samples {
-                *rem_samples = rem_samples.saturating_sub(1);
+                if let Some(rem_samples) = &mut rem_samples {
+                    *rem_samples = rem_samples.saturating_sub(1);
+                }
             }
 
             if let Some(initial_start) = initial_start {
-                elapsed_picos = sample_end.duration_since(initial_start, timer).picos;
+                let last_end = raw_samples.iter().map(|s| s.end).max().unwrap();
+                elapsed_picos = last_end.duration_since(initial_start, timer).picos;
             } else {
                 // Progress by at least 1ns to prevent extremely fast
                 // functions from taking forever when `min_time` is set.
-                let progress_picos = raw_duration.picos.max(1_000);
+                let progress_picos = slowest_time.picos.max(1_000);
                 elapsed_picos = elapsed_picos.saturating_add(progress_picos);
             }
         }
@@ -556,21 +799,34 @@ impl<'a> BenchContext<'a> {
     /// returns a newly recorded sample.
     fn sample_recorder<I, O>(
         &self,
-        mut gen_input: impl FnMut() -> I,
-        mut benched: impl FnMut(&UnsafeCell<MaybeUninit<I>>) -> O,
+        gen_input: impl Fn() -> I,
+        benched: impl Fn(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
-    ) -> impl FnMut(usize, &mut dyn FnMut(&I)) -> [Timestamp; 2] {
-        // Defer:
+    ) -> impl Fn(usize, Option<&Barrier>, &mut DeferStore<I, O>, &mut dyn FnMut(&I)) -> [Timestamp; 2]
+    {
+        // We defer:
         // - Usage of `gen_input` values.
         // - Drop destructor for `O`, preventing it from affecting sample
         //   measurements. Outputs are stored into a pre-allocated buffer during
         //   the sample loop. The allocation is reused between samples to reduce
         //   time spent between samples.
-        let mut defer_store: DeferStore<I, O> = DeferStore::default();
 
         let timer_kind = self.shared_context.timer.kind();
 
-        move |sample_size: usize, count_input: &mut dyn FnMut(&I)| {
+        move |sample_size: usize,
+              barrier: Option<&Barrier>,
+              defer_store: &mut DeferStore<I, O>,
+              count_input: &mut dyn FnMut(&I)| {
+            // Ensures:
+            // - All threads start the timed section simultaneously.
+            // - Work external to the timed section does not affect the timing
+            //   of other threads.
+            let sync_threads = || {
+                if let Some(barrier) = barrier {
+                    barrier.wait();
+                }
+            };
+
             // The following logic chooses how to efficiently sample the
             // benchmark function once and assigns `sample_start`/`sample_end`
             // before/after the sample loop.
@@ -598,6 +854,7 @@ impl<'a> BenchContext<'a> {
                     mem::forget(input);
                 }
 
+                sync_threads();
                 sample_start = UntaggedTimestamp::start(timer_kind);
 
                 // Sample loop:
@@ -610,6 +867,7 @@ impl<'a> BenchContext<'a> {
                 }
 
                 sample_end = UntaggedTimestamp::end(timer_kind);
+                sync_threads();
 
                 // Drop outputs and inputs.
                 for _ in 0..sample_size {
@@ -645,6 +903,7 @@ impl<'a> BenchContext<'a> {
                         // reduce benchmarking overhead.
                         let defer_slots_iter = black_box(defer_slots_slice.iter());
 
+                        sync_threads();
                         sample_start = UntaggedTimestamp::start(timer_kind);
 
                         // Sample loop:
@@ -669,6 +928,7 @@ impl<'a> BenchContext<'a> {
                         }
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
+                        sync_threads();
 
                         // Drop outputs and inputs.
                         for DeferSlot { input, output } in defer_slots_slice {
@@ -698,6 +958,7 @@ impl<'a> BenchContext<'a> {
                         // reduce benchmarking overhead.
                         let defer_inputs_iter = black_box(defer_inputs_slice.iter());
 
+                        sync_threads();
                         sample_start = UntaggedTimestamp::start(timer_kind);
 
                         // Sample loop:
@@ -708,6 +969,7 @@ impl<'a> BenchContext<'a> {
                         }
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
+                        sync_threads();
 
                         // Drop inputs.
                         if mem::needs_drop::<I>() {

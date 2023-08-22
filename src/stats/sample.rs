@@ -1,9 +1,47 @@
-use crate::time::FineDuration;
+use crate::{
+    counter::KnownCounterKind,
+    time::{FineDuration, Timer, Timestamp},
+};
 
-/// Measurement datum.
+/// Processed measurement.
 pub(crate) struct Sample {
     /// The time this sample took to run.
+    ///
+    /// This is gotten from [`RawSample`] with:
+    /// `end.duration_since(start, timer).clamp_to(timer.precision())`.
     pub duration: FineDuration,
+}
+
+/// Unprocessed measurement.
+///
+/// This cannot be serialized because [`Timestamp`] is an implementation detail
+/// for both the `Instant` and TSC timers.
+pub(crate) struct RawSample {
+    pub start: Timestamp,
+    pub end: Timestamp,
+    pub timer: Timer,
+    pub counter_totals: [u128; KnownCounterKind::COUNT],
+}
+
+/// Multi-thread measurement.
+pub(crate) struct ThreadSample {
+    /// The total wall clock time spent over the collected samples.
+    ///
+    /// This is the earliest [`RawSample::start`] subtracted from the latest
+    /// [`RawSample::end`] across all threads for the multi-thread sample set.
+    /// In other words, it is the time spent between the timing section
+    /// barriers.
+    // TODO: Report counter throughput.
+    #[allow(dead_code)]
+    pub total_wall_time: FineDuration,
+}
+
+impl RawSample {
+    /// Simply computes `end - start` without clamping to precision.
+    #[inline]
+    pub fn duration(&self) -> FineDuration {
+        self.end.duration_since(self.start, self.timer)
+    }
 }
 
 /// [`Sample`] collection.
@@ -14,6 +52,12 @@ pub(crate) struct SampleCollection {
 
     /// Collected samples.
     pub all: Vec<Sample>,
+
+    /// Collected multi-thread data.
+    ///
+    /// To associate this with samples in `all`, stride over `all` with the
+    /// thread count.
+    pub threads: Vec<ThreadSample>,
 }
 
 impl SampleCollection {

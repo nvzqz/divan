@@ -179,6 +179,13 @@ impl AttrOptions {
         &self,
         ignore_attr_ident: Option<&syn::Path>,
     ) -> proc_macro2::TokenStream {
+        fn is_lit_array(expr: &Expr) -> bool {
+            let Expr::Array(expr) = expr else {
+                return false;
+            };
+            expr.elems.iter().all(|elem| matches!(elem, Expr::Lit { .. }))
+        }
+
         let private_mod = &self.private_mod;
 
         // Directly set fields on `BenchOptions`. This simplifies things by:
@@ -199,6 +206,20 @@ impl AttrOptions {
 
                 let wrapped_value: proc_macro2::TokenStream;
                 let value: &dyn ToTokens = match option_name {
+                    // If the option is a collection, be polymorphic over
+                    // `FromIterator` and leak the result as `&'static [T]`
+                    // since it's cached on first retrieval anyways.
+                    "threads" => {
+                        wrapped_value = if is_lit_array(value) {
+                            // If array of literals, just use `&[...]`.
+                            quote! { &#value }
+                        } else {
+                            quote! { #private_mod::IntoThreads::into_threads(#value) }
+                        };
+
+                        &wrapped_value
+                    }
+
                     // If the option is a `Duration`, use `IntoDuration` to be
                     // polymorphic over `Duration` or `u64`/`f64` seconds.
                     "min_time" | "max_time" => {

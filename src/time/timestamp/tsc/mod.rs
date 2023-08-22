@@ -11,7 +11,7 @@ mod arch;
 mod arch;
 
 /// [CPU timestamp counter](https://en.wikipedia.org/wiki/Time_Stamp_Counter).
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub(crate) struct TscTimestamp {
     pub value: u64,
