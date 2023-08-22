@@ -1,10 +1,7 @@
 //! Tests every benchmarking loop combination in `Bencher`. When run under Miri,
 //! this catches memory leaks and UB in `unsafe` code.
 
-use std::{
-    cell::{Cell, RefCell},
-    sync::atomic::{AtomicUsize, Ordering::SeqCst},
-};
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 use super::*;
 use crate::{
@@ -63,10 +60,6 @@ fn make_string() -> String {
 mod run_count {
     use super::*;
 
-    /// A `Bencher` configured to run code before/after the sample.
-    type Bencher<'a, 'b> =
-        crate::Bencher<'a, 'b, BencherConfig<(), &'a mut dyn FnMut(), &'a mut dyn FnMut()>>;
-
     fn test(run_bench: fn(Bencher, &mut dyn FnMut())) {
         test_with_drop_counter(&AtomicUsize::new(usize::MAX), run_bench);
     }
@@ -88,59 +81,13 @@ mod run_count {
 
             let is_test = b.context.shared_context.action.is_test();
 
-            // Set to `true` in the sample and reset in `after_sample`.
-            let ran_sample = Cell::new(false);
-
-            let expected_sample_count = if is_test { 1 } else { SAMPLE_COUNT };
-            let before_sample_count = RefCell::new(0);
-            let after_sample_count = RefCell::new(0);
-
-            let before_sample: &mut dyn FnMut() = &mut || {
-                // Ensure `before_sample` run order.
-                assert!(!ran_sample.get());
-
-                let before_sample_count = &mut *before_sample_count.borrow_mut();
-                let after_sample_count = &mut *after_sample_count.borrow_mut();
-
-                assert_eq!(
-                    before_sample_count, after_sample_count,
-                    "unbalanced before/after counts"
-                );
-                *before_sample_count += 1;
-            };
-
-            let after_sample: &mut dyn FnMut() = &mut || {
-                // Ensure `after_sample` run order and then reset the flag.
-                assert!(ran_sample.get());
-                ran_sample.set(false);
-
-                let before_sample_count = &mut *before_sample_count.borrow_mut();
-                let after_sample_count = &mut *after_sample_count.borrow_mut();
-
-                *after_sample_count += 1;
-                assert_eq!(
-                    before_sample_count, after_sample_count,
-                    "unbalanced before/after counts"
-                );
-            };
-
-            run_bench(b.before_sample(before_sample).after_sample(after_sample), &mut || {
-                // Indicate that the sampled code ran.
-                ran_sample.set(true);
-
+            run_bench(b, &mut || {
                 if is_test {
                     test_count += 1;
                 } else {
                     bench_count += 1
                 }
             });
-
-            let before_sample_count = before_sample_count.into_inner();
-            let after_sample_count = after_sample_count.into_inner();
-
-            // Ensure correct before/after sample closures run counts.
-            assert_eq!(before_sample_count, expected_sample_count);
-            assert_eq!(before_sample_count, after_sample_count);
         });
 
         let total_count = bench_count + test_count;
