@@ -130,6 +130,7 @@ impl fmt::Display for DisplayThroughput<'_> {
         let sig_figs = f.precision().unwrap_or(4);
 
         let mut str = util::format_f64(val, sig_figs);
+        str.push(' ');
         str.push_str(suffix);
 
         // Fill up to specified width.
@@ -168,17 +169,17 @@ fn bytes_throughput_binary(bytes: MaxCountUInt, picos: f64) -> (f64, &'static st
     let bytes_per_sec = if bytes == 0 { 0. } else { bytes as f64 * (1e12 / picos) };
 
     let (scale, suffix) = if bytes_per_sec.is_infinite() || bytes_per_sec < scale::KIB {
-        (1., " B/s")
+        (1., "B/s")
     } else if bytes_per_sec < scale::MIB {
-        (scale::KIB, " KiB/s")
+        (scale::KIB, "KiB/s")
     } else if bytes_per_sec < scale::GIB {
-        (scale::MIB, " MiB/s")
+        (scale::MIB, "MiB/s")
     } else if bytes_per_sec < scale::TIB {
-        (scale::GIB, " GiB/s")
+        (scale::GIB, "GiB/s")
     } else if bytes_per_sec < scale::PIB {
-        (scale::TIB, " TiB/s")
+        (scale::TIB, "TiB/s")
     } else {
-        (scale::PIB, " PiB/s")
+        (scale::PIB, "PiB/s")
     };
 
     (bytes_per_sec / scale, suffix)
@@ -190,17 +191,17 @@ fn bytes_throughput_decimal(bytes: MaxCountUInt, picos: f64) -> (f64, &'static s
     let bytes_per_sec = if bytes == 0 { 0. } else { bytes as f64 * (1e12 / picos) };
 
     let (scale, suffix) = if bytes_per_sec.is_infinite() || bytes_per_sec < scale::K {
-        (1., " B/s")
+        (1., "B/s")
     } else if bytes_per_sec < scale::M {
-        (scale::K, " KB/s")
+        (scale::K, "KB/s")
     } else if bytes_per_sec < scale::G {
-        (scale::M, " MB/s")
+        (scale::M, "MB/s")
     } else if bytes_per_sec < scale::T {
-        (scale::G, " GB/s")
+        (scale::G, "GB/s")
     } else if bytes_per_sec < scale::P {
-        (scale::T, " TB/s")
+        (scale::T, "TB/s")
     } else {
-        (scale::P, " PB/s")
+        (scale::P, "PB/s")
     };
 
     (bytes_per_sec / scale, suffix)
@@ -212,17 +213,17 @@ fn chars_throughput(chars: MaxCountUInt, picos: f64) -> (f64, &'static str) {
     let chars_per_sec = if chars == 0 { 0. } else { chars as f64 * (1e12 / picos) };
 
     let (scale, suffix) = if chars_per_sec.is_infinite() || chars_per_sec < scale::K {
-        (1., " char/s")
+        (1., "char/s")
     } else if chars_per_sec < scale::M {
-        (scale::K, " Kchar/s")
+        (scale::K, "Kchar/s")
     } else if chars_per_sec < scale::G {
-        (scale::M, " Mchar/s")
+        (scale::M, "Mchar/s")
     } else if chars_per_sec < scale::T {
-        (scale::G, " Gchar/s")
+        (scale::G, "Gchar/s")
     } else if chars_per_sec < scale::P {
-        (scale::T, " Tchar/s")
+        (scale::T, "Tchar/s")
     } else {
-        (scale::P, " Pchar/s")
+        (scale::P, "Pchar/s")
     };
 
     (chars_per_sec / scale, suffix)
@@ -234,17 +235,17 @@ fn items_throughput(items: MaxCountUInt, picos: f64) -> (f64, &'static str) {
     let items_per_sec = if items == 0 { 0. } else { items as f64 * (1e12 / picos) };
 
     let (scale, suffix) = if items_per_sec.is_infinite() || items_per_sec < scale::K {
-        (1., " item/s")
+        (1., "item/s")
     } else if items_per_sec < scale::M {
-        (scale::K, " Kitem/s")
+        (scale::K, "Kitem/s")
     } else if items_per_sec < scale::G {
-        (scale::M, " Mitem/s")
+        (scale::M, "Mitem/s")
     } else if items_per_sec < scale::T {
-        (scale::G, " Gitem/s")
+        (scale::G, "Gitem/s")
     } else if items_per_sec < scale::P {
-        (scale::T, " Titem/s")
+        (scale::T, "Titem/s")
     } else {
-        (scale::P, " Pitem/s")
+        (scale::P, "Pitem/s")
     };
 
     (items_per_sec / scale, suffix)
