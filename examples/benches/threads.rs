@@ -93,8 +93,23 @@ mod thread_id {
     // https://www.gnu.org/software/hurd/gnumach-doc/Thread-Information.html
     #[cfg(target_os = "macos")]
     #[divan::bench]
-    fn mach_thread_self() -> libc::thread_t {
-        unsafe { libc::mach_thread_self() }
+    fn mach_thread_self() -> impl Drop {
+        struct Thread(libc::thread_t);
+
+        impl Drop for Thread {
+            fn drop(&mut self) {
+                extern "C" {
+                    fn mach_port_deallocate(
+                        task: libc::mach_port_t,
+                        name: libc::mach_port_t,
+                    ) -> libc::kern_return_t;
+                }
+
+                unsafe { mach_port_deallocate(libc::mach_task_self(), self.0) };
+            }
+        }
+
+        Thread(unsafe { libc::mach_thread_self() })
     }
 
     // https://man7.org/linux/man-pages/man2/gettid.2.html
