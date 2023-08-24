@@ -52,9 +52,9 @@ pub(crate) fn command() -> Command {
             option("bytes-format")
                 .env("DIVAN_BYTES_FORMAT")
                 .help("Set the numerical base for bytes in output")
-                .value_name("binary|decimal")
+                .value_name("decimal|binary")
                 .value_parser(value_parser!(crate::counter::PrivBytesFormat))
-                .default_value("binary"),
+                .default_value("decimal"),
         )
         .arg(
             option("skip")

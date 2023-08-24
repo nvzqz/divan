@@ -155,12 +155,12 @@ impl Items {
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum BytesFormat {
-    /// Powers of 1024, starting with KiB (kibibyte). This is the default.
+    /// Powers of 1000, starting with KB (kilobyte). This is the default.
     #[default]
-    Binary,
-
-    /// Powers of 1000, starting with KB (kilobyte).
     Decimal,
+
+    /// Powers of 1024, starting with KiB (kibibyte).
+    Binary,
 }
 
 /// Private `BytesFormat` that prevents leaking trait implementations we don't
@@ -170,13 +170,13 @@ pub(crate) struct PrivBytesFormat(pub BytesFormat);
 
 impl clap::ValueEnum for PrivBytesFormat {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self(BytesFormat::Binary), Self(BytesFormat::Decimal)]
+        &[Self(BytesFormat::Decimal), Self(BytesFormat::Binary)]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
         let name = match self.0 {
-            BytesFormat::Binary => "binary",
             BytesFormat::Decimal => "decimal",
+            BytesFormat::Binary => "binary",
         };
         Some(clap::builder::PossibleValue::new(name))
     }
