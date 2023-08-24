@@ -64,6 +64,10 @@ impl TreePainter {
             let buf_len = buf.chars().count();
             let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
             buf.extend(repeat(' ').take(pad_len));
+
+            if buf_len > max_span {
+                self.max_name_span = buf_len;
+            }
         }
 
         // Write column headings.
@@ -122,6 +126,10 @@ impl TreePainter {
             let buf_len = buf.chars().count();
             let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
             buf.extend(repeat(' ').take(pad_len));
+
+            if buf_len > max_span {
+                self.max_name_span = buf_len;
+            }
         }
 
         if has_columns {
@@ -151,6 +159,10 @@ impl TreePainter {
             let buf_len = buf.chars().count();
             let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
             buf.extend(repeat(' ').take(pad_len));
+
+            if buf_len > max_span {
+                self.max_name_span = buf_len;
+            }
         }
 
         print!("{buf}");
@@ -232,11 +244,16 @@ impl TreePainter {
             }
 
             // Right-pad buffer.
-            let pad_len = {
+            {
                 let buf_len = buf.chars().count();
-                TREE_COL_BUF + self.max_name_span.saturating_sub(buf_len)
+                let max_span = self.max_name_span;
+                let pad_len = TREE_COL_BUF + self.max_name_span.saturating_sub(buf_len);
+                buf.extend(repeat(' ').take(pad_len));
+
+                if buf_len > max_span {
+                    self.max_name_span = buf_len;
+                }
             };
-            buf.extend(repeat(' ').take(pad_len));
 
             counter_stats.write(buf, &mut self.column_widths);
             println!("{buf}");
