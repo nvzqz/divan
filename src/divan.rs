@@ -21,7 +21,7 @@ pub struct Divan {
     sorting_attr: SortingAttr,
     color: ColorChoice,
     bytes_format: BytesFormat,
-    filter: Option<Filter>,
+    filters: Vec<Filter>,
     skip_filters: Vec<Filter>,
     run_ignored: RunIgnored,
     bench_options: BenchOptions,
@@ -79,10 +79,10 @@ impl Divan {
     /// This does not take into account `entry.ignored` because that is handled
     /// separately.
     fn filter(&self, entry_path: &str) -> bool {
-        if let Some(filter) = &self.filter {
-            if !filter.is_match(entry_path) {
-                return false;
-            }
+        if !self.filters.is_empty()
+            && !self.filters.iter().any(|filter| filter.is_match(entry_path))
+        {
+            return false;
         }
 
         !self.skip_filters.iter().any(|filter| filter.is_match(entry_path))
@@ -303,7 +303,7 @@ impl Divan {
         let matches = command.get_matches_mut();
         let is_exact = matches.get_flag("exact");
 
-        let mut parse_filter = |filter: &str| {
+        let mut parse_filter = |filter: &String| {
             if is_exact {
                 Filter::Exact(filter.to_owned())
             } else {
@@ -317,12 +317,12 @@ impl Divan {
             }
         };
 
-        if let Some(filter) = matches.get_one::<String>("filter") {
-            self.filter = Some(parse_filter(filter));
+        if let Some(filters) = matches.get_many::<String>("filter") {
+            self.filters.extend(filters.map(&mut parse_filter));
         }
 
         if let Some(skip_filters) = matches.get_many::<String>("skip") {
-            self.skip_filters.extend(skip_filters.map(|skip_filter| parse_filter(skip_filter)));
+            self.skip_filters.extend(skip_filters.map(&mut parse_filter));
         }
 
         self.action = if matches.get_flag("list") {

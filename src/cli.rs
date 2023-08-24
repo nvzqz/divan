@@ -32,7 +32,8 @@ pub(crate) fn command() -> Command {
         .arg(
             Arg::new("filter")
                 .value_name("FILTER")
-                .help("Only run benchmarks whose names match this pattern"),
+                .help("Only run benchmarks whose names match this pattern")
+                .action(ArgAction::Append),
         )
         .arg(
             flag("test")
