@@ -9,10 +9,33 @@ fn main() {
     divan::main();
 }
 
+// Available parallelism (0), baseline (1), and common CPU core counts.
+const THREADS: &[usize] = &[0, 1, 4, 16];
+
 #[divan::bench]
 #[track_caller]
 fn caller_location() -> &'static panic::Location<'static> {
     panic::Location::caller()
+}
+
+#[divan::bench_group(threads = THREADS)]
+mod hook {
+    use super::*;
+
+    #[divan::bench]
+    fn set() {
+        panic::set_hook(Box::new(|_| {}));
+    }
+
+    #[divan::bench]
+    fn take() -> impl Drop {
+        panic::take_hook()
+    }
+
+    #[divan::bench]
+    fn take_and_drop() {
+        _ = black_box(panic::take_hook());
+    }
 }
 
 mod catch_unwind {
