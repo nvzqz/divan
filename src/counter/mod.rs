@@ -3,8 +3,8 @@
 //! # Examples
 //!
 //! The following example measures throughput of converting
-//! [`&[i32]`](prim@slice) into [`Vec<i32>`](Vec) by providing [`BytesCount`] via
-//! [`Bencher::counter`](crate::Bencher::counter):
+//! [`&[i32]`](prim@slice) into [`Vec<i32>`](Vec) by providing [`BytesCount`]
+//! via [`Bencher::counter`](crate::Bencher::counter):
 //!
 //! ```
 //! use divan::counter::BytesCount;
