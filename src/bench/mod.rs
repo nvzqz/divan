@@ -18,7 +18,7 @@ use crate::{
 
 // Used for intra-doc links.
 #[allow(unused)]
-use crate::counter::Bytes;
+use crate::counter::BytesCount;
 
 #[cfg(test)]
 mod tests;
@@ -169,7 +169,7 @@ impl<'a, 'b, GenI> Bencher<'a, 'b, BencherConfig<GenI>> {
     /// # Examples
     ///
     /// ```
-    /// use divan::{Bencher, counter::Bytes};
+    /// use divan::{Bencher, counter::BytesCount};
     ///
     /// #[divan::bench]
     /// fn char_count(bencher: Bencher) {
@@ -177,7 +177,7 @@ impl<'a, 'b, GenI> Bencher<'a, 'b, BencherConfig<GenI>> {
     ///     # String::new();
     ///
     ///     bencher
-    ///         .counter(Bytes::of_str(&s))
+    ///         .counter(BytesCount::of_str(&s))
     ///         .bench(|| {
     ///             divan::black_box(&s).chars().count()
     ///         });
@@ -216,11 +216,11 @@ where
     ///
     /// The following example emits info for the number of bytes processed when
     /// benchmarking [`char`-counting](std::str::Chars::count). The byte count
-    /// is gotten by calling [`Bytes::of_str`] on each iteration's input
+    /// is gotten by calling [`BytesCount::of_str`] on each iteration's input
     /// [`String`].
     ///
     /// ```
-    /// use divan::{Bencher, counter::Bytes};
+    /// use divan::{Bencher, counter::BytesCount};
     ///
     /// #[divan::bench]
     /// fn char_count(bencher: Bencher) {
@@ -229,7 +229,7 @@ where
     ///             // ...
     ///             # String::new()
     ///         })
-    ///         .input_counter(Bytes::of_str)
+    ///         .input_counter(BytesCount::of_str)
     ///         .bench_refs(|s| {
     ///             s.chars().count()
     ///         });

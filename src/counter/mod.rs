@@ -3,11 +3,11 @@
 //! # Examples
 //!
 //! The following example measures throughput of converting
-//! [`&[i32]`](prim@slice) into [`Vec<i32>`](Vec) by providing [`Bytes`] via
+//! [`&[i32]`](prim@slice) into [`Vec<i32>`](Vec) by providing [`BytesCount`] via
 //! [`Bencher::counter`](crate::Bencher::counter):
 //!
 //! ```
-//! use divan::counter::Bytes;
+//! use divan::counter::BytesCount;
 //!
 //! #[divan::bench]
 //! fn slice_into_vec(bencher: divan::Bencher) {
@@ -15,7 +15,7 @@
 //!         // ...
 //!     ];
 //!
-//!     let bytes = Bytes::of_slice(ints);
+//!     let bytes = BytesCount::of_slice(ints);
 //!
 //!     bencher
 //!         .counter(bytes)
@@ -54,7 +54,7 @@ pub trait Counter: Sized + Any + Sealed {}
 
 /// Process N bytes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Bytes {
+pub struct BytesCount {
     count: MaxCountUInt,
 }
 
@@ -64,25 +64,25 @@ pub struct Bytes {
 /// implementations, since the number of code points is a common baseline
 /// reference.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Chars {
+pub struct CharsCount {
     count: MaxCountUInt,
 }
 
 /// Process N items.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Items {
+pub struct ItemsCount {
     count: MaxCountUInt,
 }
 
-impl Sealed for Bytes {}
-impl Sealed for Chars {}
-impl Sealed for Items {}
+impl Sealed for BytesCount {}
+impl Sealed for CharsCount {}
+impl Sealed for ItemsCount {}
 
-impl Counter for Bytes {}
-impl Counter for Chars {}
-impl Counter for Items {}
+impl Counter for BytesCount {}
+impl Counter for CharsCount {}
+impl Counter for ItemsCount {}
 
-impl Bytes {
+impl BytesCount {
     /// Count N bytes.
     #[inline]
     pub fn new<N: CountUInt>(count: N) -> Self {
@@ -106,7 +106,7 @@ impl Bytes {
 
     /// Counts the bytes of a [`&str`].
     ///
-    /// This is like [`Bytes::of_val`] with the convenience of behaving as
+    /// This is like [`BytesCount::of_val`] with the convenience of behaving as
     /// expected for [`&String`](String) and other types that convert to
     /// [`&str`].
     ///
@@ -118,7 +118,7 @@ impl Bytes {
 
     /// Counts the bytes of a [slice](prim@slice).
     ///
-    /// This is like [`Bytes::of_val`] with the convenience of behaving as
+    /// This is like [`BytesCount::of_val`] with the convenience of behaving as
     /// expected for [`&Vec<T>`](Vec) and other types that convert to
     /// [`&[T]`](prim@slice).
     #[inline]
@@ -127,7 +127,7 @@ impl Bytes {
     }
 }
 
-impl Chars {
+impl CharsCount {
     /// Count N [`char`s](char).
     #[inline]
     pub fn new<N: CountUInt>(count: N) -> Self {
@@ -141,7 +141,7 @@ impl Chars {
     }
 }
 
-impl Items {
+impl ItemsCount {
     /// Count N items.
     #[inline]
     pub fn new<N: CountUInt>(count: N) -> Self {
@@ -149,7 +149,7 @@ impl Items {
     }
 }
 
-/// The numerical base for [`Bytes`] in benchmark outputs.
+/// The numerical base for [`BytesCount`] in benchmark outputs.
 ///
 /// See [`Divan::bytes_format`](crate::Divan::bytes_format) for more info.
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]

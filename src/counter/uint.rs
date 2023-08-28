@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use crate::counter::{IntoCounter, Items};
+use crate::counter::{IntoCounter, ItemsCount};
 
 /// The largest unsigned integer usable by counters provided by this crate.
 ///
@@ -29,11 +29,11 @@ macro_rules! impl_uint {
         })+
 
         $(impl IntoCounter for $i {
-            type Counter = Items;
+            type Counter = ItemsCount;
 
             #[inline]
-            fn into_counter(self) -> Items {
-                Items::new(self)
+            fn into_counter(self) -> ItemsCount {
+                ItemsCount::new(self)
             }
         })+
     };

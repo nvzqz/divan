@@ -1,7 +1,7 @@
 use std::{any::TypeId, fmt};
 
 use crate::{
-    counter::{Bytes, BytesFormat, Chars, IntoCounter, Items, MaxCountUInt},
+    counter::{BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt},
     time::FineDuration,
     util,
 };
@@ -21,11 +21,11 @@ impl AnyCounter {
     pub(crate) fn new<C: IntoCounter>(counter: C) -> Self {
         let counter = counter.into_counter();
 
-        if let Some(bytes) = util::cast_ref::<Bytes>(&counter) {
+        if let Some(bytes) = util::cast_ref::<BytesCount>(&counter) {
             Self::bytes(bytes.count)
-        } else if let Some(chars) = util::cast_ref::<Chars>(&counter) {
+        } else if let Some(chars) = util::cast_ref::<CharsCount>(&counter) {
             Self::chars(chars.count)
-        } else if let Some(items) = util::cast_ref::<Items>(&counter) {
+        } else if let Some(items) = util::cast_ref::<ItemsCount>(&counter) {
             Self::items(items.count)
         } else {
             unreachable!()
@@ -90,11 +90,11 @@ impl KnownCounterKind {
     #[inline]
     pub fn of<C: IntoCounter>() -> Self {
         let id = TypeId::of::<C::Counter>();
-        if id == TypeId::of::<Bytes>() {
+        if id == TypeId::of::<BytesCount>() {
             Self::Bytes
-        } else if id == TypeId::of::<Chars>() {
+        } else if id == TypeId::of::<CharsCount>() {
             Self::Chars
-        } else if id == TypeId::of::<Items>() {
+        } else if id == TypeId::of::<ItemsCount>() {
             Self::Items
         } else {
             unreachable!()

@@ -4,8 +4,8 @@ use crate::counter::Counter;
 ///
 /// # Examples
 ///
-/// This trait is implemented for unsigned integers over the
-/// [`Items`](crate::counter::Items) counter:
+/// This trait is implemented for unsigned integers over
+/// [`ItemsCount`](crate::counter::ItemsCount):
 ///
 /// ```
 /// #[divan::bench]

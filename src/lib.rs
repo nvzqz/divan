@@ -401,15 +401,15 @@ pub fn main() {
 /// bytes and number of ints processed when benchmarking [slice sorting](slice::sort):
 ///
 /// ```
-/// use divan::{Bencher, counter::{Bytes, Items}};
+/// use divan::{Bencher, counter::{BytesCount, ItemsCount}};
 ///
 /// const INTS: &[i32] = &[
 ///     // ...
 /// ];
 ///
 /// #[divan::bench(counters = [
-///     Bytes::of_slice(INTS),
-///     Items::new(INTS.len()),
+///     BytesCount::of_slice(INTS),
+///     ItemsCount::new(INTS.len()),
 /// ])]
 /// fn sort(bencher: Bencher) {
 ///     bencher
@@ -424,11 +424,11 @@ pub fn main() {
 /// [`char`-counting](std::str::Chars::count):
 ///
 /// ```
-/// use divan::counter::Bytes;
+/// use divan::counter::BytesCount;
 ///
 /// const STR: &str = "...";
 ///
-/// #[divan::bench(counter = Bytes::of_str(STR))]
+/// #[divan::bench(counter = BytesCount::of_str(STR))]
 /// fn char_count() -> usize {
 ///     divan::black_box(STR).chars().count()
 /// }
@@ -791,15 +791,15 @@ pub use divan_macros::bench;
 /// benchmarking [slice sorting](slice::sort):
 ///
 /// ```
-/// use divan::{Bencher, counter::{Bytes, Items}};
+/// use divan::{Bencher, counter::{BytesCount, ItemsCount}};
 ///
 /// const INTS: &[i32] = &[
 ///     // ...
 /// ];
 ///
 /// #[divan::bench_group(counters = [
-///     Bytes::of_slice(INTS),
-///     Items::new(INTS.len()),
+///     BytesCount::of_slice(INTS),
+///     ItemsCount::new(INTS.len()),
 /// ])]
 /// mod sort {
 ///     use super::*;
@@ -828,11 +828,11 @@ pub use divan_macros::bench;
 /// [`char`-collecting](std::str::Chars::collect):
 ///
 /// ```
-/// use divan::counter::Bytes;
+/// use divan::counter::BytesCount;
 ///
 /// const STR: &str = "...";
 ///
-/// #[divan::bench_group(counter = Bytes::of_str(STR))]
+/// #[divan::bench_group(counter = BytesCount::of_str(STR))]
 /// mod chars {
 ///     use super::STR;
 ///

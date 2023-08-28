@@ -452,8 +452,8 @@ impl Divan {
         self
     }
 
-    /// Determines how [`Bytes`](crate::counter::Bytes) is scaled in benchmark
-    /// outputs.
+    /// Determines how [`BytesCount`](crate::counter::BytesCount) is scaled in
+    /// benchmark outputs.
     ///
     /// This option is equivalent to the `--bytes-format` CLI argument.
     #[inline]
