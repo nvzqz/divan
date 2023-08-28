@@ -156,6 +156,15 @@ impl ItemsCount {
     pub fn new<N: CountUInt>(count: N) -> Self {
         Self { count: count.into_max_uint() }
     }
+
+    /// Counts [`Iterator::Item`s](Iterator::Item).
+    #[inline]
+    pub fn of_iter<T, I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        Self::new(iter.into_iter().count())
+    }
 }
 
 /// The numerical base for [`BytesCount`] in benchmark outputs.
