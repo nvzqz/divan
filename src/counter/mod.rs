@@ -25,7 +25,7 @@
 //! }
 //! ```
 
-use std::any::Any;
+use std::{any::Any, mem};
 
 mod any_counter;
 mod collection;
@@ -93,7 +93,7 @@ impl BytesCount {
     #[inline]
     #[doc(alias = "size_of")]
     pub const fn of<T>() -> Self {
-        Self { count: std::mem::size_of::<T>() as MaxCountUInt }
+        Self { count: mem::size_of::<T>() as MaxCountUInt }
     }
 
     /// Counts the size of a value with [`std::mem::size_of_val`].
@@ -101,7 +101,16 @@ impl BytesCount {
     #[doc(alias = "size_of_val")]
     pub fn of_val<T: ?Sized>(val: &T) -> Self {
         // TODO: Make const, https://github.com/rust-lang/rust/issues/46571
-        Self { count: std::mem::size_of_val(val) as MaxCountUInt }
+        Self { count: mem::size_of_val(val) as MaxCountUInt }
+    }
+
+    /// Counts the bytes of [`Iterator::Item`s](Iterator::Item).
+    #[inline]
+    pub fn of_iter<T, I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        Self::new(mem::size_of::<T>() * iter.into_iter().count())
     }
 
     /// Counts the bytes of a [`&str`].
@@ -179,5 +188,19 @@ impl clap::ValueEnum for PrivBytesFormat {
             BytesFormat::Binary => "binary",
         };
         Some(clap::builder::PossibleValue::new(name))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod bytes_count {
+        use super::*;
+
+        #[test]
+        fn of_iter() {
+            assert_eq!(BytesCount::of_iter::<i32, _>([1, 2, 3]), BytesCount::of_slice(&[1, 2, 3]));
+        }
     }
 }
