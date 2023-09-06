@@ -58,7 +58,7 @@ directory. These can be benchmarked locally by running:
 git clone https://github.com/nvzqz/divan.git
 cd divan
 
-cargo bench -p examples
+cargo bench -q -p examples --all-features
 ```
 
 More thorough usage examples can be found in the [`#[divan::bench]` documentation][bench_attr_examples].
