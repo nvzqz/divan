@@ -286,7 +286,7 @@ mod thread_id {
     // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDRRO-EL0--EL0-Read-Only-Software-Thread-ID-Register?lang=en
     #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
     #[divan::bench]
-    fn cpu() -> usize {
+    fn asm() -> usize {
         unsafe {
             let result: usize;
             std::arch::asm!(
@@ -301,7 +301,7 @@ mod thread_id {
     // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDR-EL0--EL0-Read-Write-Software-Thread-ID-Register?lang=en
     #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
     #[divan::bench]
-    fn cpu() -> usize {
+    fn asm() -> usize {
         unsafe {
             let result: usize;
             std::arch::asm!(
