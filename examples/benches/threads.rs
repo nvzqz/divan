@@ -223,6 +223,16 @@ mod thread_id {
                 tid
             }
         }
+
+        #[cfg(target_os = "macos")]
+        #[divan::bench]
+        fn cpu_number_np() -> usize {
+            unsafe {
+                let mut cpu = 0;
+                libc::pthread_cpu_number_np(&mut cpu);
+                cpu
+            }
+        }
     }
 
     // https://www.gnu.org/software/hurd/gnumach-doc/Thread-Information.html
