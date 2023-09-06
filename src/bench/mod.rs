@@ -719,7 +719,7 @@ impl<'a> BenchContext<'a> {
             // `Bencher::bench_refs(String::clear)` take a very long time.
             if current_mode.is_tune() {
                 // Clear previous smaller samples.
-                self.samples.all.clear();
+                self.samples.clear();
                 self.counters.clear_input_counts();
 
                 // If within 100x timer precision, continue tuning.

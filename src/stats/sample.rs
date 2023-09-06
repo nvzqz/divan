@@ -61,6 +61,13 @@ pub(crate) struct SampleCollection {
 }
 
 impl SampleCollection {
+    /// Discards all recorded data.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.all.clear();
+        self.threads.clear();
+    }
+
     /// Computes the total number of iterations across all samples.
     ///
     /// We use `u64` in case sample count and sizes are huge.

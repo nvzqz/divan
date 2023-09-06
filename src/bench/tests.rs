@@ -61,14 +61,24 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
 
                 assert!(bench_context.did_run);
 
+                let samples = &bench_context.samples;
+
                 // '--test' should run the expected number of times but not
                 // allocate any samples.
                 if action.is_test() {
-                    assert_eq!(bench_context.samples.all.capacity(), 0);
+                    assert_eq!(samples.all.capacity(), 0);
                 }
 
                 if action.is_test() || thread_count == 1 {
-                    assert_eq!(bench_context.samples.threads.capacity(), 0);
+                    assert_eq!(samples.threads.capacity(), 0);
+                }
+
+                if thread_count > 1 {
+                    assert_eq!(
+                        samples.threads.len() * thread_count,
+                        samples.all.len(),
+                        "Thread sample count must be a multiple of total sample count"
+                    );
                 }
             }
         }
