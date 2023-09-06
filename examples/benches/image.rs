@@ -19,7 +19,7 @@ fn copy_from(bencher: Bencher) {
 
     bencher
         .counter(BytesCount::of_slice(&*src))
-        .bench(|| black_box(&mut dst).copy_from(black_box(&src), 0, 0));
+        .bench_local(|| black_box(&mut dst).copy_from(black_box(&src), 0, 0));
 }
 
 /// Baseline for `copy_from`.
@@ -30,5 +30,5 @@ fn memcpy(bencher: Bencher) {
 
     bencher
         .counter(BytesCount::of_slice(&*src))
-        .bench(|| black_box(&mut dst).copy_from_slice(black_box(&src)));
+        .bench_local(|| black_box(&mut dst).copy_from_slice(black_box(&src)));
 }
