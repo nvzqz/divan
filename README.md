@@ -43,8 +43,8 @@ A statistically-comfy benchmarking library for Rust projects, brought to you by
 3. Run your benchmarks with [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html):
 
     ```txt
-    example       fastest      │ slowest      │ median       │ mean
-    ╰─ f​ibonacci  196.1 ns     │ 217 ns       │ 197.5 ns     │ 198.1 ns
+    example       fastest  │ slowest │ median   │ mean     │ samples │ iters
+    ╰─ f​ibonacci  196.1 ns │ 217 ns  │ 197.5 ns │ 198.1 ns │ 100     │ 3200
     ```
 
 See [`#[divan::bench]`][bench_attr] for info on benchmark function registration.
