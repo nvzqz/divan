@@ -7,9 +7,6 @@ discussion first.
 
 - Async benchmarks
 
-- Multi-threaded benchmarks
-    - Enables measuring cost of synchronization under contention
-
 - Baseline benchmark
     - Should match baselines across equal generic types and constants
     - Idea:
