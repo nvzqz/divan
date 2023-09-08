@@ -159,7 +159,7 @@ enum TimeScale {
 
 impl TimeScale {
     #[cfg(test)]
-    const ALL: &[Self] = &[
+    const ALL: &'static [Self] = &[
         Self::PicoSec,
         Self::NanoSec,
         Self::MicroSec,
