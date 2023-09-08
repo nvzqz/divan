@@ -1,0 +1,76 @@
+on: [push, pull_request]
+
+name: CI
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  RUST_BACKTRACE: full
+
+jobs:
+  # Check formatting.
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --all -- --check
+
+  # Run linter.
+  clippy:
+    name: Clippy
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo clippy --all --all-targets --all-features
+
+  # Run tests in `src/` and `tests/`.
+  unit-test:
+      name: Unit Test
+      runs-on: ${{ matrix.os }}
+      strategy:
+        matrix:
+          os:
+            - ubuntu-latest
+            - macos-latest
+            - windows-latest
+      steps:
+        - uses: actions/checkout@v4
+        - run: cargo test -p divan -p divan-macros
+
+  # Run `examples/` directory as tests.
+  examples-test:
+    name: Examples Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test -p examples --all-features --benches
+
+  # Run `examples/` directory as benchmarks.
+  examples-bench:
+    name: Examples Bench
+    runs-on: ${{ matrix.os }}
+    env:
+      # Run each benchmark within 2 seconds.
+      DIVAN_MAX_TIME: 2
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo bench -p examples --all-features
