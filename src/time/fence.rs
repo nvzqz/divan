@@ -37,6 +37,6 @@ fn asm_fence() {
     // SAFETY: The inline assembly is a no-op.
     unsafe {
         // Preserve flags because we don't want to pessimize user logic.
-        std::arch::asm!("", options(preserves_flags));
+        std::arch::asm!("", options(nostack, preserves_flags));
     }
 }
