@@ -1,14 +1,15 @@
 use std::borrow::Borrow;
 pub use std::{self, any, default::Default, iter::FromIterator, option::Option::*, sync::OnceLock};
 
+#[cfg(not(windows))]
 pub use linkme;
 
 use crate::miri;
 pub use crate::{
     bench::BenchOptions,
     entry::{
-        BenchEntry, EntryConst, EntryLocation, EntryMeta, EntryType, GenericBenchEntry, GroupEntry,
-        BENCH_ENTRIES, GROUP_ENTRIES,
+        BenchEntry, EntryConst, EntryList, EntryLocation, EntryMeta, EntryType, GenericBenchEntry,
+        GroupEntry, BENCH_ENTRIES, GROUP_ENTRIES,
     },
     time::IntoDuration,
 };

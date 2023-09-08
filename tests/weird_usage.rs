@@ -97,7 +97,7 @@ fn test_fn() {
 fn count() {
     let mut inner_count = 0;
 
-    for entry in BENCH_ENTRIES {
+    for entry in BENCH_ENTRIES.iter() {
         if entry.meta.raw_name == "inner" {
             inner_count += 1;
         }
@@ -109,7 +109,7 @@ fn count() {
 // Test expected `BenchEntry.path` values.
 #[test]
 fn path() {
-    for entry in BENCH_ENTRIES {
+    for entry in BENCH_ENTRIES.iter() {
         // Embedded functions do not contain their parent function's name in
         // their `module_path!()`.
         if entry.meta.raw_name == "inner" {

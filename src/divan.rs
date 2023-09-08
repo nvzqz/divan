@@ -100,7 +100,7 @@ impl Divan {
             // Miri does not work with `linkme`.
             Vec::new()
         } else {
-            let group_entries = &*crate::entry::GROUP_ENTRIES;
+            let group_entries = &crate::entry::GROUP_ENTRIES;
 
             let generic_bench_entries = group_entries
                 .iter()
@@ -113,7 +113,7 @@ impl Divan {
 
             let mut tree = EntryTree::from_benches(bench_entries);
 
-            for group in group_entries {
+            for group in group_entries.iter() {
                 EntryTree::insert_group(&mut tree, group);
             }
 

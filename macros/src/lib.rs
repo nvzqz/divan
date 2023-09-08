@@ -115,12 +115,38 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     // Creates a `GroupEntry` static for generic benchmarks.
     let make_generic_group = |generic_benches: proc_macro2::TokenStream| {
         quote! {
+            // Use a distributed slice via `linkme` by default.
+            #[cfg(not(windows))]
             #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
             #[linkme(crate = #linkme_crate)]
             #[doc(hidden)]
             static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
                 meta: #meta,
                 generic_benches: #option_some({ #generic_benches }),
+            };
+
+            // On other platforms we push this static into `GROUP_ENTRIES`
+            // before `main` is called.
+            #[cfg(windows)]
+            static #static_ident: #private_mod::GroupEntry = {
+                {
+                    // Add `push` to the initializer section.
+                    #[used]
+                    #[link_section = ".CRT$XCU"]
+                    static PUSH: extern "C" fn() = push;
+
+                    extern "C" fn push() {
+                        static NODE: #private_mod::EntryList<#private_mod::GroupEntry>
+                            = #private_mod::EntryList::new(&#static_ident);
+
+                        #private_mod::GROUP_ENTRIES.push(&NODE);
+                    }
+                }
+
+                #private_mod::GroupEntry {
+                    meta: #meta,
+                    generic_benches: #option_some({ #generic_benches }),
+                }
             };
         }
     };
@@ -178,12 +204,38 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             None => {
                 let bench_fn = make_bench_fn(&[]);
                 quote! {
+                    // Use a distributed slice via `linkme` by default.
+                    #[cfg(not(windows))]
                     #[#linkme_crate::distributed_slice(#private_mod::BENCH_ENTRIES)]
                     #[linkme(crate = #linkme_crate)]
                     #[doc(hidden)]
                     static #static_ident: #private_mod::BenchEntry = #private_mod::BenchEntry {
                         meta: #meta,
                         bench: #bench_fn,
+                    };
+
+                    // On other platforms we push this static into
+                    // `BENCH_ENTRIES` before `main` is called.
+                    #[cfg(windows)]
+                    static #static_ident: #private_mod::BenchEntry = {
+                        {
+                            // Add `push` to the initializer section.
+                            #[used]
+                            #[link_section = ".CRT$XCU"]
+                            static PUSH: extern "C" fn() = push;
+
+                            extern "C" fn push() {
+                                static NODE: #private_mod::EntryList<#private_mod::BenchEntry>
+                                    = #private_mod::EntryList::new(&#static_ident);
+
+                                #private_mod::BENCH_ENTRIES.push(&NODE);
+                            }
+                        }
+
+                        #private_mod::BenchEntry {
+                            meta: #meta,
+                            bench: #bench_fn,
+                        }
                     };
                 }
             }
@@ -304,6 +356,9 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
         mod_item.attrs.iter().map(|attr| attr.meta.path()).find(|path| path.is_ident("ignore"));
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
+    //
+    // By having the static be local, we cause a compile error if this attribute
+    // is used multiple times on the same function.
     let static_ident = syn::Ident::new(
         &format!("__DIVAN_GROUP_{}", mod_name_pretty.to_uppercase()),
         mod_ident.span(),
@@ -312,14 +367,39 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     let meta = entry_meta_expr(&mod_name, &options, ignore_attr_ident);
 
     let generated_items = quote! {
-        // By having the static be local, we cause a compile error if this
-        // attribute is used multiple times on the same function.
+        // Use a distributed slice via `linkme` by default.
+        #[cfg(not(windows))]
         #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
         #[linkme(crate = #linkme_crate)]
         #[doc(hidden)]
         static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
             meta: #meta,
             generic_benches: #private_mod::None,
+        };
+
+        // On other platforms we push this static into `GROUP_ENTRIES` before
+        // `main` is called.
+        #[cfg(windows)]
+        static #static_ident: #private_mod::EntryList<#private_mod::GroupEntry> = {
+            {
+                // Add `push` to the initializer section.
+                #[used]
+                #[link_section = ".CRT$XCU"]
+                static PUSH: extern "C" fn() = push;
+
+                extern "C" fn push() {
+                    #private_mod::GROUP_ENTRIES.push(&#static_ident);
+                }
+            }
+
+            #private_mod::EntryList::new({
+                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
+                    meta: #meta,
+                    generic_benches: #private_mod::None,
+                };
+
+                &#static_ident
+            })
         };
     };
 
