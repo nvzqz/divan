@@ -114,16 +114,20 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
     // Creates a `GroupEntry` static for generic benchmarks.
     let make_generic_group = |generic_benches: proc_macro2::TokenStream| {
+        let entry = quote! {
+            #private_mod::GroupEntry {
+                meta: #meta,
+                generic_benches: #option_some({ #generic_benches }),
+            }
+        };
+
         quote! {
             // Use a distributed slice via `linkme` by default.
             #[cfg(not(windows))]
             #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
             #[linkme(crate = #linkme_crate)]
             #[doc(hidden)]
-            static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
-                meta: #meta,
-                generic_benches: #option_some({ #generic_benches }),
-            };
+            static #static_ident: #private_mod::GroupEntry = #entry;
 
             // On other platforms we push this static into `GROUP_ENTRIES`
             // before `main` is called.
@@ -143,10 +147,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
 
-                #private_mod::GroupEntry {
-                    meta: #meta,
-                    generic_benches: #option_some({ #generic_benches }),
-                }
+                #entry
             };
         }
     };
@@ -203,16 +204,21 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             // No generics; generate a simple benchmark entry.
             None => {
                 let bench_fn = make_bench_fn(&[]);
+
+                let entry = quote! {
+                    #private_mod::BenchEntry {
+                        meta: #meta,
+                        bench: #bench_fn,
+                    }
+                };
+
                 quote! {
                     // Use a distributed slice via `linkme` by default.
                     #[cfg(not(windows))]
                     #[#linkme_crate::distributed_slice(#private_mod::BENCH_ENTRIES)]
                     #[linkme(crate = #linkme_crate)]
                     #[doc(hidden)]
-                    static #static_ident: #private_mod::BenchEntry = #private_mod::BenchEntry {
-                        meta: #meta,
-                        bench: #bench_fn,
-                    };
+                    static #static_ident: #private_mod::BenchEntry = #entry;
 
                     // On other platforms we push this static into
                     // `BENCH_ENTRIES` before `main` is called.
@@ -232,10 +238,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                             }
                         }
 
-                        #private_mod::BenchEntry {
-                            meta: #meta,
-                            bench: #bench_fn,
-                        }
+                        #entry
                     };
                 }
             }
@@ -366,16 +369,20 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
 
     let meta = entry_meta_expr(&mod_name, &options, ignore_attr_ident);
 
+    let entry_static = quote! {
+        static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
+            meta: #meta,
+            generic_benches: #private_mod::None,
+        };
+    };
+
     let generated_items = quote! {
         // Use a distributed slice via `linkme` by default.
         #[cfg(not(windows))]
         #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
         #[linkme(crate = #linkme_crate)]
         #[doc(hidden)]
-        static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
-            meta: #meta,
-            generic_benches: #private_mod::None,
-        };
+        #entry_static
 
         // On other platforms we push this static into `GROUP_ENTRIES` before
         // `main` is called.
@@ -393,10 +400,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             #private_mod::EntryList::new({
-                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
-                    meta: #meta,
-                    generic_benches: #private_mod::None,
-                };
+                #entry_static
 
                 &#static_ident
             })
