@@ -48,6 +48,16 @@ jobs:
       - run: rustup default ${{ matrix.rust }}
       - run: cargo test -p divan -p divan-macros
 
+  # Run tests in `src/` and `tests/` using Miri.
+  unit-test-miri:
+    name: Unit Test (Miri)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup default nightly
+      - run: rustup component add miri
+      - run: cargo miri test -p divan -p divan-macros
+
   # Run `examples/` directory as tests.
   examples-test:
     name: Examples Test
