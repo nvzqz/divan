@@ -28,7 +28,7 @@ mod now {
         not(miri),
         any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"),
     ))]
-    fn tsc() -> u64 {
+    pub fn tsc() -> u64 {
         #[cfg(target_arch = "aarch64")]
         unsafe {
             let timestamp: u64;
@@ -68,5 +68,27 @@ mod duration_since {
         bencher
             .with_inputs(|| [SystemTime::now(), SystemTime::now()])
             .bench_values(|[start, end]| end.duration_since(start));
+    }
+
+    #[divan::bench(name = if cfg!(target_arch = "aarch64") {
+        "tsc (aarch64)"
+    } else {
+        "tsc (x86)"
+    })]
+    #[cfg(all(
+        not(miri),
+        any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"),
+    ))]
+    fn tsc(bencher: Bencher) {
+        bencher.with_inputs(|| [crate::now::tsc(), crate::now::tsc()]).bench_values(
+            |[start, end]| {
+                // Simply subtract because an optimized timing implementation
+                // would want to keep the value as TSC units for as long as
+                // possible before dividing by the TSC frequency.
+                //
+                // Saturating arithmetic to ensures monotonicity.
+                end.saturating_sub(start)
+            },
+        )
     }
 }
