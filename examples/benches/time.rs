@@ -19,7 +19,11 @@ mod now {
         SystemTime::now()
     }
 
-    #[divan::bench]
+    #[divan::bench(name = if cfg!(target_arch = "aarch64") {
+        "tsc (aarch64)"
+    } else {
+        "tsc (x86)"
+    })]
     #[cfg(all(
         not(miri),
         any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"),
