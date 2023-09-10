@@ -33,6 +33,10 @@ name = "panic"
 harness = false
 
 [[bench]]
+name = "scratch"
+harness = false
+
+[[bench]]
 name = "sort"
 harness = false
 
