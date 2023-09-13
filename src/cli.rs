@@ -46,7 +46,6 @@ pub(crate) fn command() -> Command {
                 .value_name("WHEN")
                 .help("Controls when to use colors")
                 .value_parser(value_parser!(ColorChoice))
-                .default_value("auto"),
         )
         .arg(
             option("bytes-format")
@@ -54,7 +53,6 @@ pub(crate) fn command() -> Command {
                 .help("Set the numerical base for bytes in output")
                 .value_name("decimal|binary")
                 .value_parser(value_parser!(crate::counter::PrivBytesFormat))
-                .default_value("decimal"),
         )
         .arg(
             option("skip")
@@ -75,7 +73,6 @@ pub(crate) fn command() -> Command {
                 .value_name("ATTRIBUTE")
                 .help("Sort benchmarks in ascending order")
                 .value_parser(value_parser!(SortingAttr))
-                .default_value("kind"),
         )
         .arg(
             option("sortr")
