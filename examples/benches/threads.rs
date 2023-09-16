@@ -1,3 +1,9 @@
+//! Run with:
+//!
+//! ```sh
+//! cargo bench -q -p examples --bench threads
+//! ```
+
 use std::{
     cell::UnsafeCell,
     sync::{

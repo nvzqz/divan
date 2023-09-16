@@ -1,3 +1,9 @@
+//! Run with:
+//!
+//! ```sh
+//! cargo bench -q -p examples --bench collections
+//! ```
+
 use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
 
 use divan::{black_box, Bencher};

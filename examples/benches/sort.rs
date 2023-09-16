@@ -1,3 +1,9 @@
+//! Run with:
+//!
+//! ```sh
+//! cargo bench -q -p examples --bench sort
+//! ```
+
 use divan::Bencher;
 use rayon::slice::ParallelSliceMut;
 

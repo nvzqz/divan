@@ -1,3 +1,9 @@
+//! Run with:
+//!
+//! ```sh
+//! cargo bench -q -p examples --bench time
+//! ```
+
 use std::time::{Instant, SystemTime};
 
 use divan::Bencher;

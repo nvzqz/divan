@@ -1,4 +1,8 @@
-use divan::{black_box, counter::BytesCount};
+//! Run with:
+//!
+//! ```sh
+//! cargo bench -q -p examples --bench hash --features hash
+//! ```
 
 fn main() {
     divan::main();
@@ -27,10 +31,11 @@ where
         (0..L).map(|_| rng.u8(..)).collect()
     };
 
-    bencher.counter(BytesCount::new(L)).with_inputs(|| (H::default(), bytes.clone())).bench_refs(
-        |(hasher, bytes)| {
-            hasher.write(black_box(&bytes));
+    bencher
+        .counter(divan::counter::BytesCount::new(L))
+        .with_inputs(|| (H::default(), bytes.clone()))
+        .bench_refs(|(hasher, bytes)| {
+            hasher.write(divan::black_box(&bytes));
             hasher.finish()
-        },
-    );
+        });
 }

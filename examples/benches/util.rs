@@ -1,3 +1,5 @@
+//! Utilities for benchmarks. Not directly runnable.
+
 use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
 
 use divan::black_box;

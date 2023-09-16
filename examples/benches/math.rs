@@ -1,3 +1,9 @@
+//! Run with:
+//!
+//! ```sh
+//! cargo bench -q -p examples --bench math
+//! ```
+
 use divan::black_box;
 
 fn main() {

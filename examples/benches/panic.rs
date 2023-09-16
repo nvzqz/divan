@@ -1,3 +1,9 @@
+//! Run with:
+//!
+//! ```sh
+//! cargo bench -q -p examples --bench panic
+//! ```
+
 use std::panic;
 
 use divan::black_box;

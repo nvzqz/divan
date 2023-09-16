@@ -1,4 +1,10 @@
 //! Benchmarks the [`image`](https://docs.rs/image) crate.
+//!
+//! Run with:
+//!
+//! ```sh
+//! cargo bench -q -p examples --bench image --features image
+//! ```
 
 use divan::{black_box, counter::BytesCount, Bencher};
 use image::{GenericImage, ImageBuffer, Rgba};
