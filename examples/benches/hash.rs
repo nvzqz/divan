@@ -35,7 +35,7 @@ where
         .counter(divan::counter::BytesCount::new(L))
         .with_inputs(|| (H::default(), bytes.clone()))
         .bench_refs(|(hasher, bytes)| {
-            hasher.write(divan::black_box(&bytes));
+            hasher.write(divan::black_box(bytes.as_slice()));
             hasher.finish()
         });
 }
