@@ -57,19 +57,21 @@ impl AttrOptions {
         let mut generic = GenericOptions::default();
 
         let attr_parser = syn::meta::parser(|meta| {
+            macro_rules! error {
+                ($($t:tt)+) => {
+                    return Err(meta.error(format_args!($($t)+)))
+                };
+            }
+
             let Some(ident) = meta.path.get_ident() else {
-                return Err(meta.error(format_args!("unsupported '{macro_name}' option")));
+                error!("unsupported '{macro_name}' option");
             };
 
             let ident_name = ident.to_string();
             let ident_name = ident_name.strip_prefix("r#").unwrap_or(&ident_name);
 
-            let repeat_error =
-                || Err(meta.error(format_args!("repeated '{macro_name}' option '{ident_name}'")));
-
-            let unsupported_error = || {
-                Err(meta.error(format_args!("unsupported '{macro_name}' option '{ident_name}'")))
-            };
+            let repeat_error = || error!("repeated '{macro_name}' option '{ident_name}'");
+            let unsupported_error = || error!("unsupported '{macro_name}' option '{ident_name}'");
 
             macro_rules! parse {
                 ($storage:expr) => {
@@ -88,7 +90,7 @@ impl AttrOptions {
                     match target_macro {
                         Macro::Bench { fn_sig } => {
                             if fn_sig.generics.type_params().next().is_none() {
-                                return Err(meta.error(format_args!("generic type required for '{macro_name}' option '{ident_name}'")));
+                                error!("generic type required for '{macro_name}' option '{ident_name}'");
                             }
                         }
                         _ => return unsupported_error(),
@@ -100,7 +102,7 @@ impl AttrOptions {
                     match target_macro {
                         Macro::Bench { fn_sig } => {
                             if fn_sig.generics.const_params().next().is_none() {
-                                return Err(meta.error(format_args!("generic const required for '{macro_name}' option '{ident_name}'")));
+                                error!("generic const required for '{macro_name}' option '{ident_name}'");
                             }
                         }
                         _ => return unsupported_error(),
