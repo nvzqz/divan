@@ -895,11 +895,14 @@ impl<'a> BenchContext<'a> {
                             let input = unsafe { &mut *input.get() };
                             let input = input.write(gen_input());
                             count_input(input);
+
+                            // Make input opaque to benchmarked function.
+                            black_box(input);
                         }
 
                         // Create iterator before the sample timing section to
                         // reduce benchmarking overhead.
-                        let defer_slots_iter = black_box(defer_slots_slice.iter());
+                        let defer_slots_iter = defer_slots_slice.iter();
 
                         sync_threads();
                         sample_start = UntaggedTimestamp::start(timer_kind);
@@ -950,11 +953,14 @@ impl<'a> BenchContext<'a> {
                             let input = unsafe { &mut *input.get() };
                             let input = input.write(gen_input());
                             count_input(input);
+
+                            // Make input opaque to benchmarked function.
+                            black_box(input);
                         }
 
                         // Create iterator before the sample timing section to
                         // reduce benchmarking overhead.
-                        let defer_inputs_iter = black_box(defer_inputs_slice.iter());
+                        let defer_inputs_iter = defer_inputs_slice.iter();
 
                         sync_threads();
                         sample_start = UntaggedTimestamp::start(timer_kind);
