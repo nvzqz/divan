@@ -33,8 +33,6 @@ const THREAD_COUNTS: &[usize] = if cfg!(miri) {
 
 #[track_caller]
 fn test_bencher(test: &mut dyn FnMut(Bencher)) {
-    let available_parallelism = thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
-
     let bench_options = BenchOptions {
         sample_count: Some(SAMPLE_COUNT),
         sample_size: Some(SAMPLE_SIZE),
@@ -43,12 +41,8 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
 
     for timer in Timer::available() {
         for action in [Action::Bench, Action::Test] {
-            let shared_context = SharedContext {
-                action,
-                timer,
-                bench_overhead: FineDuration::default(),
-                available_parallelism,
-            };
+            let shared_context =
+                SharedContext { action, timer, bench_overhead: FineDuration::default() };
 
             for &thread_count in THREAD_COUNTS {
                 let mut bench_context = BenchContext::new(

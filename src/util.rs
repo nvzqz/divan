@@ -1,6 +1,8 @@
 use std::{
     any::{Any, TypeId},
+    num::NonZeroUsize,
     ops::{Deref, DerefMut},
+    sync::atomic::{AtomicUsize, Ordering::Relaxed},
 };
 
 /// Public-in-private type like `()` but meant to be externally-unreachable.
@@ -102,8 +104,41 @@ pub(crate) fn format_f64(val: f64, sig_figs: usize) -> String {
     str
 }
 
+/// Cached [`std::thread::available_parallelism`].
+#[inline]
+pub(crate) fn known_parallelism() -> NonZeroUsize {
+    static CACHED: AtomicUsize = AtomicUsize::new(0);
+
+    #[cold]
+    fn slow() -> NonZeroUsize {
+        let n = std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
+
+        match CACHED.compare_exchange(0, n.get(), Relaxed, Relaxed) {
+            Ok(_) => n,
+
+            // SAFETY: Zero is checked by us and competing threads.
+            Err(n) => unsafe { NonZeroUsize::new_unchecked(n) },
+        }
+    }
+
+    match NonZeroUsize::new(CACHED.load(Relaxed)) {
+        Some(n) => n,
+        None => slow(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::black_box;
+
+    use super::*;
+
+    #[test]
+    fn known_parallelism() {
+        let f: fn() -> NonZeroUsize = super::known_parallelism;
+        assert_eq!(black_box(f)(), black_box(f)());
+    }
+
     #[test]
     fn slice_middle() {
         use super::slice_middle;

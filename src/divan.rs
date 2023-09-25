@@ -39,9 +39,6 @@ pub(crate) struct SharedContext {
     ///
     /// `min_time` and `max_time` do not consider this as benchmarking time.
     pub bench_overhead: FineDuration,
-
-    /// [`std::mem::available_parallelism`].
-    pub available_parallelism: NonZeroUsize,
 }
 
 impl fmt::Debug for Divan {
@@ -164,15 +161,6 @@ impl Divan {
             } else {
                 FineDuration::default()
             },
-            available_parallelism: match std::thread::available_parallelism() {
-                Ok(n) => n,
-                Err(error) => {
-                    eprintln!(
-                        "warning: Could not get available thread parallelism ({error}), defaulting to OS"
-                    );
-                    NonZeroUsize::MIN
-                }
-            },
         };
 
         let column_widths = if action.is_bench() {
@@ -281,7 +269,7 @@ impl Divan {
             .iter()
             .map(|&n| match NonZeroUsize::new(n) {
                 Some(n) => n,
-                None => shared_context.available_parallelism,
+                None => crate::util::known_parallelism(),
             })
             .collect();
 
