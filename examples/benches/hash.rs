@@ -39,6 +39,7 @@ struct Sha3_512;
         wyhash::WyHash,
     ],
     consts = [0, 8, 64, 1024, 1024 * 1024],
+    max_time = 1,
 )]
 fn hash<H, const L: usize>(bencher: divan::Bencher)
 where
