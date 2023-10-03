@@ -17,14 +17,17 @@ struct KnownCounterInfo {
 }
 
 impl CounterCollection {
+    #[inline]
     fn info(&self, counter_kind: KnownCounterKind) -> &KnownCounterInfo {
         &self.info[counter_kind as usize]
     }
 
+    #[inline]
     fn info_mut(&mut self, counter_kind: KnownCounterKind) -> &mut KnownCounterInfo {
         &mut self.info[counter_kind as usize]
     }
 
+    #[inline]
     pub(crate) fn counts(&self, counter_kind: KnownCounterKind) -> &[MaxCountUInt] {
         &self.info(counter_kind).counts
     }
@@ -37,6 +40,7 @@ impl CounterCollection {
         (sum / counts.len() as u128) as MaxCountUInt
     }
 
+    #[inline]
     pub(crate) fn uses_input_counts(&self, counter_kind: KnownCounterKind) -> bool {
         self.info(counter_kind).count_input.is_some()
     }
