@@ -44,6 +44,10 @@ hash = [
 ]
 
 [[bench]]
+name = "atomic"
+harness = false
+
+[[bench]]
 name = "collections"
 harness = false
 
