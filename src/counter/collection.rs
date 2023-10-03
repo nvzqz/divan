@@ -47,7 +47,7 @@ impl CounterCollection {
 
     pub(crate) fn set_counter(&mut self, counter: AnyCounter) {
         let new_count = counter.count();
-        let info = &mut self.info[counter.known_kind() as usize];
+        let info = self.info_mut(counter.known_kind());
 
         if let Some(old_count) = info.counts.first_mut() {
             *old_count = new_count;
@@ -57,8 +57,7 @@ impl CounterCollection {
     }
 
     pub(crate) fn push_counter(&mut self, counter: AnyCounter) {
-        let info = self.info_mut(counter.known_kind());
-        info.counts.push(counter.count());
+        self.info_mut(counter.known_kind()).counts.push(counter.count());
     }
 
     /// Set the input-based count generator function for a counter.
