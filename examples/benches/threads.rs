@@ -300,13 +300,15 @@ mod thread_id {
     #[cfg(windows)]
     #[divan::bench]
     #[allow(non_snake_case)]
-    fn GetCurrentThreadId() -> u32 {
-        #[link(name = "kernel32")]
-        extern "system" {
-            fn GetCurrentThreadId() -> u32;
-        }
+    fn GetCurrentThread() -> std::os::windows::io::RawHandle {
+        unsafe { winapi::um::processthreadsapi::GetCurrentThread().cast() }
+    }
 
-        unsafe { GetCurrentThreadId() }
+    #[cfg(windows)]
+    #[divan::bench]
+    #[allow(non_snake_case)]
+    fn GetCurrentThreadId() -> u32 {
+        unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() }
     }
 
     // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDRRO-EL0--EL0-Read-Only-Software-Thread-ID-Register?lang=en
