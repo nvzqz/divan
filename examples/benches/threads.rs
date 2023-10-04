@@ -311,6 +311,24 @@ mod thread_id {
         unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() }
     }
 
+    #[cfg(windows)]
+    #[divan::bench]
+    #[allow(non_snake_case)]
+    fn TlsGetValue(bencher: Bencher) {
+        unsafe {
+            use winapi::um::processthreadsapi::*;
+
+            let tls_index = TlsAlloc();
+            if tls_index == TLS_OUT_OF_INDEXES {
+                panic!("{}", std::io::Error::last_os_error());
+            }
+
+            bencher.bench(|| TlsGetValue(tls_index));
+
+            TlsFree(tls_index);
+        }
+    }
+
     // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDRRO-EL0--EL0-Read-Only-Software-Thread-ID-Register?lang=en
     #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
     #[divan::bench]
