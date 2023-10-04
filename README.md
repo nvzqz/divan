@@ -1,7 +1,22 @@
-# Divan
-
-A statistically-comfy benchmarking library for Rust projects, brought to you by
-[Nikolai Vazquez](https://hachyderm.io/@nikolai).
+<div align="center">
+    <h1>Divan</h1>
+    <a href="https://docs.rs/divan">
+        <img src="https://img.shields.io/crates/v/divan.svg?label=docs&color=blue&logo=rust" alt="docs.rs badge">
+    </a>
+    <a href="https://crates.io/crates/divan">
+        <img src="https://img.shields.io/crates/d/divan.svg" alt="Downloads badge">
+    </a>
+    <a href="https://github.com/nvzqz/divan">
+        <img src="https://img.shields.io/github/stars/nvzqz/divan.svg?color=black" alt="GitHub stars badge">
+    </a>
+    <a href="https://github.com/nvzqz/divan/actions/workflows/ci.yml">
+        <img src="https://github.com/nvzqz/divan/actions/workflows/ci.yml/badge.svg" alt="CI build status badge">
+    </a>
+    <p>
+        <strong>Comfy bench</strong>marking for Rust projects, brought to you by
+        <a href="https://nikolaivazquez.com">Nikolai Vazquez</a>.
+    </p>
+</div>
 
 ## Getting Started
 
