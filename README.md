@@ -78,37 +78,15 @@ cargo bench -q -p examples --all-features
 
 More thorough usage examples can be found in the [`#[divan::bench]` documentation][bench_attr_examples].
 
-## Multi-Threaded Benchmarks
-
-Benchmarks can be made multi-threaded via the
-[`threads` option][bench_attr_threads]. This enables you to measure contention
-on [atomics and locks][std_sync]. The default thread count is the [available
-parallelism].
-
-```rust
-use std::sync::Arc;
-
-#[divan::bench(threads)]
-fn arc_clone(bencher: divan::Bencher) {
-    let arc = Arc::new(42);
-
-    bencher.bench(|| arc.clone());
-}
-```
-
 ## License
 
 Like the Rust project, this library may be used under either the
 [MIT License](https://github.com/nvzqz/divan/blob/main/LICENSE-MIT) or
 [Apache License (Version 2.0)](https://github.com/nvzqz/divan/blob/main/LICENSE-APACHE).
 
-[bench_attr]: https://docs.rs/divan/latest/divan/attr.bench.html
-[bench_attr_examples]: https://docs.rs/divan/latest/divan/attr.bench.html#examples
-[bench_attr_threads]: https://docs.rs/divan/latest/divan/attr.bench.html#threads
-
-[std_sync]: https://doc.rust-lang.org/std/sync/index.html
-[available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
-
 ## Footnotes
 
 1. Within your crate directory, i.e. [`$CARGO_MANIFEST_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-crates)
+
+[bench_attr]: https://docs.rs/divan/latest/divan/attr.bench.html
+[bench_attr_examples]: https://docs.rs/divan/latest/divan/attr.bench.html#examples
