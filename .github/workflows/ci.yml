@@ -5,6 +5,7 @@ name: CI
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
   RUST_BACKTRACE: full
 
 jobs:
@@ -15,6 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo fmt --all -- --check
+
+  # Build documentation.
+  rustdoc:
+    name: Rustdoc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo rustdoc --all-features -- --document-private-items
 
   # Run linter.
   clippy:
