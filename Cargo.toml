@@ -34,4 +34,4 @@ wrap_help = ["help", "clap/wrap_help"]
 members = ["macros", "examples"]
 
 [workspace.dependencies]
-divan = { version = "0.0.0", path = "." }
+divan = { path = "." }
