@@ -3,6 +3,7 @@ on: [push, pull_request]
 name: CI
 
 env:
+  CARGO_HOME: ${{ github.workspace }}/.cargo
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
   RUSTDOCFLAGS: -D warnings
@@ -23,6 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v3.3.2
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            target
+          key: rustdoc-${{ runner.os }}
       - run: cargo rustdoc --all-features -- --document-private-items
 
   # Run linter.
@@ -37,6 +44,12 @@ jobs:
           - windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v3.3.2
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            target
+          key: clippy-${{ runner.os }}
       - run: cargo clippy --all --all-targets --all-features
 
   # Run tests in `src/` and `tests/`.
@@ -54,6 +67,12 @@ jobs:
           - nightly
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v3.3.2
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            target
+          key: unit-test-${{ runner.os }}-${{ matrix.rust }}
       - run: rustup default ${{ matrix.rust }}
       - run: cargo test -p divan -p divan-macros
 
@@ -63,6 +82,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v3.3.2
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            target
+          key: miri-${{ runner.os }}
       - run: rustup default nightly
       - run: rustup component add miri
       - run: cargo miri test -p divan -p divan-macros
@@ -82,6 +107,12 @@ jobs:
           - nightly
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v3.3.2
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            target
+          key: examples-test-${{ runner.os }}-${{ matrix.rust }}
       - run: rustup default ${{ matrix.rust }}
       - run: cargo test -p examples --all-features --benches
 
@@ -100,4 +131,10 @@ jobs:
           - windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v3.3.2
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            target
+          key: examples-bench-${{ runner.os }}
       - run: cargo bench -p examples --all-features
