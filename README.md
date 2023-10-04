@@ -24,7 +24,7 @@
 
     ```toml
     [dev-dependencies]
-    divan = "0.0.0"
+    divan = "0.1.0"
 
     [[bench]]
     name = "example"
