@@ -206,12 +206,32 @@ mod thread_id {
         }
     }
 
+    #[cfg(unix)]
     mod pthread {
+        use super::*;
+
         // https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_self.html
-        #[cfg(unix)]
         #[divan::bench(name = "self")]
         fn this() -> libc::pthread_t {
             unsafe { libc::pthread_self() }
+        }
+
+        #[divan::bench]
+        fn getspecific(bencher: Bencher) {
+            unsafe {
+                let mut key: libc::pthread_key_t = 0;
+                loop {
+                    match libc::pthread_key_create(&mut key, None) {
+                        0 => break,
+                        libc::EAGAIN => continue,
+                        error => panic!("{}", std::io::Error::from_raw_os_error(error)),
+                    }
+                }
+
+                bencher.bench(|| libc::pthread_getspecific(key));
+
+                libc::pthread_key_delete(key);
+            };
         }
 
         #[cfg(target_os = "macos")]
