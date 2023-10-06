@@ -31,8 +31,7 @@
     harness = false
     ```
 
-2. Create a benchmarks file at
-`benches/example.rs`<sup>[\[1\]](#footnotes)</sup> with your benchmarking code:
+2. Create a benchmarks file at `benches/example.rs`[^1] with your benchmarking code:
 
     ```rust
     fn main() {
@@ -84,9 +83,7 @@ Like the Rust project, this library may be used under either the
 [MIT License](https://github.com/nvzqz/divan/blob/main/LICENSE-MIT) or
 [Apache License (Version 2.0)](https://github.com/nvzqz/divan/blob/main/LICENSE-APACHE).
 
-## Footnotes
-
-1. Within your crate directory, i.e. [`$CARGO_MANIFEST_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-crates)
+[^1]: Within your crate directory, i.e. [`$CARGO_MANIFEST_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-crates)
 
 [bench_attr]: https://docs.rs/divan/latest/divan/attr.bench.html
 [bench_attr_examples]: https://docs.rs/divan/latest/divan/attr.bench.html#examples
