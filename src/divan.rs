@@ -153,6 +153,10 @@ impl Divan {
             }
         };
 
+        if action.is_bench() {
+            eprintln!("Timer precision: {}", timer.precision());
+        }
+
         let shared_context = SharedContext {
             action,
             timer,
