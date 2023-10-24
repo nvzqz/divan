@@ -5,7 +5,7 @@ name: CI
 env:
   CARGO_HOME: ${{ github.workspace }}/.cargo
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings
+  RUSTFLAGS: -D warnings -A unused-imports
   RUSTDOCFLAGS: -D warnings
   RUST_BACKTRACE: full
 
