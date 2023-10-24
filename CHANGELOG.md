@@ -8,6 +8,11 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix using LLD as linker for Linux by using the same pre-`main` approach as
+  Windows.
+
 ## 0.1.0 - 2023-10-04
 
 Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).

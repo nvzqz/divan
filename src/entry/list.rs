@@ -13,7 +13,7 @@ pub struct EntryList<T: 'static> {
 }
 
 impl<T> EntryList<T> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux", target_os = "android"))]
     pub(crate) const fn root() -> Self {
         Self { entry: None, next: AtomicPtr::new(ptr::null_mut()) }
     }

@@ -20,7 +20,7 @@ condtype = "1.3"
 core_affinity = { version = "0.8", default-features = false }
 regex = { package = "regex-lite", version = "0.1", default-features = false, features = ["std", "string"] }
 
-[target.'cfg(not(windows))'.dependencies]
+[target.'cfg(not(any(windows, target_os = "linux", target_os = "android")))'.dependencies]
 # We use linkme to make benchmark/group entries discoverable. On platforms where
 # it doesn't work, we instead use pre-main to build a linked list.
 linkme = { version = "0.3", default-features = false }
