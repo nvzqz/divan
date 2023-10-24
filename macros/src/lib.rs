@@ -123,7 +123,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
         quote! {
             // Use a distributed slice via `linkme` by default.
-            #[cfg(not(windows))]
+            #[cfg(not(any(
+                windows,
+                target_os = "linux",
+                target_os = "android",
+            )))]
             #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
             #[linkme(crate = #linkme_crate)]
             #[doc(hidden)]
@@ -131,12 +135,20 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
             // On other platforms we push this static into `GROUP_ENTRIES`
             // before `main` is called.
-            #[cfg(windows)]
+            #[cfg(any(
+                windows,
+                target_os = "linux",
+                target_os = "android",
+            ))]
             static #static_ident: #private_mod::GroupEntry = {
                 {
                     // Add `push` to the initializer section.
                     #[used]
-                    #[link_section = ".CRT$XCU"]
+                    #[cfg_attr(
+                        any(target_os = "linux", target_os = "android"),
+                        link_section = ".init_array",
+                    )]
+                    #[cfg_attr(windows, link_section = ".CRT$XCU")]
                     static PUSH: extern "C" fn() = push;
 
                     extern "C" fn push() {
@@ -214,7 +226,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
                 quote! {
                     // Use a distributed slice via `linkme` by default.
-                    #[cfg(not(windows))]
+                    #[cfg(not(any(
+                        windows,
+                        target_os = "linux",
+                        target_os = "android",
+                    )))]
                     #[#linkme_crate::distributed_slice(#private_mod::BENCH_ENTRIES)]
                     #[linkme(crate = #linkme_crate)]
                     #[doc(hidden)]
@@ -222,12 +238,20 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
                     // On other platforms we push this static into
                     // `BENCH_ENTRIES` before `main` is called.
-                    #[cfg(windows)]
+                    #[cfg(any(
+                        windows,
+                        target_os = "linux",
+                        target_os = "android",
+                    ))]
                     static #static_ident: #private_mod::BenchEntry = {
                         {
                             // Add `push` to the initializer section.
                             #[used]
-                            #[link_section = ".CRT$XCU"]
+                            #[cfg_attr(
+                                any(target_os = "linux", target_os = "android"),
+                                link_section = ".init_array",
+                            )]
+                            #[cfg_attr(windows, link_section = ".CRT$XCU")]
                             static PUSH: extern "C" fn() = push;
 
                             extern "C" fn push() {
@@ -378,7 +402,11 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
 
     let generated_items = quote! {
         // Use a distributed slice via `linkme` by default.
-        #[cfg(not(windows))]
+        #[cfg(not(any(
+            windows,
+            target_os = "linux",
+            target_os = "android",
+        )))]
         #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
         #[linkme(crate = #linkme_crate)]
         #[doc(hidden)]
@@ -386,12 +414,20 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
 
         // On other platforms we push this static into `GROUP_ENTRIES` before
         // `main` is called.
-        #[cfg(windows)]
+        #[cfg(any(
+            windows,
+            target_os = "linux",
+            target_os = "android",
+        ))]
         static #static_ident: #private_mod::EntryList<#private_mod::GroupEntry> = {
             {
                 // Add `push` to the initializer section.
                 #[used]
-                #[link_section = ".CRT$XCU"]
+                #[cfg_attr(
+                    any(target_os = "linux", target_os = "android"),
+                    link_section = ".init_array",
+                )]
+                #[cfg_attr(windows, link_section = ".CRT$XCU")]
                 static PUSH: extern "C" fn() = push;
 
                 extern "C" fn push() {

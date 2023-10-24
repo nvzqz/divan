@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 pub use std::{self, any, default::Default, iter::FromIterator, option::Option::*, sync::OnceLock};
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux", target_os = "android")))]
 pub use linkme;
 
 use crate::miri;
