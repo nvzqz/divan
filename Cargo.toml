@@ -1,6 +1,6 @@
 [package]
 name = "divan"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Nikolai Vazquez"]
 license = "MIT OR Apache-2.0"
@@ -13,7 +13,7 @@ keywords = ["benchmark", "criterion", "instrument", "measure", "performance"]
 readme = "README.md"
 
 [dependencies]
-divan-macros = { version = "0.1.0", path = "macros" }
+divan-macros = { version = "0.1.1", path = "macros" }
 
 clap = { version = "4", default-features = false, features = ["std", "env"] }
 condtype = "1.3"

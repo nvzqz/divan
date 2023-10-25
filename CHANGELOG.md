@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2023-10-25
+
 ### Fixed
 
 - Fix using LLD as linker for Linux by using the same pre-`main` approach as
@@ -20,4 +22,5 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
