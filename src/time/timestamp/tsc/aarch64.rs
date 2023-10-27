@@ -27,7 +27,9 @@ pub(crate) fn timestamp() -> u64 {
     unsafe {
         let timestamp: u64;
         asm!(
-            "mrs {}, cntvct_el0",
+            "isb sy
+            mrs {}, cntvct_el0
+            isb sy",
             out(reg) timestamp,
             // Leave off `nomem` because this should be a compiler fence.
             options(nostack, preserves_flags),
