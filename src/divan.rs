@@ -129,16 +129,6 @@ impl Divan {
         // Sorting is after filtering to compare fewer elements.
         EntryTree::sort_by_attr(&mut tree, self.sorting_attr, self.reverse_sort);
 
-        if action.is_bench() {
-            // Try pinning this thread's execution to the first CPU core to
-            // help reduce variance from scheduling.
-            if let Some(&[core_id, ..]) = core_affinity::get_core_ids().as_deref() {
-                if core_affinity::set_for_current(core_id) {
-                    eprintln!("Pinned thread to core {}", core_id.id);
-                };
-            }
-        }
-
         let timer = match self.timer {
             TimerKind::Os => Timer::Os,
 

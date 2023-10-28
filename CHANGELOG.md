@@ -8,6 +8,12 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Multi-threaded benchmarks being spread across CPUs, instead of pinning the
+  main thread to CPU 0 and having all threads inherit the main thread's
+  affinity.
+
 ## [0.1.1] - 2023-10-25
 
 ### Fixed
