@@ -29,8 +29,11 @@ default = ["wrap_help"]
 help = ["clap/help"]
 wrap_help = ["help", "clap/wrap_help"]
 
+# Benchmark internals. Not meant for public use.
+internal_benches = []
+
 [workspace]
-members = ["macros", "examples"]
+members = ["macros", "examples", "internal_benches"]
 
 [workspace.dependencies]
 divan = { path = "." }

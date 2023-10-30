@@ -138,3 +138,26 @@ jobs:
             target
           key: examples-bench-${{ runner.os }}
       - run: cargo bench -p examples --all-features
+
+  # Run `internal_benches/` directory as benchmarks.
+  internals-bench:
+    name: Internals Bench
+    runs-on: ${{ matrix.os }}
+    env:
+      # Run each benchmark within 2 seconds.
+      DIVAN_MAX_TIME: 2
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3.3.2
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            target
+          key: internals-bench-${{ runner.os }}
+      - run: cargo bench -p internal_benches --all-features

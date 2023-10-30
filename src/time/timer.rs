@@ -172,3 +172,25 @@ pub(crate) enum TimerKind {
     /// CPU timestamp counter.
     Tsc,
 }
+
+#[cfg(feature = "internal_benches")]
+#[crate::bench(crate = crate)]
+fn get_tsc() -> Result<Timer, TscUnavailable> {
+    Timer::get_tsc()
+}
+
+#[cfg(feature = "internal_benches")]
+mod measure {
+    use super::*;
+
+    #[crate::bench(crate = crate)]
+    fn precision() -> FineDuration {
+        Timer::Os.measure_precision()
+    }
+
+    #[cfg(feature = "internal_benches")]
+    #[crate::bench(crate = crate)]
+    fn sample_loop_overhead() -> FineDuration {
+        Timer::Os.measure_sample_loop_overhead()
+    }
+}

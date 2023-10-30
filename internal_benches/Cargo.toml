@@ -1,0 +1,16 @@
+[package]
+name = "internal_benches"
+version = "0.0.0"
+edition = "2021"
+authors = ["Nikolai Vazquez"]
+license = "MIT OR Apache-2.0"
+description = "Internal benchmarks for Divan, a comfy benchmarking framework."
+readme = "../README.md"
+publish = false
+
+[dependencies]
+divan = { workspace = true, features = ["internal_benches"] }
+
+[[bench]]
+name = "internals"
+harness = false
