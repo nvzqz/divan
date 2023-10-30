@@ -1,10 +1,10 @@
 [package]
 name = "examples"
-version = "0.1.2"
+version = "0.0.0"
 edition = "2021"
 authors = ["Nikolai Vazquez"]
 license = "MIT OR Apache-2.0"
-description = "Examples for Divan, a statistically-comfy benchmarking library."
+description = "Examples for Divan, a comfy benchmarking framework."
 readme = "../README.md"
 publish = false
 
