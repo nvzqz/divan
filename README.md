@@ -18,6 +18,10 @@
     </p>
 </div>
 
+## Guide
+
+A guide is being worked on. In the meantime, [see announcement post](https://nikolaivazquez.com/blog/divan/).
+
 ## Getting Started
 
 1. Add the following to your project's [`Cargo.toml`](https://doc.rust-lang.org/cargo/reference/manifest.html):
