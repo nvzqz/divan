@@ -18,27 +18,30 @@ fn gen_inputs(len: usize) -> impl FnMut() -> (Vec<u64>, u64) {
     let mut rng = Rng::with_seed(len as u64);
 
     move || {
-        let mut haystack = Vec::new();
+        let haystack: Vec<u64> = {
+            // Use `BTreeSet` to ensure result is sorted and has `len` items.
+            let mut haystack = BTreeSet::new();
 
-        let needle = rng.u64(..);
-        let has_needle = rng.bool();
+            for _ in 0..len {
+                while !haystack.insert(rng.u64(..)) {}
+            }
 
-        let range = if has_needle {
-            haystack.push(needle);
-            1..len
-        } else {
-            0..len
+            haystack.into_iter().collect()
         };
 
-        haystack.extend(range.map(|_| loop {
-            let n = rng.u64(..);
-            if n != needle {
-                return n;
+        let has_needle = rng.bool();
+        let needle = if has_needle {
+            *rng.choice(&haystack).unwrap()
+        } else {
+            loop {
+                let n = rng.u64(..);
+                if !haystack.contains(&n) {
+                    break n;
+                }
             }
-        }));
+        };
 
-        haystack.sort_unstable();
-
+        assert_eq!(haystack.len(), len);
         (haystack, needle)
     }
 }
