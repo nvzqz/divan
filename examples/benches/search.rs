@@ -11,71 +11,73 @@ fn main() {
 const SIZES: &[usize] =
     &[1, 2, 8, 16, 64, 512, 4 * 1024, 16 * 1024, 64 * 1024, 256 * 1024, 1024 * 1024];
 
-fn gen_inputs(len: usize) -> (impl FnMut() -> Vec<u64>, u64) {
+fn gen_inputs(len: usize) -> impl FnMut() -> (Vec<u64>, u64) {
     let mut rng = Rng::with_seed(len as u64);
-    let target = rng.u64(..);
 
-    let f = move || {
-        let mut buf = Vec::new();
-        let has_target = rng.bool();
+    move || {
+        let mut haystack = Vec::new();
 
-        let range = if has_target {
-            buf.push(target);
+        let needle = rng.u64(..);
+        let has_needle = rng.bool();
+
+        let range = if has_needle {
+            haystack.push(needle);
             1..len
         } else {
             0..len
         };
 
-        buf.extend(range.map(|_| loop {
+        haystack.extend(range.map(|_| loop {
             let n = rng.u64(..);
-            if n != target {
+            if n != needle {
                 return n;
             }
         }));
 
-        buf.sort_unstable();
-        buf
-    };
+        haystack.sort_unstable();
 
-    (f, target)
+        (haystack, needle)
+    }
 }
 
 #[divan::bench(consts = SIZES, max_time = 1)]
 fn linear<const N: usize>(bencher: Bencher) {
-    let (gen_inputs, target) = gen_inputs(N);
-
     bencher
         .counter(N)
-        .with_inputs(gen_inputs)
-        .bench_local_refs(|buf| _ = black_box(buf.iter().find(|&&v| v == target)))
+        .with_inputs(gen_inputs(N))
+        .bench_local_refs(|(haystack, needle)| haystack.iter().find(|v| **v == *needle).copied())
 }
 
 #[divan::bench(consts = SIZES, max_time = 1)]
 fn binary<const N: usize>(bencher: Bencher) {
-    let (gen_inputs, target) = gen_inputs(N);
-
     bencher
         .counter(N)
-        .with_inputs(gen_inputs)
-        .bench_local_refs(|buf| _ = black_box(buf.binary_search_by(|v| v.cmp(&target))))
+        .with_inputs(gen_inputs(N))
+        .bench_local_refs(|(haystack, needle)| haystack.binary_search_by(|v| v.cmp(needle)))
 }
 
 #[divan::bench(consts = SIZES, max_time = 1)]
 fn btree_set<const N: usize>(bencher: Bencher) {
-    let (mut gen_inputs, target) = gen_inputs(N);
+    let mut gen_inputs = gen_inputs(N);
 
     bencher
         .counter(N)
-        .with_inputs(|| -> BTreeSet<u64> { gen_inputs().into_iter().collect() })
-        .bench_local_refs(|btree| _ = black_box(btree.get(&target)))
+        .with_inputs(|| -> (BTreeSet<u64>, u64) {
+            let (haystack, needle) = gen_inputs();
+            (haystack.into_iter().collect(), needle)
+        })
+        .bench_local_refs(|(haystack, needle)| haystack.get(needle).copied())
 }
 
 #[divan::bench(consts = SIZES, max_time = 1)]
 fn ordsearch<const N: usize>(bencher: Bencher) {
-    let (mut gen_inputs, target) = gen_inputs(N);
+    let mut gen_inputs = gen_inputs(N);
 
     bencher
         .counter(N)
-        .with_inputs(|| OrderedCollection::from_sorted_iter(gen_inputs()))
-        .bench_local_refs(|ord_col| _ = black_box(ord_col.find_gte(target)))
+        .with_inputs(|| {
+            let (haystack, needle) = gen_inputs();
+            (OrderedCollection::from_sorted_iter(haystack), needle)
+        })
+        .bench_local_refs(|(haystack, needle)| _ = black_box(haystack.find_gte(*needle)))
 }
