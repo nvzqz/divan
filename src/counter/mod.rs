@@ -96,6 +96,17 @@ impl BytesCount {
         Self { count: mem::size_of::<T>() as MaxCountUInt }
     }
 
+    /// Counts the size of multiple instances of a type with
+    /// [`std::mem::size_of`].
+    #[inline]
+    #[doc(alias = "size_of")]
+    pub const fn of_many<T>(n: usize) -> Self {
+        match (mem::size_of::<T>() as MaxCountUInt).checked_mul(n as MaxCountUInt) {
+            Some(count) => Self { count },
+            None => panic!("overflow"),
+        }
+    }
+
     /// Counts the size of a value with [`std::mem::size_of_val`].
     #[inline]
     #[doc(alias = "size_of_val")]
@@ -134,6 +145,36 @@ impl BytesCount {
     pub fn of_slice<T, S: ?Sized + AsRef<[T]>>(s: &S) -> Self {
         Self::of_val(s.as_ref())
     }
+}
+
+macro_rules! type_bytes {
+    ($ty:ident) => {
+        /// Counts the bytes of multiple
+        #[doc = concat!("[`", stringify!($ty), "`s](", stringify!($ty), ").")]
+        #[inline]
+        pub const fn $ty(n: usize) -> Self {
+            Self::of_many::<$ty>(n)
+        }
+    };
+}
+
+/// Count bytes of multiple values.
+impl BytesCount {
+    type_bytes!(f32);
+    type_bytes!(f64);
+
+    type_bytes!(i8);
+    type_bytes!(u8);
+    type_bytes!(i16);
+    type_bytes!(u16);
+    type_bytes!(i32);
+    type_bytes!(u32);
+    type_bytes!(i64);
+    type_bytes!(u64);
+    type_bytes!(i128);
+    type_bytes!(u128);
+    type_bytes!(isize);
+    type_bytes!(usize);
 }
 
 impl CharsCount {
