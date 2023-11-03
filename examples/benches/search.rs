@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 use divan::{black_box, Bencher};
 use fastrand::Rng;
@@ -63,6 +63,19 @@ fn btree_set<const N: usize>(bencher: Bencher) {
     bencher
         .counter(N)
         .with_inputs(|| -> (BTreeSet<u64>, u64) {
+            let (haystack, needle) = gen_inputs();
+            (haystack.into_iter().collect(), needle)
+        })
+        .bench_local_refs(|(haystack, needle)| haystack.get(needle).copied())
+}
+
+#[divan::bench(consts = SIZES, max_time = 1)]
+fn hash_set<const N: usize>(bencher: Bencher) {
+    let mut gen_inputs = gen_inputs(N);
+
+    bencher
+        .counter(N)
+        .with_inputs(|| -> (HashSet<u64>, u64) {
             let (haystack, needle) = gen_inputs();
             (haystack.into_iter().collect(), needle)
         })
