@@ -1,4 +1,7 @@
-use std::collections::{BTreeSet, HashSet};
+use std::{
+    collections::{hash_map::RandomState, BTreeSet, HashSet},
+    hash::BuildHasher,
+};
 
 use divan::{black_box, Bencher};
 use fastrand::Rng;
@@ -69,13 +72,33 @@ fn btree_set<const N: usize>(bencher: Bencher) {
         .bench_local_refs(|(haystack, needle)| haystack.get(needle).copied())
 }
 
-#[divan::bench(consts = SIZES, max_time = 1)]
-fn hash_set<const N: usize>(bencher: Bencher) {
+/// Local implementation instead of `BuildHasherDefault` to get shorter name in
+/// output.
+#[derive(Default)]
+struct WyHash;
+
+impl BuildHasher for WyHash {
+    type Hasher = wyhash::WyHash;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        wyhash::WyHash::default()
+    }
+}
+
+#[divan::bench(
+    consts = SIZES,
+    max_time = 1,
+    types = [RandomState, WyHash],
+)]
+fn hash_set<H, const N: usize>(bencher: Bencher)
+where
+    H: BuildHasher + Default,
+{
     let mut gen_inputs = gen_inputs(N);
 
     bencher
         .counter(N)
-        .with_inputs(|| -> (HashSet<u64>, u64) {
+        .with_inputs(|| -> (HashSet<u64, H>, u64) {
             let (haystack, needle) = gen_inputs();
             (haystack.into_iter().collect(), needle)
         })
