@@ -15,6 +15,9 @@ image = { version = "0.24", optional = true }
 libc = "0.2.147"
 rayon = "1"
 
+# Search
+ordsearch = "0.2.5"
+
 # Hash
 blake3 = { version = "1.4", optional = true, features = ["rayon"] }
 digest = { version = "*", optional = true }
@@ -77,6 +80,10 @@ harness = false
 
 [[bench]]
 name = "scratch"
+harness = false
+
+[[bench]]
+name = "search"
 harness = false
 
 [[bench]]
