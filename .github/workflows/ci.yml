@@ -12,6 +12,7 @@ env:
 jobs:
   # Check formatting.
   rustfmt:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
@@ -20,6 +21,7 @@ jobs:
 
   # Build documentation.
   rustdoc:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Rustdoc
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +36,7 @@ jobs:
 
   # Run linter.
   clippy:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Clippy
     runs-on: ${{ matrix.os }}
     strategy:
@@ -54,6 +57,7 @@ jobs:
 
   # Run tests in `src/` and `tests/`.
   unit-test:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Unit Test
     runs-on: ${{ matrix.os }}
     strategy:
@@ -78,6 +82,7 @@ jobs:
 
   # Run tests in `src/` and `tests/` using Miri.
   unit-test-miri:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Unit Test (Miri)
     runs-on: ubuntu-latest
     steps:
@@ -94,6 +99,7 @@ jobs:
 
   # Run `examples/` directory as tests.
   examples-test:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Examples Test
     runs-on: ${{ matrix.os }}
     strategy:
@@ -118,6 +124,7 @@ jobs:
 
   # Run `examples/` directory as benchmarks.
   examples-bench:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Examples Bench
     runs-on: ${{ matrix.os }}
     env:
@@ -141,6 +148,7 @@ jobs:
 
   # Run `internal_benches/` directory as benchmarks.
   internals-bench:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Internals Bench
     runs-on: ${{ matrix.os }}
     env:
