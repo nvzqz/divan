@@ -13,6 +13,7 @@ jobs:
   # Check formatting.
   rustfmt:
     name: Rustfmt
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +22,7 @@ jobs:
   # Build documentation.
   rustdoc:
     name: Rustdoc
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +37,7 @@ jobs:
   # Run linter.
   clippy:
     name: Clippy
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -55,6 +58,7 @@ jobs:
   # Run tests in `src/` and `tests/`.
   unit-test:
     name: Unit Test
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -79,6 +83,7 @@ jobs:
   # Run tests in `src/` and `tests/` using Miri.
   unit-test-miri:
     name: Unit Test (Miri)
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +100,7 @@ jobs:
   # Run `examples/` directory as tests.
   examples-test:
     name: Examples Test
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -119,6 +125,7 @@ jobs:
   # Run `examples/` directory as benchmarks.
   examples-bench:
     name: Examples Bench
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ matrix.os }}
     env:
       # Run each benchmark within 2 seconds.
@@ -142,6 +149,7 @@ jobs:
   # Run `internal_benches/` directory as benchmarks.
   internals-bench:
     name: Internals Bench
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ matrix.os }}
     env:
       # Run each benchmark within 2 seconds.
