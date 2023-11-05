@@ -1,6 +1,5 @@
 use std::{error::Error, str::FromStr, time::Duration};
 
-pub use clap::ColorChoice;
 use regex::Regex;
 
 /// `Duration` wrapper for parsing seconds from the CLI.
