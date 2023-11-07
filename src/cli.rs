@@ -2,6 +2,7 @@ use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Co
 
 use crate::{
     config::{ParsedSeconds, SortingAttr},
+    counter::MaxCountUInt,
     time::TimerKind,
 };
 
@@ -46,13 +47,6 @@ pub(crate) fn command() -> Command {
                 .value_name("WHEN")
                 .help("Controls when to use colors")
                 .value_parser(value_parser!(ColorChoice))
-        )
-        .arg(
-            option("bytes-format")
-                .env("DIVAN_BYTES_FORMAT")
-                .help("Set the numerical base for bytes in output")
-                .value_name("decimal|binary")
-                .value_parser(value_parser!(crate::counter::PrivBytesFormat))
         )
         .arg(
             option("skip")
@@ -124,6 +118,34 @@ pub(crate) fn command() -> Command {
                 .help("When '--min-time' or '--max-time' is set, skip time external to benchmarked functions")
                 .value_parser(value_parser!(bool))
                 .num_args(0..=1),
+        )
+        .arg(
+            option("items-count")
+                .env("DIVAN_ITEMS_COUNT")
+                .value_name("N")
+                .help("Set every benchmark to have a throughput of N items")
+                .value_parser(value_parser!(MaxCountUInt)),
+        )
+        .arg(
+            option("bytes-count")
+                .env("DIVAN_BYTES_COUNT")
+                .value_name("N")
+                .help("Set every benchmark to have a throughput of N bytes")
+                .value_parser(value_parser!(MaxCountUInt)),
+        )
+        .arg(
+            option("bytes-format")
+                .env("DIVAN_BYTES_FORMAT")
+                .help("Set the numerical base for bytes in output")
+                .value_name("decimal|binary")
+                .value_parser(value_parser!(crate::counter::PrivBytesFormat))
+        )
+        .arg(
+            option("chars-count")
+                .env("DIVAN_CHARS_COUNT")
+                .value_name("N")
+                .help("Set every benchmark to have a throughput of N string scalars")
+                .value_parser(value_parser!(MaxCountUInt)),
         )
         // ignored:
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])

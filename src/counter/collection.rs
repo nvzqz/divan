@@ -116,6 +116,11 @@ pub struct CounterSet {
 
 impl CounterSet {
     pub fn with(mut self, counter: impl IntoCounter) -> Self {
+        self.insert(counter);
+        self
+    }
+
+    pub fn insert(&mut self, counter: impl IntoCounter) -> &mut Self {
         let counter = AnyCounter::new(counter);
         self.counts[counter.known_kind() as usize] = Some(counter.count());
         self

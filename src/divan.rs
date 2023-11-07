@@ -6,7 +6,9 @@ use regex::Regex;
 use crate::{
     bench::{BenchOptions, Bencher},
     config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
-    counter::{BytesFormat, PrivBytesFormat},
+    counter::{
+        BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
+    },
     entry::{AnyBenchEntry, EntryTree},
     time::{FineDuration, Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
@@ -373,10 +375,6 @@ impl Divan {
             self.color = color;
         }
 
-        if let Some(&PrivBytesFormat(bytes_format)) = matches.get_one("bytes-format") {
-            self.bytes_format = bytes_format;
-        }
-
         if matches.get_flag("ignored") {
             self.run_ignored = RunIgnored::Only;
         } else if matches.get_flag("include-ignored") {
@@ -417,6 +415,22 @@ impl Divan {
                 Some(matches!(skip_ext_time.next(), Some(true) | None));
         }
 
+        if let Some(&count) = matches.get_one::<MaxCountUInt>("items-count") {
+            self.counter_mut(ItemsCount::new(count));
+        }
+
+        if let Some(&count) = matches.get_one::<MaxCountUInt>("bytes-count") {
+            self.counter_mut(BytesCount::new(count));
+        }
+
+        if let Some(&PrivBytesFormat(bytes_format)) = matches.get_one("bytes-format") {
+            self.bytes_format = bytes_format;
+        }
+
+        if let Some(&count) = matches.get_one::<MaxCountUInt>("chars-count") {
+            self.counter_mut(CharsCount::new(count));
+        }
+
         self
     }
 
@@ -431,16 +445,6 @@ impl Divan {
             Some(true) => ColorChoice::Always,
             Some(false) => ColorChoice::Never,
         };
-        self
-    }
-
-    /// Determines how [`BytesCount`](crate::counter::BytesCount) is scaled in
-    /// benchmark outputs.
-    ///
-    /// This option is equivalent to the `--bytes-format` CLI argument.
-    #[inline]
-    pub fn bytes_format(mut self, format: BytesFormat) -> Self {
-        self.bytes_format = format;
         self
     }
 
@@ -600,5 +604,59 @@ impl Divan {
     pub fn skip_ext_time(mut self, skip: bool) -> Self {
         self.bench_options.skip_ext_time = Some(skip);
         self
+    }
+}
+
+/// Use [`Counter`s](crate::counter::Counter) to get throughput across all
+/// benchmarks.
+impl Divan {
+    #[inline]
+    fn counter_mut<C: IntoCounter>(&mut self, counter: C) -> &mut Self {
+        self.bench_options.counters.insert(counter);
+        self
+    }
+
+    /// Counts the number of values processed.
+    #[inline]
+    pub fn counter<C: IntoCounter>(mut self, counter: C) -> Self {
+        self.counter_mut(counter);
+        self
+    }
+
+    /// Sets the number of items processed.
+    ///
+    /// This option is equivalent to the `--items-count` CLI argument or
+    /// `DIVAN_ITEMS_COUNT` environment variable.
+    #[inline]
+    pub fn items_count<C: Into<ItemsCount>>(self, count: C) -> Self {
+        self.counter(count.into())
+    }
+
+    /// Sets the number of bytes processed.
+    ///
+    /// This option is equivalent to the `--bytes-count` CLI argument or
+    /// `DIVAN_BYTES_COUNT` environment variable.
+    #[inline]
+    pub fn bytes_count<C: Into<BytesCount>>(self, count: C) -> Self {
+        self.counter(count.into())
+    }
+
+    /// Determines how [`BytesCount`] is scaled in benchmark outputs.
+    ///
+    /// This option is equivalent to the `--bytes-format` CLI argument or
+    /// `DIVAN_BYTES_FORMAT` environment variable.
+    #[inline]
+    pub fn bytes_format(mut self, format: BytesFormat) -> Self {
+        self.bytes_format = format;
+        self
+    }
+
+    /// Sets the number of bytes processed.
+    ///
+    /// This option is equivalent to the `--chars-count` CLI argument or
+    /// `DIVAN_CHARS_COUNT` environment variable.
+    #[inline]
+    pub fn chars_count<C: Into<CharsCount>>(self, count: C) -> Self {
+        self.counter(count.into())
     }
 }
