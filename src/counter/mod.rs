@@ -82,6 +82,27 @@ impl Counter for BytesCount {}
 impl Counter for CharsCount {}
 impl Counter for ItemsCount {}
 
+impl<C: CountUInt> From<C> for BytesCount {
+    #[inline]
+    fn from(count: C) -> Self {
+        Self::new(count)
+    }
+}
+
+impl<C: CountUInt> From<C> for CharsCount {
+    #[inline]
+    fn from(count: C) -> Self {
+        Self::new(count)
+    }
+}
+
+impl<C: CountUInt> From<C> for ItemsCount {
+    #[inline]
+    fn from(count: C) -> Self {
+        Self::new(count)
+    }
+}
+
 impl BytesCount {
     /// Count N bytes.
     #[inline]

@@ -10,6 +10,14 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `From<C>` for
+  [`ItemsCount`](https://docs.rs/divan/X.Y.Z/divan/counter/struct.ItemsCount.html),
+  [`BytesCount`](https://docs.rs/divan/X.Y.Z/divan/counter/struct.BytesCount.html),
+  and
+  [`CharsCount`](https://docs.rs/divan/X.Y.Z/divan/counter/struct.CharsCount.html)
+  where `C` is `u8`–`u64` or `usize` (via `CountUInt` internally). This provides
+  an alternative to the `new` constructor.
+
 - [`BytesCount::of_many`](https://docs.rs/divan/X.Y.Z/divan/counter/struct.BytesCount.html#method.of_many)
   method similar to [`BytesCount::of`](https://docs.rs/divan/0.1/divan/counter/struct.BytesCount.html#method.of),
   but with a parameter by which to multiply the size of the type.
