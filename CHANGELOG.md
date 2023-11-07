@@ -10,6 +10,20 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Set global
+  [`Counter`s](https://docs.rs/divan/X.Y.Z/divan/counter/trait.Counter.html) at
+  runtime using:
+  - [`Divan::counter`](https://docs.rs/divan/X.Y.Z/divan/struct.Divan.html#method.counter)
+  - [`Divan::items_count`](https://docs.rs/divan/X.Y.Z/divan/struct.Divan.html#method.items_count)
+  - [`Divan::bytes_count`](https://docs.rs/divan/X.Y.Z/divan/struct.Divan.html#method.bytes_count)
+  - [`Divan::chars_count`](https://docs.rs/divan/X.Y.Z/divan/struct.Divan.html#method.chars_count)
+  - `--items-count N` CLI arg
+  - `--bytes-count N` CLI arg
+  - `--chars-count N` CLI arg
+  - `DIVAN_ITEMS_COUNT=N` env var
+  - `DIVAN_BYTES_COUNT=N` env var
+  - `DIVAN_CHARS_COUNT=N` env var
+
 - `From<C>` for
   [`ItemsCount`](https://docs.rs/divan/X.Y.Z/divan/counter/struct.ItemsCount.html),
   [`BytesCount`](https://docs.rs/divan/X.Y.Z/divan/counter/struct.BytesCount.html),
