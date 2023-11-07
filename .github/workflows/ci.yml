@@ -111,6 +111,10 @@ jobs:
         rust:
           - stable
           - nightly
+    env:
+      DIVAN_ITEMS_COUNT: 0
+      DIVAN_BYTES_COUNT: 1
+      DIVAN_CHARS_COUNT: 2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v3.3.2
