@@ -8,7 +8,12 @@ use fastrand::Rng;
 use ordsearch::OrderedCollection;
 
 fn main() {
-    divan::main();
+    divan::Divan::from_args()
+        .items_count(
+            // Every benchmark iteration searches for a single element.
+            1u32,
+        )
+        .main();
 }
 
 const SIZES: &[usize] =
