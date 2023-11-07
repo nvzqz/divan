@@ -49,7 +49,6 @@ fn gen_inputs(len: usize) -> impl FnMut() -> (Vec<u64>, u64) {
 #[divan::bench(consts = SIZES, max_time = 1)]
 fn linear<const N: usize>(bencher: Bencher) {
     bencher
-        .counter(N)
         .with_inputs(gen_inputs(N))
         .bench_local_refs(|(haystack, needle)| haystack.iter().find(|v| **v == *needle).copied())
 }
@@ -57,7 +56,6 @@ fn linear<const N: usize>(bencher: Bencher) {
 #[divan::bench(consts = SIZES, max_time = 1)]
 fn binary<const N: usize>(bencher: Bencher) {
     bencher
-        .counter(N)
         .with_inputs(gen_inputs(N))
         .bench_local_refs(|(haystack, needle)| haystack.binary_search_by(|v| v.cmp(needle)))
 }
@@ -100,7 +98,6 @@ where
     let mut gen_inputs = gen_inputs(N);
 
     bencher
-        .counter(N)
         .with_inputs(|| -> (HashSet<u64, H>, u64) {
             let (haystack, needle) = gen_inputs();
             (haystack.into_iter().collect(), needle)
@@ -113,7 +110,6 @@ fn ordsearch<const N: usize>(bencher: Bencher) {
     let mut gen_inputs = gen_inputs(N);
 
     bencher
-        .counter(N)
         .with_inputs(|| {
             let (haystack, needle) = gen_inputs();
             (OrderedCollection::from_sorted_iter(haystack), needle)
