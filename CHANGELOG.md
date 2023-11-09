@@ -40,6 +40,16 @@ Versioning](http://semver.org/spec/v2.0.0.html).
   [`BytesCount::f64`](https://docs.rs/divan/X.Y.Z/divan/counter/struct.BytesCount.html#method.f64),
   and similar methods based on [`BytesCount::of_many`](https://docs.rs/divan/X.Y.Z/divan/counter/struct.BytesCount.html#method.of_many).
 
+### Removed
+
+- [`black_box`] inside benchmark loop when deferring [`Drop`] of outputs. This
+  is now done after the loop.
+
+### Changed
+
+- Now calling [`black_box`] at the end of the benchmark loop when deferring use
+  of inputs or [`Drop`] of outputs.
+
 ## [0.1.2] - 2023-10-28
 
 ### Fixed
@@ -65,3 +75,6 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.2...HEAD
 [0.1.2]: https://github.com/nvzqz/divan/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
+
+[`black_box`]: https://doc.rust-lang.org/std/hint/fn.black_box.html
+[`Drop`]: https://doc.rust-lang.org/std/ops/trait.Drop.html

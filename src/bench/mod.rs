@@ -916,20 +916,14 @@ impl<'a> BenchContext<'a> {
                                 let output = benched(&defer_slot.input);
                                 *defer_slot.output.get() = MaybeUninit::new(output);
                             }
-
-                            // PERF: `black_box` the slot address because:
-                            // - It prevents `input` mutation from being
-                            //   optimized out.
-                            // - `black_box` writes its input to the stack.
-                            //   Using the slot address instead of the output
-                            //   by-value reduces overhead when `O` is a larger
-                            //   type like `String` since then it will write a
-                            //   single word instead of three words.
-                            _ = black_box(defer_slot);
                         }
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
                         sync_threads();
+
+                        // Prevent the optimizer from removing writes to inputs
+                        // and outputs in the sample loop.
+                        black_box(defer_slots_slice);
 
                         // Drop outputs and inputs.
                         for DeferSlot { input, output } in defer_slots_slice {
@@ -974,6 +968,10 @@ impl<'a> BenchContext<'a> {
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
                         sync_threads();
+
+                        // Prevent the optimizer from removing writes to inputs
+                        // in the sample loop.
+                        black_box(defer_inputs_slice);
 
                         // Drop inputs.
                         if mem::needs_drop::<I>() {
