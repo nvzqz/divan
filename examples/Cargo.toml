@@ -74,6 +74,10 @@ name = "math"
 harness = false
 
 [[bench]]
+name = "memcpy"
+harness = false
+
+[[bench]]
 name = "panic"
 harness = false
 
