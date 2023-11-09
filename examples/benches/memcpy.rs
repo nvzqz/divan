@@ -37,7 +37,7 @@ fn memcpy<const N: usize>(bencher: Bencher) {
         |[src, dst]| unsafe {
             let src = src.as_ptr().cast();
             let dst = dst.as_mut_ptr().cast();
-            libc::memcpy(dst, src, N);
+            libc::memcpy(dst, src, divan::black_box(N));
         },
     )
 }
@@ -55,7 +55,7 @@ fn movsb<const N: usize>(bencher: Bencher) {
             #[cfg(target_arch = "x86")]
             asm!(
                 "rep movsb",
-                inout("ecx") N => _,
+                inout("ecx") divan::black_box(N) => _,
                 inout("esi") src => _,
                 inout("edi") dst => _,
                 options(nostack, preserves_flags),
@@ -64,7 +64,7 @@ fn movsb<const N: usize>(bencher: Bencher) {
             #[cfg(target_arch = "x86_64")]
             asm!(
                 "rep movsb",
-                inout("rcx") N => _,
+                inout("rcx") divan::black_box(N) => _,
                 inout("rsi") src => _,
                 inout("rdi") dst => _,
                 options(nostack, preserves_flags),
