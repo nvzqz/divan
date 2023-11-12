@@ -18,6 +18,7 @@ mod divan;
 mod entry;
 mod miri;
 mod stats;
+mod stats_collector;
 mod time;
 mod tree_painter;
 mod util;

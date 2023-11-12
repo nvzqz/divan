@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(IntoThreads::into_threads(1), &[1]);
         assert_eq!(IntoThreads::into_threads(42), &[42]);
 
-        assert_eq!(IntoThreads::into_threads([0; 0]), &[]);
+        assert_eq!(IntoThreads::into_threads([0; 0]), &[] as &[usize]);
         assert_eq!(IntoThreads::into_threads([0]), &[0]);
         assert_eq!(IntoThreads::into_threads([0, 0]), &[0]);
 

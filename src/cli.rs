@@ -20,6 +20,7 @@ pub(crate) fn command() -> Command {
     }
 
     // Custom arguments not supported by libtest:
+    // - write
     // - bytes-format
     // - sample-count
     // - sample-size
@@ -39,9 +40,11 @@ pub(crate) fn command() -> Command {
         .arg(
             flag("test")
                 .help("Run benchmarks once to ensure they run successfully")
-                .conflicts_with("list"),
+                .conflicts_with("list")
+                .conflicts_with("write"),
         )
-        .arg(flag("list").help("Lists benchmarks").conflicts_with("test"))
+        .arg(flag("list").help("Lists benchmarks").conflicts_with("test").conflicts_with("write"))
+        .arg(flag("write").help("Write test results to json file").conflicts_with("test").conflicts_with("list"))
         .arg(
             option("color")
                 .value_name("WHEN")
