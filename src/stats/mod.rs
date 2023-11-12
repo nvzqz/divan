@@ -10,6 +10,7 @@ mod sample;
 pub(crate) use sample::*;
 
 /// Statistics from samples.
+#[derive(serde::Serialize)]
 pub(crate) struct Stats {
     /// Total number of samples taken.
     pub sample_count: u32,
@@ -28,7 +29,7 @@ impl Stats {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub(crate) struct StatsSet<T> {
     /// Associated with minimum amount of time taken by an iteration.
     pub fastest: T,

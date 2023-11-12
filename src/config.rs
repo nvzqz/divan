@@ -15,11 +15,10 @@ impl FromStr for ParsedSeconds {
 }
 
 /// The primary action to perform.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub(crate) enum Action {
     /// Run benchmark loops.
-    #[default]
-    Bench,
+    Bench { write: bool },
 
     /// Run benchmarked functions once to ensure they run successfully.
     Test,
@@ -28,11 +27,17 @@ pub(crate) enum Action {
     List,
 }
 
+impl Default for Action {
+    fn default() -> Self {
+        Action::Bench { write: false }
+    }
+}
+
 #[allow(dead_code)]
 impl Action {
     #[inline]
     pub fn is_bench(&self) -> bool {
-        matches!(self, Self::Bench)
+        matches!(self, Self::Bench { .. })
     }
 
     #[inline]

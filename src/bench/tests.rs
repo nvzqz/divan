@@ -40,7 +40,7 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
     };
 
     for timer in Timer::available() {
-        for action in [Action::Bench, Action::Test] {
+        for action in [Action::Bench { write: false }, Action::Test] {
             let shared_context =
                 SharedContext { action, timer, bench_overhead: FineDuration::default() };
 

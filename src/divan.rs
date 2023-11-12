@@ -10,6 +10,7 @@ use crate::{
         BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
     },
     entry::{AnyBenchEntry, EntryTree},
+    stats_collector::StatsCollector,
     time::{FineDuration, Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
 };
@@ -58,8 +59,8 @@ impl Divan {
     }
 
     /// Benchmark registered functions.
-    pub fn run_benches(&self) {
-        self.run_action(Action::Bench);
+    pub fn run_benches(&self, write: bool) {
+        self.run_action(Action::Bench { write });
     }
 
     /// Test registered functions as if the `--test` flag was used.
@@ -173,8 +174,22 @@ impl Divan {
         };
 
         let mut tree_painter = TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths);
+        let mut stats_collector = StatsCollector::default();
 
-        self.run_tree(action, &tree, &shared_context, None, &mut tree_painter);
+        self.run_tree(
+            action,
+            &tree,
+            &shared_context,
+            None,
+            &mut tree_painter,
+            &mut stats_collector,
+        );
+
+        if let Action::Bench { write: true } = action {
+            if let Err(err) = stats_collector.write() {
+                eprintln!("error: {err}");
+            }
+        }
     }
 
     fn run_tree(
@@ -184,11 +199,13 @@ impl Divan {
         shared_context: &SharedContext,
         parent_options: Option<&BenchOptions>,
         tree_painter: &mut TreePainter,
+        stats_collector: &mut StatsCollector,
     ) {
         for (i, child) in tree.iter().enumerate() {
             let is_last = i == tree.len() - 1;
 
             let name = child.display_name();
+            stats_collector.enter_group(child.raw_name().to_string());
 
             let child_options = child.bench_options();
 
@@ -210,19 +227,30 @@ impl Divan {
                     shared_context,
                     options,
                     tree_painter,
+                    stats_collector,
                     is_last,
                 ),
                 EntryTree::Parent { children, .. } => {
                     tree_painter.start_parent(name, is_last);
 
-                    self.run_tree(action, children, shared_context, options, tree_painter);
+                    self.run_tree(
+                        action,
+                        children,
+                        shared_context,
+                        options,
+                        tree_painter,
+                        stats_collector,
+                    );
 
                     tree_painter.finish_parent();
                 }
             }
+
+            stats_collector.leave_group();
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn run_bench_entry(
         &self,
         action: Action,
@@ -230,6 +258,7 @@ impl Divan {
         shared_context: &SharedContext,
         entry_options: Option<&BenchOptions>,
         tree_painter: &mut TreePainter,
+        stats_collector: &mut StatsCollector,
         is_last: bool,
     ) {
         use crate::bench::BenchContext;
@@ -308,6 +337,7 @@ impl Divan {
             let stats = bench_context.compute_stats();
 
             tree_painter.finish_leaf(is_last, &stats, self.bytes_format);
+            stats_collector.add(stats, &bench_entry);
         }
 
         if has_thread_branches {
@@ -368,7 +398,7 @@ impl Divan {
             // `cargo test --benches`
             Action::Test
         } else {
-            Action::Bench
+            Action::Bench { write: matches.get_flag("write") }
         };
 
         if let Some(&color) = matches.get_one("color") {

@@ -3,7 +3,7 @@ use std::{fmt, ops, time::Duration};
 use crate::util;
 
 /// [Picosecond](https://en.wikipedia.org/wiki/Picosecond)-precise [`Duration`].
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 #[repr(transparent)]
 pub(crate) struct FineDuration {
     pub picos: u128,
