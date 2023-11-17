@@ -1,6 +1,6 @@
 use std::ptr::NonNull;
 
-use crate::{bench::BenchContext, Bencher};
+use crate::Bencher;
 
 mod generic;
 mod list;
@@ -94,11 +94,11 @@ impl<'a> AnyBenchEntry<'a> {
     ///
     /// For each benchmark, `with_context` is called once.
     #[inline]
-    pub fn bench(self, with_context: &mut dyn FnMut(&mut dyn FnMut(&mut BenchContext))) {
+    pub fn bench(self, with_bencher: &mut dyn FnMut(fn(Bencher))) {
         match self {
             Self::Bench(BenchEntry { bench, .. })
             | Self::GenericBench(GenericBenchEntry { bench, .. }) => {
-                with_context(&mut |context| bench(Bencher::new(context)));
+                with_bencher(*bench);
             }
         }
     }

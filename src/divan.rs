@@ -12,6 +12,7 @@ use crate::{
     entry::{AnyBenchEntry, EntryTree},
     time::{FineDuration, Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
+    Bencher,
 };
 
 /// The benchmark runner.
@@ -284,7 +285,7 @@ impl Divan {
             tree_painter.start_leaf(display_name, is_last_entry);
         }
 
-        bench_entry.bench(&mut |with_context| {
+        bench_entry.bench(&mut |with_bencher| {
             for (i, &thread_count) in thread_counts.iter().enumerate() {
                 let is_last_thread_count =
                     if has_thread_branches { i == thread_counts.len() - 1 } else { is_last_entry };
@@ -294,7 +295,7 @@ impl Divan {
                 }
 
                 let mut bench_context = BenchContext::new(shared_context, options, thread_count);
-                with_context(&mut bench_context);
+                with_bencher(Bencher::new(&mut bench_context));
 
                 if !bench_context.did_run {
                     eprintln!("warning: No benchmark function registered for '{display_name}'");
