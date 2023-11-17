@@ -26,6 +26,40 @@ impl Macro<'_> {
     }
 }
 
+/// Attributes applied to a `static` containing a pointer to a function to run
+/// before `main`.
+fn pre_main_attrs() -> proc_macro2::TokenStream {
+    quote! {
+        #[used]
+        #[cfg_attr(
+            // ELF
+            any(
+                target_os = "android",
+                target_os = "dragonfly",
+                target_os = "freebsd",
+                target_os = "fuchsia",
+                target_os = "haiku",
+                target_os = "illumos",
+                target_os = "linux",
+                target_os = "netbsd",
+                target_os = "openbsd",
+            ),
+            link_section = ".init_array",
+        )]
+        #[cfg_attr(
+            // Mach-O
+            any(
+                target_os = "ios",
+                target_os = "macos",
+                target_os = "tvos",
+                target_os = "watchos",
+            ),
+            link_section = "__DATA,__mod_init_func,mod_init_funcs",
+        )]
+        #[cfg_attr(windows, link_section = ".CRT$XCU")]
+    }
+}
+
 #[proc_macro_attribute]
 pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     let fn_item = item.clone();
@@ -38,7 +72,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Items needed by generated code.
-    let AttrOptions { private_mod, linkme_crate, .. } = &options;
+    let AttrOptions { private_mod, .. } = &options;
 
     let fn_ident = &fn_sig.ident;
     let fn_name = fn_ident.to_string();
@@ -112,6 +146,8 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     let option_none = quote! { #private_mod::None };
     let option_some = quote! { #private_mod::Some };
 
+    let pre_main_attrs = pre_main_attrs();
+
     // Creates a `GroupEntry` static for generic benchmarks.
     let make_generic_group = |generic_benches: proc_macro2::TokenStream| {
         let entry = quote! {
@@ -122,33 +158,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         };
 
         quote! {
-            // Use a distributed slice via `linkme` by default.
-            #[cfg(not(any(
-                windows,
-                target_os = "linux",
-                target_os = "android",
-            )))]
-            #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
-            #[linkme(crate = #linkme_crate)]
-            #[doc(hidden)]
-            static #static_ident: #private_mod::GroupEntry = #entry;
-
-            // On other platforms we push this static into `GROUP_ENTRIES`
-            // before `main` is called.
-            #[cfg(any(
-                windows,
-                target_os = "linux",
-                target_os = "android",
-            ))]
+            // Push this static into `GROUP_ENTRIES` before `main` is called.
             static #static_ident: #private_mod::GroupEntry = {
                 {
                     // Add `push` to the initializer section.
-                    #[used]
-                    #[cfg_attr(
-                        any(target_os = "linux", target_os = "android"),
-                        link_section = ".init_array",
-                    )]
-                    #[cfg_attr(windows, link_section = ".CRT$XCU")]
+                    #pre_main_attrs
                     static PUSH: extern "C" fn() = push;
 
                     extern "C" fn push() {
@@ -225,33 +239,12 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                 };
 
                 quote! {
-                    // Use a distributed slice via `linkme` by default.
-                    #[cfg(not(any(
-                        windows,
-                        target_os = "linux",
-                        target_os = "android",
-                    )))]
-                    #[#linkme_crate::distributed_slice(#private_mod::BENCH_ENTRIES)]
-                    #[linkme(crate = #linkme_crate)]
-                    #[doc(hidden)]
-                    static #static_ident: #private_mod::BenchEntry = #entry;
-
-                    // On other platforms we push this static into
-                    // `BENCH_ENTRIES` before `main` is called.
-                    #[cfg(any(
-                        windows,
-                        target_os = "linux",
-                        target_os = "android",
-                    ))]
+                    // Push this static into `BENCH_ENTRIES` before `main` is
+                    // called.
                     static #static_ident: #private_mod::BenchEntry = {
                         {
                             // Add `push` to the initializer section.
-                            #[used]
-                            #[cfg_attr(
-                                any(target_os = "linux", target_os = "android"),
-                                link_section = ".init_array",
-                            )]
-                            #[cfg_attr(windows, link_section = ".CRT$XCU")]
+                            #pre_main_attrs
                             static PUSH: extern "C" fn() = push;
 
                             extern "C" fn push() {
@@ -365,7 +358,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Items needed by generated code.
-    let AttrOptions { private_mod, linkme_crate, .. } = &options;
+    let AttrOptions { private_mod, .. } = &options;
 
     // TODO: Make module parsing cheaper by parsing only the necessary parts.
     let mod_item = item.clone();
@@ -393,41 +386,14 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
 
     let meta = entry_meta_expr(&mod_name, &options, ignore_attr_ident);
 
-    let entry_static = quote! {
-        static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
-            meta: #meta,
-            generic_benches: #private_mod::None,
-        };
-    };
+    let pre_main_attrs = pre_main_attrs();
 
     let generated_items = quote! {
-        // Use a distributed slice via `linkme` by default.
-        #[cfg(not(any(
-            windows,
-            target_os = "linux",
-            target_os = "android",
-        )))]
-        #[#linkme_crate::distributed_slice(#private_mod::GROUP_ENTRIES)]
-        #[linkme(crate = #linkme_crate)]
-        #[doc(hidden)]
-        #entry_static
-
-        // On other platforms we push this static into `GROUP_ENTRIES` before
-        // `main` is called.
-        #[cfg(any(
-            windows,
-            target_os = "linux",
-            target_os = "android",
-        ))]
+        // Push this static into `GROUP_ENTRIES` before `main` is called.
         static #static_ident: #private_mod::EntryList<#private_mod::GroupEntry> = {
             {
                 // Add `push` to the initializer section.
-                #[used]
-                #[cfg_attr(
-                    any(target_os = "linux", target_os = "android"),
-                    link_section = ".init_array",
-                )]
-                #[cfg_attr(windows, link_section = ".CRT$XCU")]
+                #pre_main_attrs
                 static PUSH: extern "C" fn() = push;
 
                 extern "C" fn push() {
@@ -436,7 +402,10 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             #private_mod::EntryList::new({
-                #entry_static
+                static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
+                    meta: #meta,
+                    generic_benches: #private_mod::None,
+                };
 
                 &#static_ident
             })

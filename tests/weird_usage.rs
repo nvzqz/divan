@@ -1,6 +1,6 @@
 // Tests that ensure weird (but valid) usage behave as expected.
 
-// Miri does not work with `linkme`.
+// Miri cannot discover benchmarks.
 #![cfg(not(miri))]
 
 use std::time::Duration;

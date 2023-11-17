@@ -10,6 +10,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Support for NetBSD, DragonFly BSD, and Haiku OS by using pre-`main`.
+
 - Set global thread counts using:
   - [`Divan::threads`](https://docs.rs/divan/X.Y.Z/divan/struct.Divan.html#method.threads)
   - `--threads A B C...` CLI arg
@@ -56,6 +58,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 - [`black_box`] inside benchmark loop when deferring [`Drop`] of outputs. This
   is now done after the loop.
+
+- [`linkme`](https://docs.rs/linkme) dependency in favor of pre-`main` to
+  register benchmarks and benchmark groups. This is generally be more portable
+  and reliable.
 
 ### Changed
 

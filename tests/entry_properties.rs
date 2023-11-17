@@ -1,6 +1,6 @@
 // Tests that entry benchmarks/groups have correct generated properties.
 
-// Miri does not work with `linkme`.
+// Miri cannot discover benchmarks.
 #![cfg(not(miri))]
 
 use divan::__private::{EntryMeta, BENCH_ENTRIES, GROUP_ENTRIES};

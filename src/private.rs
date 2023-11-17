@@ -3,9 +3,6 @@ pub use std::{
     self, any, borrow::Cow, default::Default, iter::FromIterator, option::Option::*, sync::OnceLock,
 };
 
-#[cfg(not(any(windows, target_os = "linux", target_os = "android")))]
-pub use linkme;
-
 pub use crate::{
     bench::BenchOptions,
     entry::{

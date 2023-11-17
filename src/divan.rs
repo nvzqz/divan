@@ -97,7 +97,7 @@ impl Divan {
 
     pub(crate) fn run_action(&self, action: Action) {
         let mut tree: Vec<EntryTree> = if cfg!(miri) {
-            // Miri does not work with `linkme`.
+            // Miri does not work with our linker tricks.
             Vec::new()
         } else {
             let group_entries = &crate::entry::GROUP_ENTRIES;

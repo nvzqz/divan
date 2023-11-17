@@ -13,7 +13,6 @@ pub struct EntryList<T: 'static> {
 }
 
 impl<T> EntryList<T> {
-    #[cfg(any(windows, target_os = "linux", target_os = "android"))]
     pub(crate) const fn root() -> Self {
         Self { entry: None, next: AtomicPtr::new(ptr::null_mut()) }
     }
@@ -36,9 +35,6 @@ impl<T> EntryList<T> {
     }
 
     /// Creates an iterator over entries in `self`.
-    ///
-    /// We use `.iter()` to be a drop-in replacement for
-    /// `linkme::DistributedSlice`.
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         let mut list = Some(self);
