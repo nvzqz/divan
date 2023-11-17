@@ -3,7 +3,7 @@
 //! [bench_attr_threads]: macro@bench#threads
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
-#![allow(unused_unsafe, clippy::needless_doctest_main)]
+#![allow(unused_unsafe, clippy::needless_doctest_main, clippy::type_complexity)]
 
 // Used by generated code. Not public API and thus not subject to SemVer.
 #[doc(hidden)]

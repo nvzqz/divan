@@ -4,7 +4,7 @@ use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
-    bench::{BenchOptions, Bencher},
+    bench::BenchOptions,
     config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
     counter::{
         BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
@@ -291,23 +291,24 @@ impl Divan {
                 tree_painter.start_leaf(&format!("t={thread_count}"), is_last);
             }
 
-            let mut bench_context = BenchContext::new(shared_context, options, thread_count);
-            bench_entry.bench(Bencher::new(&mut bench_context));
+            bench_entry.bench(&mut |with_context| {
+                let mut bench_context = BenchContext::new(shared_context, options, thread_count);
+                with_context(&mut bench_context);
 
-            let should_compute_stats = bench_context.did_run && shared_context.action.is_bench();
+                if !bench_context.did_run {
+                    eprintln!("warning: No benchmark function registered for '{display_name}'");
+                }
 
-            if !bench_context.did_run {
-                eprintln!("warning: No benchmark function registered for '{display_name}'");
-            }
+                let should_compute_stats =
+                    bench_context.did_run && shared_context.action.is_bench();
 
-            if !should_compute_stats {
-                tree_painter.finish_empty_leaf();
-                continue;
-            }
-
-            let stats = bench_context.compute_stats();
-
-            tree_painter.finish_leaf(is_last, &stats, self.bytes_format);
+                if should_compute_stats {
+                    let stats = bench_context.compute_stats();
+                    tree_painter.finish_leaf(is_last, &stats, self.bytes_format);
+                } else {
+                    tree_painter.finish_empty_leaf();
+                }
+            });
         }
 
         if has_thread_branches {
