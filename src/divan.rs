@@ -1,4 +1,4 @@
-use std::{fmt, num::NonZeroUsize, time::Duration};
+use std::{borrow::Cow, fmt, num::NonZeroUsize, time::Duration};
 
 use clap::ColorChoice;
 use regex::Regex;
@@ -26,7 +26,7 @@ pub struct Divan {
     filters: Vec<Filter>,
     skip_filters: Vec<Filter>,
     run_ignored: RunIgnored,
-    bench_options: BenchOptions,
+    bench_options: BenchOptions<'static>,
 }
 
 /// Immutable context shared between entry runs.
@@ -258,9 +258,9 @@ impl Divan {
             return;
         }
 
-        // TODO: Add threads options to `Divan`.
         let mut thread_counts: Vec<NonZeroUsize> = options
             .threads
+            .as_deref()
             .unwrap_or_default()
             .iter()
             .map(|&n| match NonZeroUsize::new(n) {
@@ -401,6 +401,13 @@ impl Divan {
 
         if let Some(&sample_size) = matches.get_one("sample-size") {
             self.bench_options.sample_size = Some(sample_size);
+        }
+
+        if let Some(thread_counts) = matches.get_many::<usize>("threads") {
+            let mut threads: Vec<usize> = thread_counts.copied().collect();
+            threads.sort_unstable();
+            threads.dedup();
+            self.bench_options.threads = Some(Cow::Owned(threads));
         }
 
         if let Some(&ParsedSeconds(min_time)) = matches.get_one("min-time") {
@@ -577,6 +584,28 @@ impl Divan {
     #[inline]
     pub fn sample_size(mut self, count: u32) -> Self {
         self.bench_options.sample_size = Some(count);
+        self
+    }
+
+    /// Run across multiple threads.
+    ///
+    /// This enables you to measure contention on [atomics and
+    /// locks](std::sync). A value of 0 indicates [available
+    /// parallelism](std::thread::available_parallelism).
+    ///
+    /// This option is equivalent to the `--threads` CLI argument or
+    /// `DIVAN_THREADS` environment variable.
+    #[inline]
+    pub fn threads<T>(mut self, threads: T) -> Self
+    where
+        T: IntoIterator<Item = usize>,
+    {
+        self.bench_options.threads = {
+            let mut threads: Vec<usize> = threads.into_iter().collect();
+            threads.sort_unstable();
+            threads.dedup();
+            Some(Cow::Owned(threads))
+        };
         self
     }
 

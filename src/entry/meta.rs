@@ -19,10 +19,10 @@ pub struct EntryMeta {
     pub location: EntryLocation,
 
     /// Configures the benchmarker via attribute options.
-    pub get_bench_options: Option<fn() -> BenchOptions>,
+    pub get_bench_options: Option<fn() -> BenchOptions<'static>>,
 
     /// Cached `BenchOptions`.
-    pub cached_bench_options: OnceLock<BenchOptions>,
+    pub cached_bench_options: OnceLock<BenchOptions<'static>>,
 }
 
 /// Where an entry is located.

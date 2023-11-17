@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 
 use crate::{counter::CounterSet, time::FineDuration};
 
@@ -8,7 +8,7 @@ use crate::{counter::CounterSet, time::FineDuration};
 /// Changes to fields must be reflected in the "Options" sections of the docs
 /// for `#[divan::bench]` and `#[divan::bench_group]`.
 #[derive(Clone, Default)]
-pub struct BenchOptions {
+pub struct BenchOptions<'a> {
     /// The number of sample recordings.
     pub sample_count: Option<u32>,
 
@@ -21,7 +21,7 @@ pub struct BenchOptions {
     ///
     /// We use `&'static [usize]` by leaking the input because `BenchOptions` is
     /// cached on first retrieval.
-    pub threads: Option<&'static [usize]>,
+    pub threads: Option<Cow<'a, [usize]>>,
 
     /// Counts the number of values processed each iteration of a benchmarked
     /// function.
@@ -45,15 +45,18 @@ pub struct BenchOptions {
     pub ignore: Option<bool>,
 }
 
-impl BenchOptions {
+impl<'a> BenchOptions<'a> {
     /// Overwrites `other` with values set in `self`.
     #[must_use]
-    pub(crate) fn overwrite(&self, other: &Self) -> Self {
+    pub(crate) fn overwrite<'b>(&'b self, other: &'b Self) -> Self
+    where
+        'b: 'a,
+    {
         Self {
             // `Copy` values:
             sample_count: self.sample_count.or(other.sample_count),
             sample_size: self.sample_size.or(other.sample_size),
-            threads: self.threads.or(other.threads),
+            threads: self.threads.as_deref().or(other.threads.as_deref()).map(Cow::Borrowed),
             min_time: self.min_time.or(other.min_time),
             max_time: self.max_time.or(other.max_time),
             skip_ext_time: self.skip_ext_time.or(other.skip_ext_time),

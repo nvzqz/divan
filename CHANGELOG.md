@@ -10,6 +10,18 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Set global thread counts using:
+  - [`Divan::threads`](https://docs.rs/divan/X.Y.Z/divan/struct.Divan.html#method.threads)
+  - `--threads A B C...` CLI arg
+  - `DIVAN_THREADS=A,B,C` env var
+
+  The following example will benchmark across 2, 4, and [available parallelism]
+  thread counts:
+
+  ```sh
+  DIVAN_THREADS=0,2,4 cargo bench -q -p examples --bench atomic
+  ```
+
 - Set global
   [`Counter`s](https://docs.rs/divan/X.Y.Z/divan/counter/trait.Counter.html) at
   runtime using:
@@ -78,3 +90,4 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 
 [`black_box`]: https://doc.rust-lang.org/std/hint/fn.black_box.html
 [`Drop`]: https://doc.rust-lang.org/std/ops/trait.Drop.html
+[available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html

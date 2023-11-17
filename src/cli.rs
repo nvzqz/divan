@@ -98,6 +98,15 @@ pub(crate) fn command() -> Command {
                 .value_parser(value_parser!(u32)),
         )
         .arg(
+            option("threads")
+                .env("DIVAN_THREADS")
+                .value_name("N")
+                .value_delimiter(',')
+                .action(ArgAction::Append)
+                .help("Run across multiple threads to measure contention on atomics and locks")
+                .value_parser(value_parser!(usize)),
+        )
+        .arg(
             option("min-time")
                 .env("DIVAN_MIN_TIME")
                 .value_name("SECS")

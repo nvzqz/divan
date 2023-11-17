@@ -214,7 +214,7 @@ impl AttrOptions {
                     "threads" => {
                         wrapped_value = if is_lit_array(value) {
                             // If array of literals, just use `&[...]`.
-                            quote! { &#value }
+                            quote! { #private_mod::Cow::Borrowed(&#value) }
                         } else {
                             quote! { #private_mod::IntoThreads::into_threads(#value) }
                         };

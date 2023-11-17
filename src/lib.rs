@@ -16,7 +16,6 @@ mod compile_fail;
 mod config;
 mod divan;
 mod entry;
-mod miri;
 mod stats;
 mod time;
 mod tree_painter;

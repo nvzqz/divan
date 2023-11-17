@@ -1,10 +1,11 @@
 use std::borrow::Borrow;
-pub use std::{self, any, default::Default, iter::FromIterator, option::Option::*, sync::OnceLock};
+pub use std::{
+    self, any, borrow::Cow, default::Default, iter::FromIterator, option::Option::*, sync::OnceLock,
+};
 
 #[cfg(not(any(windows, target_os = "linux", target_os = "android")))]
 pub use linkme;
 
-use crate::miri;
 pub use crate::{
     bench::BenchOptions,
     entry::{
@@ -43,31 +44,33 @@ pub use crate::{
 /// It's fair to assume that scalar primitives will never implement
 /// `IntoIterator`, so this hack shouldn't break in the future 🤠.
 pub trait IntoThreads<const IMP: u32> {
-    fn into_threads(self) -> &'static [usize];
+    fn into_threads(self) -> Cow<'static, [usize]>;
 }
 
 impl IntoThreads<0> for usize {
     #[inline]
-    fn into_threads(self) -> &'static [usize] {
-        match self {
+    fn into_threads(self) -> Cow<'static, [usize]> {
+        let counts = match self {
             0 => &[0],
             1 => &[1],
             2 => &[2],
-            _ => std::slice::from_ref(miri::leak(Box::leak(Box::new(self)))),
-        }
+            _ => return Cow::Owned(vec![self]),
+        };
+        Cow::Borrowed(counts)
     }
 }
 
 impl IntoThreads<0> for bool {
     #[inline]
-    fn into_threads(self) -> &'static [usize] {
-        if self {
+    fn into_threads(self) -> Cow<'static, [usize]> {
+        let counts = if self {
             // Available parallelism.
             &[0]
         } else {
             // No parallelism.
             &[1]
-        }
+        };
+        Cow::Borrowed(counts)
     }
 }
 
@@ -77,11 +80,11 @@ where
     I::Item: Borrow<usize>,
 {
     #[inline]
-    fn into_threads(self) -> &'static [usize] {
+    fn into_threads(self) -> Cow<'static, [usize]> {
         let mut options: Vec<usize> = self.into_iter().map(|i| *i.borrow()).collect();
         options.sort_unstable();
         options.dedup();
-        miri::leak(Box::leak(options.into_boxed_slice()))
+        Cow::Owned(options)
     }
 }
 
@@ -118,19 +121,25 @@ mod tests {
 
     #[test]
     fn into_threads() {
-        assert_eq!(IntoThreads::into_threads(true), &[0]);
-        assert_eq!(IntoThreads::into_threads(false), &[1]);
+        macro_rules! test {
+            ($value:expr, $expected:expr) => {
+                assert_eq!(IntoThreads::into_threads($value).as_ref(), $expected);
+            };
+        }
 
-        assert_eq!(IntoThreads::into_threads(0), &[0]);
-        assert_eq!(IntoThreads::into_threads(1), &[1]);
-        assert_eq!(IntoThreads::into_threads(42), &[42]);
+        test!(true, &[0]);
+        test!(false, &[1]);
 
-        assert_eq!(IntoThreads::into_threads([0; 0]), &[]);
-        assert_eq!(IntoThreads::into_threads([0]), &[0]);
-        assert_eq!(IntoThreads::into_threads([0, 0]), &[0]);
+        test!(0, &[0]);
+        test!(1, &[1]);
+        test!(42, &[42]);
 
-        assert_eq!(IntoThreads::into_threads([0, 2, 3, 1]), &[0, 1, 2, 3]);
-        assert_eq!(IntoThreads::into_threads([0, 0, 2, 3, 2, 1, 3]), &[0, 1, 2, 3]);
+        test!([0; 0], &[]);
+        test!([0], &[0]);
+        test!([0, 0], &[0]);
+
+        test!([0, 2, 3, 1], &[0, 1, 2, 3]);
+        test!([0, 0, 2, 3, 2, 1, 3], &[0, 1, 2, 3]);
     }
 
     #[test]
