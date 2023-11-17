@@ -230,7 +230,7 @@ impl Divan {
         shared_context: &SharedContext,
         entry_options: Option<&BenchOptions>,
         tree_painter: &mut TreePainter,
-        is_last: bool,
+        is_last_entry: bool,
     ) {
         use crate::bench::BenchContext;
 
@@ -247,13 +247,13 @@ impl Divan {
         };
 
         if self.should_ignore(options.ignore.unwrap_or_default()) {
-            tree_painter.ignore_leaf(display_name, is_last);
+            tree_painter.ignore_leaf(display_name, is_last_entry);
             return;
         }
 
         // Paint empty leaf when simply listing.
         if action.is_list() {
-            tree_painter.start_leaf(display_name, is_last);
+            tree_painter.start_leaf(display_name, is_last_entry);
             tree_painter.finish_empty_leaf();
             return;
         }
@@ -279,19 +279,20 @@ impl Divan {
         let has_thread_branches = thread_counts.len() > 1;
 
         if has_thread_branches {
-            tree_painter.start_parent(display_name, is_last);
+            tree_painter.start_parent(display_name, is_last_entry);
         } else {
-            tree_painter.start_leaf(display_name, is_last);
+            tree_painter.start_leaf(display_name, is_last_entry);
         }
 
-        for (i, &thread_count) in thread_counts.iter().enumerate() {
-            let is_last = if has_thread_branches { i == thread_counts.len() - 1 } else { is_last };
+        bench_entry.bench(&mut |with_context| {
+            for (i, &thread_count) in thread_counts.iter().enumerate() {
+                let is_last_thread_count =
+                    if has_thread_branches { i == thread_counts.len() - 1 } else { is_last_entry };
 
-            if has_thread_branches {
-                tree_painter.start_leaf(&format!("t={thread_count}"), is_last);
-            }
+                if has_thread_branches {
+                    tree_painter.start_leaf(&format!("t={thread_count}"), is_last_thread_count);
+                }
 
-            bench_entry.bench(&mut |with_context| {
                 let mut bench_context = BenchContext::new(shared_context, options, thread_count);
                 with_context(&mut bench_context);
 
@@ -304,12 +305,12 @@ impl Divan {
 
                 if should_compute_stats {
                     let stats = bench_context.compute_stats();
-                    tree_painter.finish_leaf(is_last, &stats, self.bytes_format);
+                    tree_painter.finish_leaf(is_last_thread_count, &stats, self.bytes_format);
                 } else {
                     tree_painter.finish_empty_leaf();
                 }
-            });
-        }
+            }
+        });
 
         if has_thread_branches {
             tree_painter.finish_parent();
