@@ -31,6 +31,7 @@ impl Macro<'_> {
 fn pre_main_attrs() -> proc_macro2::TokenStream {
     quote! {
         #[used]
+        #[cfg_attr(windows, link_section = ".CRT$XCU")]
         #[cfg_attr(
             // ELF
             any(
@@ -56,7 +57,35 @@ fn pre_main_attrs() -> proc_macro2::TokenStream {
             ),
             link_section = "__DATA,__mod_init_func,mod_init_funcs",
         )]
-        #[cfg_attr(windows, link_section = ".CRT$XCU")]
+    }
+}
+
+fn unsupported_error(
+    std_crate: &proc_macro2::TokenStream,
+    attr_name: &str,
+) -> proc_macro2::TokenStream {
+    let error = format!("Unsupported target OS for `#[divan::{attr_name}]`");
+
+    quote! {
+        #[cfg(not(any(
+            windows,
+            // ELF
+            target_os = "android",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "fuchsia",
+            target_os = "haiku",
+            target_os = "illumos",
+            target_os = "linux",
+            target_os = "netbsd",
+            target_os = "openbsd",
+            // Mach-O
+            target_os = "ios",
+            target_os = "macos",
+            target_os = "tvos",
+            target_os = "watchos",
+        )))]
+        #std_crate::compile_error!(#error);
     }
 }
 
@@ -66,13 +95,16 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     let fn_item = syn::parse_macro_input!(fn_item as syn::ItemFn);
     let fn_sig = &fn_item.sig;
 
-    let options = match AttrOptions::parse(options, Macro::Bench { fn_sig }) {
+    let attr = Macro::Bench { fn_sig };
+    let attr_name = attr.name();
+
+    let options = match AttrOptions::parse(options, attr) {
         Ok(options) => options,
         Err(compile_error) => return compile_error,
     };
 
     // Items needed by generated code.
-    let AttrOptions { private_mod, .. } = &options;
+    let AttrOptions { private_mod, std_crate, .. } = &options;
 
     let fn_ident = &fn_sig.ident;
     let fn_name = fn_ident.to_string();
@@ -147,6 +179,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     let option_some = quote! { #private_mod::Some };
 
     let pre_main_attrs = pre_main_attrs();
+    let unsupported_error = unsupported_error(std_crate, attr_name);
 
     // Creates a `GroupEntry` static for generic benchmarks.
     let make_generic_group = |generic_benches: proc_macro2::TokenStream| {
@@ -158,6 +191,8 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         };
 
         quote! {
+            #unsupported_error
+
             // Push this static into `GROUP_ENTRIES` before `main` is called.
             static #static_ident: #private_mod::GroupEntry = {
                 {
@@ -352,13 +387,16 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
-    let options = match AttrOptions::parse(options, Macro::BenchGroup) {
+    let attr = Macro::BenchGroup;
+    let attr_name = attr.name();
+
+    let options = match AttrOptions::parse(options, attr) {
         Ok(options) => options,
         Err(compile_error) => return compile_error,
     };
 
     // Items needed by generated code.
-    let AttrOptions { private_mod, .. } = &options;
+    let AttrOptions { private_mod, std_crate, .. } = &options;
 
     // TODO: Make module parsing cheaper by parsing only the necessary parts.
     let mod_item = item.clone();
@@ -387,8 +425,11 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     let meta = entry_meta_expr(&mod_name, &options, ignore_attr_ident);
 
     let pre_main_attrs = pre_main_attrs();
+    let unsupported_error = unsupported_error(std_crate, attr_name);
 
     let generated_items = quote! {
+        #unsupported_error
+
         // Push this static into `GROUP_ENTRIES` before `main` is called.
         static #static_ident: #private_mod::EntryList<#private_mod::GroupEntry> = {
             {
