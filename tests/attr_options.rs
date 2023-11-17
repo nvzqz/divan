@@ -1,6 +1,6 @@
 // Tests that attribute options produce the correct results.
 
-// Miri does not work with `linkme`.
+// Miri cannot discover benchmarks.
 #![cfg(not(miri))]
 
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};

@@ -24,9 +24,6 @@ pub(crate) struct AttrOptions {
     /// reference crate `x` instead.
     pub std_crate: proc_macro2::TokenStream,
 
-    /// `divan::__private::linkme`.
-    pub linkme_crate: proc_macro2::TokenStream,
-
     /// Custom name for the benchmark or group.
     pub name_expr: Option<Expr>,
 
@@ -162,7 +159,6 @@ impl AttrOptions {
 
         Ok(Self {
             std_crate: quote! { #private_mod::std },
-            linkme_crate: quote! { #private_mod::linkme },
             private_mod,
             name_expr,
             generic,
