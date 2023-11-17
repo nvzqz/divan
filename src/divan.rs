@@ -235,7 +235,7 @@ impl Divan {
     ) {
         use crate::bench::BenchContext;
 
-        let display_name = bench_entry.display_name();
+        let entry_display_name = bench_entry.display_name();
 
         // User runtime options override all other options.
         let options: BenchOptions;
@@ -248,13 +248,13 @@ impl Divan {
         };
 
         if self.should_ignore(options.ignore.unwrap_or_default()) {
-            tree_painter.ignore_leaf(display_name, is_last_entry);
+            tree_painter.ignore_leaf(entry_display_name, is_last_entry);
             return;
         }
 
         // Paint empty leaf when simply listing.
         if action.is_list() {
-            tree_painter.start_leaf(display_name, is_last_entry);
+            tree_painter.start_leaf(entry_display_name, is_last_entry);
             tree_painter.finish_empty_leaf();
             return;
         }
@@ -279,13 +279,15 @@ impl Divan {
         // Whether we should emit child branches for thread counts.
         let has_thread_branches = thread_counts.len() > 1;
 
-        if has_thread_branches {
-            tree_painter.start_parent(display_name, is_last_entry);
-        } else {
-            tree_painter.start_leaf(display_name, is_last_entry);
-        }
+        bench_entry.bench(&mut |bench_display_name, with_bencher| {
+            let bench_display_name = bench_display_name.unwrap_or(entry_display_name);
 
-        bench_entry.bench(&mut |with_bencher| {
+            if has_thread_branches {
+                tree_painter.start_parent(bench_display_name, is_last_entry);
+            } else {
+                tree_painter.start_leaf(bench_display_name, is_last_entry);
+            }
+
             for (i, &thread_count) in thread_counts.iter().enumerate() {
                 let is_last_thread_count =
                     if has_thread_branches { i == thread_counts.len() - 1 } else { is_last_entry };
@@ -298,7 +300,9 @@ impl Divan {
                 with_bencher(Bencher::new(&mut bench_context));
 
                 if !bench_context.did_run {
-                    eprintln!("warning: No benchmark function registered for '{display_name}'");
+                    eprintln!(
+                        "warning: No benchmark function registered for '{bench_display_name}'"
+                    );
                 }
 
                 let should_compute_stats =

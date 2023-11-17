@@ -94,11 +94,11 @@ impl<'a> AnyBenchEntry<'a> {
     ///
     /// For each benchmark, `with_context` is called once.
     #[inline]
-    pub fn bench(self, with_bencher: &mut dyn FnMut(fn(Bencher))) {
+    pub fn bench(self, with_bencher: &mut dyn FnMut(Option<&str>, fn(Bencher))) {
         match self {
             Self::Bench(BenchEntry { bench, .. })
             | Self::GenericBench(GenericBenchEntry { bench, .. }) => {
-                with_bencher(*bench);
+                with_bencher(None, *bench);
             }
         }
     }
