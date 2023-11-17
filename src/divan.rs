@@ -259,8 +259,8 @@ impl Divan {
         }
 
         // TODO: Add threads options to `Divan`.
-        let mut thread_counts: Vec<NonZeroUsize> = entry_options
-            .and_then(|options| options.threads)
+        let mut thread_counts: Vec<NonZeroUsize> = options
+            .threads
             .unwrap_or_default()
             .iter()
             .map(|&n| match NonZeroUsize::new(n) {
