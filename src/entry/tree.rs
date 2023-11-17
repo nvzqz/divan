@@ -217,15 +217,17 @@ impl<'a> EntryTree<'a> {
         entry: AnyBenchEntry<'a>,
         rem_modules: &mut dyn Iterator<Item = &'a str>,
     ) {
-        if let Some(current_module) = rem_modules.next() {
-            if let Some(children) = Self::get_children(tree, current_module) {
-                Self::insert_entry(children, entry, rem_modules);
-            } else {
-                tree.push(Self::from_path(entry, current_module, rem_modules));
-            }
-        } else {
+        let Some(current_module) = rem_modules.next() else {
             tree.push(Self::Leaf(entry));
-        }
+            return;
+        };
+
+        let Some(children) = Self::get_children(tree, current_module) else {
+            tree.push(Self::from_path(entry, current_module, rem_modules));
+            return;
+        };
+
+        Self::insert_entry(children, entry, rem_modules);
     }
 
     /// Constructs a sequence of branches from a module path.
