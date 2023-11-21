@@ -26,50 +26,12 @@ impl Macro<'_> {
     }
 }
 
-/// Attributes applied to a `static` containing a pointer to a function to run
-/// before `main`.
-fn pre_main_attrs() -> proc_macro2::TokenStream {
-    quote! {
-        #[used]
-        #[cfg_attr(windows, link_section = ".CRT$XCU")]
-        #[cfg_attr(
-            // ELF
-            any(
-                target_os = "android",
-                target_os = "dragonfly",
-                target_os = "freebsd",
-                target_os = "fuchsia",
-                target_os = "haiku",
-                target_os = "illumos",
-                target_os = "linux",
-                target_os = "netbsd",
-                target_os = "openbsd",
-            ),
-            link_section = ".init_array",
-        )]
-        #[cfg_attr(
-            // Mach-O
-            any(
-                target_os = "ios",
-                target_os = "macos",
-                target_os = "tvos",
-                target_os = "watchos",
-            ),
-            link_section = "__DATA,__mod_init_func,mod_init_funcs",
-        )]
-    }
-}
+/// Lists of comma-separated `#[cfg]` parameters.
+mod systems {
+    use super::*;
 
-fn unsupported_error(
-    std_crate: &proc_macro2::TokenStream,
-    attr_name: &str,
-) -> proc_macro2::TokenStream {
-    let error = format!("Unsupported target OS for `#[divan::{attr_name}]`");
-
-    quote! {
-        #[cfg(not(any(
-            windows,
-            // ELF
+    pub fn elf() -> proc_macro2::TokenStream {
+        quote! {
             target_os = "android",
             target_os = "dragonfly",
             target_os = "freebsd",
@@ -78,13 +40,45 @@ fn unsupported_error(
             target_os = "illumos",
             target_os = "linux",
             target_os = "netbsd",
-            target_os = "openbsd",
-            // Mach-O
+            target_os = "openbsd"
+        }
+    }
+
+    pub fn mach_o() -> proc_macro2::TokenStream {
+        quote! {
             target_os = "ios",
             target_os = "macos",
             target_os = "tvos",
-            target_os = "watchos",
-        )))]
+            target_os = "watchos"
+        }
+    }
+}
+
+/// Attributes applied to a `static` containing a pointer to a function to run
+/// before `main`.
+fn pre_main_attrs() -> proc_macro2::TokenStream {
+    let elf = systems::elf();
+    let mach_o = systems::mach_o();
+
+    quote! {
+        #[used]
+        #[cfg_attr(windows, link_section = ".CRT$XCU")]
+        #[cfg_attr(any(#elf), link_section = ".init_array")]
+        #[cfg_attr(any(#mach_o), link_section = "__DATA,__mod_init_func,mod_init_funcs")]
+    }
+}
+
+fn unsupported_error(
+    std_crate: &proc_macro2::TokenStream,
+    attr_name: &str,
+) -> proc_macro2::TokenStream {
+    let elf = systems::elf();
+    let mach_o = systems::mach_o();
+
+    let error = format!("Unsupported target OS for `#[divan::{attr_name}]`");
+
+    quote! {
+        #[cfg(not(any(windows, #elf, #mach_o)))]
         #std_crate::compile_error!(#error);
     }
 }
