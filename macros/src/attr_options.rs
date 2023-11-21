@@ -48,8 +48,12 @@ impl AttrOptions {
         let mut name_expr = None::<Expr>;
         let mut bench_options = Vec::new();
 
-        let mut counters = Vec::<Expr>::new();
+        let mut counters = Vec::<(proc_macro2::TokenStream, Option<&str>)>::new();
         let mut counters_ident = None::<Ident>;
+
+        let mut seen_bytes_count = false;
+        let mut seen_chars_count = false;
+        let mut seen_items_count = false;
 
         let mut generic = GenericOptions::default();
 
@@ -112,7 +116,7 @@ impl AttrOptions {
                         return repeat_error();
                     }
                     let value: Expr = meta.value()?.parse()?;
-                    counters.push(value);
+                    counters.push((value.into_token_stream(), None));
                     counters_ident = Some(Ident::new("counters", ident.span()));
                 }
                 "counters" => {
@@ -120,9 +124,38 @@ impl AttrOptions {
                         return repeat_error();
                     }
                     let values: ExprArray = meta.value()?.parse()?;
-                    counters.extend(values.elems);
+                    counters.extend(
+                        values.elems.into_iter().map(|elem| (elem.into_token_stream(), None)),
+                    );
                     counters_ident = Some(ident.clone());
                 }
+
+                "bytes_count" if seen_bytes_count => return repeat_error(),
+                "chars_count" if seen_chars_count => return repeat_error(),
+                "items_count" if seen_items_count => return repeat_error(),
+
+                "bytes_count" | "chars_count" | "items_count" => {
+                    let name = match ident_name {
+                        "bytes_count" => {
+                            seen_bytes_count = true;
+                            "BytesCount"
+                        }
+                        "chars_count" => {
+                            seen_chars_count = true;
+                            "CharsCount"
+                        }
+                        "items_count" => {
+                            seen_items_count = true;
+                            "ItemsCount"
+                        }
+                        _ => unreachable!(),
+                    };
+
+                    let value: Expr = meta.value()?.parse()?;
+                    counters.push((value.into_token_stream(), Some(name)));
+                    counters_ident = Some(Ident::new("counters", proc_macro2::Span::call_site()));
+                }
+
                 _ => {
                     let value: Expr = match meta.value() {
                         Ok(value) => value.parse()?,
@@ -148,6 +181,23 @@ impl AttrOptions {
 
         let divan_crate = divan_crate.unwrap_or_else(|| syn::parse_quote!(::divan));
         let private_mod = quote! { #divan_crate::__private };
+        let std_crate = quote! { #private_mod::std };
+
+        let counters = counters.iter().map(|(expr, type_name)| match type_name {
+            Some(type_name) => {
+                let type_name = Ident::new(type_name, proc_macro2::Span::call_site());
+                quote! {
+                    // We do a scoped import for the expression to override any
+                    // local `From` trait.
+                    {
+                        use #std_crate::convert::From as _;
+
+                        #divan_crate::counter::#type_name::from(#expr)
+                    }
+                }
+            }
+            None => expr.to_token_stream(),
+        });
 
         let counters = counters_ident
             .map(|ident| {
@@ -157,14 +207,7 @@ impl AttrOptions {
             })
             .unwrap_or_default();
 
-        Ok(Self {
-            std_crate: quote! { #private_mod::std },
-            private_mod,
-            name_expr,
-            generic,
-            counters,
-            bench_options,
-        })
+        Ok(Self { std_crate, private_mod, name_expr, generic, counters, bench_options })
     }
 
     /// Produces a function expression for creating `BenchOptions`.

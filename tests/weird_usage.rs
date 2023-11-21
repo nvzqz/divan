@@ -7,6 +7,9 @@ use std::time::Duration;
 
 use divan::{Divan, __private::BENCH_ENTRIES};
 
+#[divan::bench(bytes_count = 0u8, chars_count = 0u16, items_count = 0u32)]
+fn zero_throughput() {}
+
 #[divan::bench(min_time = Duration::ZERO)]
 fn min_min() {}
 

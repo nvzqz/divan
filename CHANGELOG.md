@@ -10,6 +10,15 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Convenience shorthand options for `#[divan::bench]` and
+  `#[divan::bench_group]` counters:
+  - [`bytes_count`](https://docs.rs/divan/X.Y.Z/divan/attr.bench.html#bytes_count)
+    for `counter = BytesCount::from(n)`
+  - [`chars_count`](https://docs.rs/divan/X.Y.Z/divan/attr.bench.html#chars_count)
+    for `counter = CharsCount::from(n)`
+  - [`items_count`](https://docs.rs/divan/X.Y.Z/divan/attr.bench.html#items_count)
+    for `counter = ItemsCount::from(n)`
+
 - Support for NetBSD, DragonFly BSD, and Haiku OS by using pre-`main`.
 
 - Set global thread counts using:

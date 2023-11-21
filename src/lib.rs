@@ -161,6 +161,9 @@ pub fn main() {
 /// - [`sample_size`]
 /// - [`threads`]
 /// - [`counters`]
+///     - [`bytes_count`]
+///     - [`chars_count`]
+///     - [`items_count`]
 /// - [`min_time`]
 /// - [`max_time`]
 /// - [`skip_ext_time`]
@@ -438,6 +441,24 @@ pub fn main() {
 /// - [`Bencher::counter`]
 /// - [`Bencher::input_counter`]
 ///
+/// ### `bytes_count`
+/// [`bytes_count`]: #bytes_count
+///
+/// Convenience shorthand for
+/// <code>[counter](#counters) = [BytesCount](counter::BytesCount)::from(n)</code>.
+///
+/// ### `chars_count`
+/// [`chars_count`]: #chars_count
+///
+/// Convenience shorthand for
+/// <code>[counter](#counters) = [CharsCount](counter::CharsCount)::from(n)</code>.
+///
+/// ### `items_count`
+/// [`items_count`]: #items_count
+///
+/// Convenience shorthand for
+/// <code>[counter](#counters) = [ItemsCount](counter::ItemsCount)::from(n)</code>.
+///
 /// ## `min_time`
 /// [`min_time`]: #min_time
 ///
@@ -691,6 +712,9 @@ pub use divan_macros::bench;
 /// - [`sample_size`]
 /// - [`threads`]
 /// - [`counters`]
+///     - [`bytes_count`]
+///     - [`chars_count`]
+///     - [`items_count`]
 /// - [`min_time`]
 /// - [`max_time`]
 /// - [`skip_ext_time`]
@@ -852,6 +876,24 @@ pub use divan_macros::bench;
 /// - [`#[divan::bench(counters = ...)]`](macro@bench#counters)
 /// - [`Bencher::counter`]
 /// - [`Bencher::input_counter`]
+///
+/// ### `bytes_count`
+/// [`bytes_count`]: #bytes_count
+///
+/// Convenience shorthand for
+/// <code>[counter](#counters) = [BytesCount](counter::BytesCount)::from(n)</code>.
+///
+/// ### `chars_count`
+/// [`chars_count`]: #chars_count
+///
+/// Convenience shorthand for
+/// <code>[counter](#counters) = [CharsCount](counter::CharsCount)::from(n)</code>.
+///
+/// ### `items_count`
+/// [`items_count`]: #items_count
+///
+/// Convenience shorthand for
+/// <code>[counter](#counters) = [ItemsCount](counter::ItemsCount)::from(n)</code>.
 ///
 /// ## `min_time`
 /// [`min_time`]: #min_time
