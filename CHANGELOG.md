@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2023-12-02
+
 ### Added
 
 - `From` implementations for counters on references to `u8`–`u64` and `usize`,
@@ -20,7 +22,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
       .bench_values(|n| { ... });
   ```
 
-- [`Bencher::count_inputs_as<C>`](https://docs.rs/divan/X.Y.Z/divan/struct.Bencher.html#method.count_inputs_as)
+- [`Bencher::count_inputs_as<C>`](https://docs.rs/divan/0.1.4/divan/struct.Bencher.html#method.count_inputs_as)
   method to convert inputs to a `Counter`:
 
   ```rust
@@ -127,7 +129,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/nvzqz/divan/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/nvzqz/divan/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nvzqz/divan/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
