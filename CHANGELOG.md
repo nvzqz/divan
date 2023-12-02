@@ -8,6 +8,18 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `From` implementations for counters on references to `u8`–`u64` and `usize`,
+  such as `From<&u64>` and `From<&&u64>`. This allows for doing:
+
+  ```rust
+  bencher
+      .with_inputs(|| { ... })
+      .input_counter(ItemsCount::from)
+      .bench_values(|n| { ... });
+  ```
+
 ## [0.1.3] - 2023-11-21
 
 ### Added

@@ -37,7 +37,7 @@ pub(crate) use self::{
     any_counter::{AnyCounter, KnownCounterKind},
     collection::{CounterCollection, CounterSet},
     sealed::Sealed,
-    uint::{CountUInt, MaxCountUInt},
+    uint::{AsCountUInt, CountUInt, MaxCountUInt},
 };
 pub use into_counter::IntoCounter;
 
@@ -82,24 +82,24 @@ impl Counter for BytesCount {}
 impl Counter for CharsCount {}
 impl Counter for ItemsCount {}
 
-impl<C: CountUInt> From<C> for BytesCount {
+impl<C: AsCountUInt> From<C> for BytesCount {
     #[inline]
     fn from(count: C) -> Self {
-        Self::new(count)
+        Self::new(count.as_max_uint())
     }
 }
 
-impl<C: CountUInt> From<C> for CharsCount {
+impl<C: AsCountUInt> From<C> for CharsCount {
     #[inline]
     fn from(count: C) -> Self {
-        Self::new(count)
+        Self::new(count.as_max_uint())
     }
 }
 
-impl<C: CountUInt> From<C> for ItemsCount {
+impl<C: AsCountUInt> From<C> for ItemsCount {
     #[inline]
     fn from(count: C) -> Self {
-        Self::new(count)
+        Self::new(count.as_max_uint())
     }
 }
 

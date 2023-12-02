@@ -19,12 +19,31 @@ pub trait CountUInt: Copy + Any {
     fn into_max_uint(self) -> MaxCountUInt;
 }
 
+/// A type like `CountUInt` but with more options.
+pub trait AsCountUInt {
+    fn as_max_uint(&self) -> MaxCountUInt;
+}
+
+impl<T: AsCountUInt> AsCountUInt for &T {
+    #[inline]
+    fn as_max_uint(&self) -> MaxCountUInt {
+        T::as_max_uint(self)
+    }
+}
+
 macro_rules! impl_uint {
     ($($i:ty),+) => {
         $(impl CountUInt for $i {
             #[inline]
             fn into_max_uint(self) -> MaxCountUInt {
                 self as _
+            }
+        })+
+
+        $(impl AsCountUInt for $i {
+            #[inline]
+            fn as_max_uint(&self) -> MaxCountUInt {
+                *self as _
             }
         })+
 
