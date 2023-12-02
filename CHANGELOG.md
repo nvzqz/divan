@@ -20,6 +20,20 @@ Versioning](http://semver.org/spec/v2.0.0.html).
       .bench_values(|n| { ... });
   ```
 
+- [`Bencher::count_inputs_as<C>`](https://docs.rs/divan/X.Y.Z/divan/struct.Bencher.html#method.count_inputs_as)
+  method to convert inputs to a `Counter`:
+
+  ```rust
+  bencher
+      .with_inputs(|| -> usize {
+          // ...
+      })
+      .count_inputs_as::<ItemsCount>()
+      .bench_values(|n| -> Vec<usize> {
+          (0..n).collect()
+      });
+  ```
+
 ## [0.1.3] - 2023-11-21
 
 ### Added

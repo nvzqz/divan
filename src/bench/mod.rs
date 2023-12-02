@@ -9,16 +9,15 @@ use std::{
 
 use crate::{
     black_box,
-    counter::{AnyCounter, CounterCollection, IntoCounter, KnownCounterKind, MaxCountUInt},
+    counter::{
+        AnyCounter, AsCountUInt, BytesCount, CharsCount, Counter, CounterCollection, IntoCounter,
+        ItemsCount, KnownCounterKind, MaxCountUInt,
+    },
     divan::SharedContext,
     stats::{RawSample, Sample, SampleCollection, Stats, ThreadSample},
     time::{FineDuration, Timestamp, UntaggedTimestamp},
     util::{self, SyncWrap, Unit},
 };
-
-// Used for intra-doc links.
-#[allow(unused)]
-use crate::counter::BytesCount;
 
 #[cfg(test)]
 mod tests;
@@ -153,8 +152,7 @@ impl<'a, 'b> Bencher<'a, 'b> {
 }
 
 impl<'a, 'b, GenI> Bencher<'a, 'b, BencherConfig<GenI>> {
-    /// Assign a [`Counter`](crate::counter::Counter) for all iterations of the
-    /// benchmarked function.
+    /// Assign a [`Counter`] for all iterations of the benchmarked function.
     ///
     /// This will either:
     /// - Assign a new counter
@@ -199,7 +197,7 @@ impl<'a, 'b, I, GenI> Bencher<'a, 'b, BencherConfig<GenI>>
 where
     GenI: FnMut() -> I,
 {
-    /// Create a [`Counter`](crate::counter::Counter) for each input of the
+    /// Calls a closure to create a [`Counter`] for each input of the
     /// benchmarked function.
     ///
     /// This will either:
@@ -242,6 +240,46 @@ where
     {
         self.context.counters.set_input_counter(make_counter);
         self
+    }
+
+    /// Creates a [`Counter`] from each input of the benchmarked function.
+    ///
+    /// This may be used if the input returns [`u8`]–[`u64`], [`usize`], or any
+    /// nesting of references to those types.
+    ///
+    /// # Examples
+    ///
+    /// The following example emits info for the number of items processed when
+    /// benchmarking [`FromIterator`] from
+    /// <code>[Range](std::ops::Range)<[usize]></code> to [`Vec`].
+    ///
+    /// ```
+    /// use divan::{Bencher, counter::ItemsCount};
+    ///
+    /// #[divan::bench]
+    /// fn range_to_vec(bencher: Bencher) {
+    ///     bencher
+    ///         .with_inputs(|| -> usize {
+    ///             // ...
+    ///             # 0
+    ///         })
+    ///         .count_inputs_as::<ItemsCount>()
+    ///         .bench_values(|n| -> Vec<usize> {
+    ///             (0..n).collect()
+    ///         });
+    /// }
+    /// ```
+    #[inline]
+    pub fn count_inputs_as<C>(self) -> Self
+    where
+        C: Counter,
+        I: AsCountUInt,
+    {
+        match KnownCounterKind::of::<C>() {
+            KnownCounterKind::Items => self.input_counter(|c| ItemsCount::from(c)),
+            KnownCounterKind::Bytes => self.input_counter(|c| BytesCount::from(c)),
+            KnownCounterKind::Chars => self.input_counter(|c| CharsCount::from(c)),
+        }
     }
 
     /// Benchmarks a function over per-iteration [generated inputs](Self::with_inputs),
