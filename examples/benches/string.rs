@@ -5,7 +5,7 @@
 //! ```
 
 use divan::{
-    black_box,
+    black_box, black_box_drop,
     counter::{BytesCount, CharsCount},
     Bencher,
 };
@@ -81,7 +81,7 @@ fn validate_utf8<G: GenString, const N: usize>(bencher: Bencher) {
         .input_counter(BytesCount::of_str)
         .bench_local_refs(|s| {
             let bytes = black_box(s.as_bytes());
-            _ = black_box(std::str::from_utf8(bytes));
+            black_box_drop(std::str::from_utf8(bytes));
         });
 }
 

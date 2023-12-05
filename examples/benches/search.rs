@@ -3,7 +3,7 @@ use std::{
     hash::BuildHasher,
 };
 
-use divan::{black_box, Bencher};
+use divan::{black_box_drop, Bencher};
 use fastrand::Rng;
 use ordsearch::OrderedCollection;
 
@@ -118,5 +118,5 @@ fn ordsearch<const N: usize>(bencher: Bencher) {
             let (haystack, needle) = gen_inputs();
             (OrderedCollection::from_sorted_iter(haystack), needle)
         })
-        .bench_local_refs(|(haystack, needle)| _ = black_box(haystack.find_gte(*needle)))
+        .bench_local_refs(|(haystack, needle)| black_box_drop(haystack.find_gte(*needle)))
 }

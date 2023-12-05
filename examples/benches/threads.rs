@@ -13,7 +13,7 @@ use std::{
     thread::{Thread, ThreadId},
 };
 
-use divan::{black_box, Bencher};
+use divan::{black_box, black_box_drop, Bencher};
 
 fn main() {
     divan::main();
@@ -46,7 +46,7 @@ mod arc {
             // Black box the branched value to ensure a branch gets emitted.
             // This more closely simulates `Arc::get_mut` usage in practice.
             if let Some(val) = Arc::get_mut(arc) {
-                _ = black_box(val);
+                black_box_drop(val);
             }
         });
     }
@@ -62,13 +62,13 @@ mod mutex {
         #[divan::bench]
         fn block() {
             static M: Mutex<u64> = Mutex::new(0);
-            _ = black_box(M.lock());
+            black_box_drop(M.lock());
         }
 
         #[divan::bench]
         fn r#try() {
             static M: Mutex<u64> = Mutex::new(0);
-            _ = black_box(M.try_lock());
+            black_box_drop(M.try_lock());
         }
     }
 
@@ -102,13 +102,13 @@ mod rw_lock {
         #[divan::bench]
         fn block() {
             static L: RwLock<u64> = RwLock::new(0);
-            _ = black_box(L.read());
+            black_box_drop(L.read());
         }
 
         #[divan::bench]
         fn r#try() {
             static L: RwLock<u64> = RwLock::new(0);
-            _ = black_box(L.try_read());
+            black_box_drop(L.try_read());
         }
     }
 
@@ -118,13 +118,13 @@ mod rw_lock {
         #[divan::bench]
         fn block() {
             static L: RwLock<u64> = RwLock::new(0);
-            _ = black_box(L.write());
+            black_box_drop(L.write());
         }
 
         #[divan::bench]
         fn r#try() {
             static L: RwLock<u64> = RwLock::new(0);
-            _ = black_box(L.try_write());
+            black_box_drop(L.try_write());
         }
     }
 

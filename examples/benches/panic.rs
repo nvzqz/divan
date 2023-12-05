@@ -6,7 +6,7 @@
 
 use std::panic;
 
-use divan::black_box;
+use divan::{black_box, black_box_drop};
 
 fn main() {
     // Silence panics.
@@ -40,7 +40,7 @@ mod hook {
 
     #[divan::bench]
     fn take_and_drop() {
-        _ = black_box(panic::take_hook());
+        black_box_drop(panic::take_hook());
     }
 }
 

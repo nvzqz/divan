@@ -481,7 +481,7 @@ mod no_input {
 
     #[test]
     fn no_output() {
-        test_bencher(&mut |b| b.bench(|| _ = black_box(make_string())));
+        test_bencher(&mut |b| b.bench(|| black_box_drop(make_string())));
     }
 }
 

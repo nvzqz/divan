@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    black_box,
+    black_box, black_box_drop,
     counter::{
         AnyCounter, AsCountUInt, BytesCount, CharsCount, Counter, CounterCollection, IntoCounter,
         ItemsCount, KnownCounterKind, MaxCountUInt,
@@ -1001,7 +1001,7 @@ impl<'a> BenchContext<'a> {
                         for input in defer_inputs_iter {
                             // SAFETY: All inputs in `defer_store` were
                             // initialized.
-                            _ = black_box(unsafe { benched(input) });
+                            black_box_drop(unsafe { benched(input) });
                         }
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
