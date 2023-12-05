@@ -12,7 +12,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- [`black_box_drop`](https://docs.rs/divan/X.Y.Z/divan/fn.black_box_drop.html)
+- [`black_box_drop`](https://docs.rs/divan/0.1.5/divan/fn.black_box_drop.html)
   convenience function for [`black_box`] + [`drop`][drop_fn]. This is useful
   when benchmarking a lazy [`Iterator`] to completion with `for_each`:
 
