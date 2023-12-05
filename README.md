@@ -28,7 +28,7 @@ A guide is being worked on. In the meantime, [see announcement post](https://nik
 
     ```toml
     [dev-dependencies]
-    divan = "0.1.4"
+    divan = "0.1.5"
 
     [[bench]]
     name = "example"

@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.5] - 2023-12-05
+
 ### Added
 
 - [`black_box_drop`](https://docs.rs/divan/X.Y.Z/divan/fn.black_box_drop.html)
@@ -145,7 +147,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/nvzqz/divan/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/nvzqz/divan/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/nvzqz/divan/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nvzqz/divan/compare/v0.1.1...v0.1.2
