@@ -8,6 +8,22 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- [`black_box_drop`](https://docs.rs/divan/X.Y.Z/divan/fn.black_box_drop.html)
+  convenience function for [`black_box`] + [`drop`][drop_fn]. This is useful
+  when benchmarking a lazy [`Iterator`] to completion with `for_each`:
+
+  ```rust
+  #[divan::bench]
+  fn parse_iter() {
+      let input: &str = // ...
+
+      Parser::new(input)
+          .for_each(divan::black_box_drop);
+  }
+  ```
+
 ## [0.1.4] - 2023-12-02
 
 ### Added
@@ -137,4 +153,6 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 
 [`black_box`]: https://doc.rust-lang.org/std/hint/fn.black_box.html
 [`Drop`]: https://doc.rust-lang.org/std/ops/trait.Drop.html
+[`Iterator`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html
 [available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
+[drop_fn]: https://doc.rust-lang.org/std/mem/fn.drop.html

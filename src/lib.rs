@@ -51,6 +51,33 @@ pub fn main() {
     Divan::from_args().main();
 }
 
+/// [`black_box`] + [`drop`] convenience function.
+///
+/// # Examples
+///
+/// This is useful when benchmarking a lazy [`Iterator`] to completion with
+/// [`for_each`](Iterator::for_each):
+///
+/// ```
+/// #[divan::bench]
+/// fn parse_iter() {
+///     let input: &str = // ...
+///     # "";
+///
+///     # struct Parser;
+///     # impl Parser {
+///     #   fn new(_: &str) -> Parser { Parser }
+///     #   fn for_each(self, _: fn(&'static str)) {}
+///     # }
+///     Parser::new(input)
+///         .for_each(divan::black_box_drop);
+/// }
+/// ```
+#[inline]
+pub fn black_box_drop<T>(dummy: T) {
+    _ = black_box(dummy);
+}
+
 /// Registers a benchmarking function.
 ///
 /// # Examples
