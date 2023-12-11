@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: rustc -Vv
       - run: cargo fmt --all -- --check
 
   # Build documentation.
@@ -32,6 +33,7 @@ jobs:
             ${{ env.CARGO_HOME }}
             target
           key: rustdoc-${{ runner.os }}
+      - run: rustc -Vv
       - run: cargo rustdoc --all-features -- --document-private-items
 
   # Run linter.
@@ -53,6 +55,7 @@ jobs:
             ${{ env.CARGO_HOME }}
             target
           key: clippy-${{ runner.os }}
+      - run: rustc -Vv
       - run: cargo clippy --all --all-targets --all-features
 
   # Run tests in `src/` and `tests/`.
@@ -78,6 +81,7 @@ jobs:
             target
           key: unit-test-${{ runner.os }}-${{ matrix.rust }}
       - run: rustup default ${{ matrix.rust }}
+      - run: rustc -Vv
       - run: cargo test -p divan -p divan-macros
 
   # Run tests in `src/` and `tests/` using Miri.
@@ -95,6 +99,7 @@ jobs:
           key: miri-${{ runner.os }}
       - run: rustup default nightly
       - run: rustup component add miri
+      - run: rustc -Vv
       - run: cargo miri test -p divan -p divan-macros
 
   # Run `examples/` directory as tests.
@@ -124,6 +129,7 @@ jobs:
             target
           key: examples-test-${{ runner.os }}-${{ matrix.rust }}
       - run: rustup default ${{ matrix.rust }}
+      - run: rustc -Vv
       - run: cargo test -p examples --all-features --benches
 
   # Run `examples/` directory as benchmarks.
@@ -148,6 +154,7 @@ jobs:
             ${{ env.CARGO_HOME }}
             target
           key: examples-bench-${{ runner.os }}
+      - run: rustc -Vv
       - run: cargo bench -p examples --all-features
 
   # Run `internal_benches/` directory as benchmarks.
@@ -172,4 +179,5 @@ jobs:
             ${{ env.CARGO_HOME }}
             target
           key: internals-bench-${{ runner.os }}
+      - run: rustc -Vv
       - run: cargo bench -p internal_benches --all-features
