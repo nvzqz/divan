@@ -876,7 +876,7 @@ impl<'a> BenchContext<'a> {
 
             let mut sum_alloc_tallies = || {
                 if let Some(alloc_info) = alloc_info {
-                    alloc_tallies = alloc_info.tallies.load();
+                    alloc_tallies = alloc_info.tallies.0.load();
                 }
             };
 
