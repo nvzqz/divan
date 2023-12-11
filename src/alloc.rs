@@ -352,8 +352,14 @@ impl ThreadAllocInfo {
     /// Tallies the total count and size of the allocation operation.
     #[inline]
     fn tally(&self, op: AllocOp, size: usize) {
+        self.tally_n(op, 1, size);
+    }
+
+    /// Tallies the total count and size of the allocation operation.
+    #[inline]
+    fn tally_n(&self, op: AllocOp, count: usize, size: usize) {
         let tally = self.tallies.get(op);
-        tally.count.fetch_add(1, Relaxed);
+        tally.count.fetch_add(count as LocalCount, Relaxed);
         tally.size.fetch_add(size as LocalCount, Relaxed);
     }
 
@@ -560,5 +566,39 @@ impl<T> AllocOpMap<T> {
     #[inline]
     pub const fn get(&self, op: AllocOp) -> &T {
         &self.values[op as usize]
+    }
+}
+
+#[cfg(feature = "internal_benches")]
+mod thread_info {
+    use super::*;
+
+    // We want the approach to scale well with thread count.
+    const THREADS: &[usize] = &[0, 1, 2, 4, 16];
+
+    #[crate::bench(crate = crate, threads = THREADS)]
+    fn tally_alloc(bencher: crate::Bencher) {
+        // Using 0 simulates tallying without affecting benchmark reporting.
+        let count = crate::black_box(0);
+        let size = crate::black_box(0);
+
+        bencher.bench(|| {
+            AllocProfiler::system().current_thread_info().tally_n(AllocOp::Alloc, count, size)
+        })
+    }
+
+    #[crate::bench_group(crate = crate, threads = THREADS)]
+    mod current {
+        use super::*;
+
+        #[crate::bench(crate = crate)]
+        fn init() -> &'static ThreadAllocInfo {
+            AllocProfiler::system().current_thread_info()
+        }
+
+        #[crate::bench(crate = crate)]
+        fn r#try() -> Option<&'static ThreadAllocInfo> {
+            CURRENT_THREAD_INFO.get()
+        }
     }
 }
