@@ -15,9 +15,13 @@ readme = "README.md"
 [dependencies]
 divan-macros = { version = "0.1.5", path = "macros" }
 
+cfg-if = "1"
 clap = { version = "4", default-features = false, features = ["std", "env"] }
 condtype = "1.3"
 regex = { package = "regex-lite", version = "0.1", default-features = false, features = ["std", "string"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = { workspace = true }
 
 [dev-dependencies]
 mimalloc = "0.1"
@@ -35,3 +39,4 @@ members = ["macros", "examples", "internal_benches"]
 
 [workspace.dependencies]
 divan = { path = "." }
+libc = "0.2.148"

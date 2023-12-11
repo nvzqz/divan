@@ -5,10 +5,15 @@ use std::{
     sync::atomic::{AtomicPtr, Ordering::*},
 };
 
+use cfg_if::cfg_if;
+
 use crate::{
     stats::StatsSet,
-    util::{self, LocalCount, SharedCount},
+    util::{self, CachePadded, LocalCount, SharedCount},
 };
+
+#[cfg(target_os = "macos")]
+use crate::util::sync::PThreadKey;
 
 // Use `AllocProfiler` when running crate-internal tests. This enables us to
 // test it for undefined behavior with Miri.
@@ -94,12 +99,12 @@ pub(crate) fn init_current_thread_info() {
 ///
 /// Allocation information is recorded in thread-local storage to prevent
 /// contention when benchmarks involve multiple threads, either internally or
-/// through options like [`threads`](macro@crate::bench#threads). This is
-/// currently achieved with the portable [`thread_local!`] macro. To reduce
-/// Divan's footprint, the implementation in the future will take advantage of
-/// faster platform-specific approaches, such as
-/// [`pthread_getspecific`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_getspecific.html)
-/// on macOS.
+/// through options like [`threads`](macro@crate::bench#threads).
+///
+/// This is currently achieved with:
+/// - [`thread_local!`] on most platforms
+/// - [`pthread_getspecific`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_getspecific.html)
+///   on macOS
 #[derive(Debug, Default)]
 pub struct AllocProfiler<Alloc = System> {
     alloc: Alloc,
@@ -131,9 +136,9 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        // SAFETY: `ptr` must come from this allocator, so we can assume
-        // thread-local info has been initialized during allocation.
-        let info = unsafe { CURRENT_THREAD_INFO.get().unwrap_unchecked() };
+        // `ptr` must come from this allocator, so we can assume thread-local
+        // info has been initialized during allocation.
+        let info = ThreadAllocInfo::current_or_global();
 
         // Tally reallocation count.
         let shrink = new_size < layout.size();
@@ -146,9 +151,9 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // SAFETY: `ptr` must come from this allocator, so we can assume
-        // thread-local info has been initialized during allocation.
-        let info = unsafe { CURRENT_THREAD_INFO.get().unwrap_unchecked() };
+        // `ptr` must come from this allocator, so we can assume thread-local
+        // info has been initialized during allocation.
+        let info = ThreadAllocInfo::current_or_global();
 
         // Enable info to be reused after thread termination.
         info.make_reusable();
@@ -179,13 +184,13 @@ impl<A> AllocProfiler<A> {
 impl<A: GlobalAlloc> AllocProfiler<A> {
     #[inline]
     fn current_thread_info(&self) -> &'static ThreadAllocInfo {
-        CURRENT_THREAD_INFO.with(|local_info| match local_info.get() {
+        match ThreadAllocInfo::try_current() {
             Some(info) => info,
 
             // PERF: Don't provide `local_info` to the helper because doing so
             // generates more code here.
             None => self.current_thread_info_slow(),
-        })
+        }
     }
 
     #[cold]
@@ -194,7 +199,7 @@ impl<A: GlobalAlloc> AllocProfiler<A> {
         let info = 'info: {
             // Attempt to reuse a previously-allocated instance from a terminated
             // thread relinquishing its claim on this allocation.
-            if let Some(info) = ALL_THREAD_INFO.pop_reuse_list() {
+            if let Some(info) = ALLOC_META.thread_info_head.pop_reuse_list() {
                 break 'info info;
             }
 
@@ -208,7 +213,7 @@ impl<A: GlobalAlloc> AllocProfiler<A> {
 
                 // Default to global instance on allocation failure.
                 if info.is_null() {
-                    break 'info &ALL_THREAD_INFO;
+                    break 'info &ALLOC_META.thread_info_head;
                 }
 
                 // This allocation is reused by setting `ALL_THREAD_INFO.reuse_next`
@@ -217,14 +222,18 @@ impl<A: GlobalAlloc> AllocProfiler<A> {
 
                 // Make `info` discoverable by pushing it onto the global
                 // linked list as the new head.
-                let mut current_head = ALL_THREAD_INFO.next.load(Acquire);
+                let mut current_head = ALLOC_META.thread_info_head.next.load(Acquire);
                 loop {
                     // Prepare `current_head` to become second node in the list.
                     (*info).next = AtomicPtr::new(current_head);
 
                     // Replace head node with `info`.
-                    match ALL_THREAD_INFO.next.compare_exchange(current_head, info, AcqRel, Acquire)
-                    {
+                    match ALLOC_META.thread_info_head.next.compare_exchange(
+                        current_head,
+                        info,
+                        AcqRel,
+                        Acquire,
+                    ) {
                         // Successfully set our list head.
                         Ok(_) => {
                             let info = &*info;
@@ -238,8 +247,7 @@ impl<A: GlobalAlloc> AllocProfiler<A> {
             }
         };
 
-        CURRENT_THREAD_INFO.set(Some(info));
-
+        info.set_as_current();
         info
     }
 }
@@ -249,8 +257,9 @@ impl<A: GlobalAlloc> AllocProfiler<A> {
 /// This represents a tree consisting of two independent linked-lists:
 /// - `next` stores all instances.
 /// - `reuse_next` stores reusable instances from terminated threads.
+#[repr(C)]
 pub(crate) struct ThreadAllocInfo {
-    pub tallies: SharedAllocTallyMap,
+    pub tallies: CachePadded<SharedAllocTallyMap>,
 
     /// The next instance in a global linked list.
     ///
@@ -282,14 +291,14 @@ struct ThreadInfoReuseHandle {
 impl Drop for ThreadInfoReuseHandle {
     #[inline]
     fn drop(&mut self) {
-        let mut current_head = ALL_THREAD_INFO.reuse_next.load(Acquire);
+        let mut current_head = ALLOC_META.thread_info_head.reuse_next.load(Acquire);
 
         loop {
             // Prepare `current_head` to become second node in the list.
             self.info.reuse_next.store(current_head, Relaxed);
 
             // Replace head node with `our_head`.
-            match ALL_THREAD_INFO.reuse_next.compare_exchange(
+            match ALLOC_META.thread_info_head.reuse_next.compare_exchange(
                 current_head,
                 self.info as *const _ as *mut _,
                 AcqRel,
@@ -304,8 +313,11 @@ impl Drop for ThreadInfoReuseHandle {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 thread_local! {
     /// Instance specific to the current thread.
+    ///
+    /// On macOS, we use `ALLOC_META.pthread_key` instead.
     static CURRENT_THREAD_INFO: Cell<Option<&'static ThreadAllocInfo>> = const { Cell::new(None) };
 }
 
@@ -315,35 +327,75 @@ thread_local! {
     static REUSE_THREAD_INFO: Cell<Option<ThreadInfoReuseHandle>> = const { Cell::new(None) };
 }
 
-/// Global instance for thread information.
-///
-/// This is used as:
-/// - The start of the linked list of all info instances.
-/// - The owner of the linked list of reusable info instances.
-/// - A last-resort instance on allocation failure.
-static ALL_THREAD_INFO: ThreadAllocInfo = ThreadAllocInfo {
-    tallies: SharedAllocTallyMap::EMPTY,
-    next: AtomicPtr::new(ptr::null_mut()),
-    reuse_next: AtomicPtr::new(ptr::null_mut()),
+#[repr(C)]
+struct ThreadAllocMeta {
+    #[cfg(target_os = "macos")]
+    pthread_key: CachePadded<PThreadKey<ThreadAllocInfo>>,
+
+    /// This is used as:
+    /// - The start of the linked list of all info instances.
+    /// - The owner of the linked list of reusable info instances.
+    /// - A last-resort info instance on allocation failure.
+    thread_info_head: ThreadAllocInfo,
+}
+
+/// Global instance for allocation metadata.
+static ALLOC_META: ThreadAllocMeta = ThreadAllocMeta {
+    #[cfg(target_os = "macos")]
+    pthread_key: CachePadded(PThreadKey::new()),
+
+    thread_info_head: ThreadAllocInfo {
+        tallies: CachePadded(SharedAllocTallyMap::EMPTY),
+        next: AtomicPtr::new(ptr::null_mut()),
+        reuse_next: AtomicPtr::new(ptr::null_mut()),
+    },
 };
 
 impl ThreadAllocInfo {
     #[inline]
     pub fn all() -> impl Iterator<Item = &'static Self> {
-        std::iter::successors(Some(&ALL_THREAD_INFO), |current| unsafe {
+        std::iter::successors(Some(&ALLOC_META.thread_info_head), |current| unsafe {
             current.next.load(Acquire).as_ref()
         })
+    }
+
+    /// Assigns `self` as the current thread's info.
+    ///
+    /// On macOS, each thread races to assign `ALLOC_META.pthread_key` via
+    /// `pthread_key_create`.
+    #[inline]
+    pub fn set_as_current(&'static self) {
+        cfg_if! {
+            if #[cfg(target_os = "macos")] {
+                ALLOC_META.pthread_key.0.set(self);
+            } else {
+                CURRENT_THREAD_INFO.set(Some(self));
+            }
+        }
     }
 
     /// Returns the current thread's allocation information if initialized.
     #[inline]
     pub fn try_current() -> Option<&'static Self> {
-        CURRENT_THREAD_INFO.get()
+        cfg_if! {
+            if #[cfg(target_os = "macos")] {
+                ALLOC_META.pthread_key.0.get()
+            } else {
+                CURRENT_THREAD_INFO.get()
+            }
+        }
+    }
+
+    /// Returns the current thread's allocation information if initialized, or
+    /// the global instance.
+    #[inline]
+    pub fn current_or_global() -> &'static Self {
+        Self::try_current().unwrap_or(&ALLOC_META.thread_info_head)
     }
 
     /// Sets 0 to all values.
     pub fn clear(&self) {
-        for value in &self.tallies.values {
+        for value in &self.tallies.0.values {
             value.count.store(0, Relaxed);
             value.size.store(0, Relaxed);
         }
@@ -358,7 +410,7 @@ impl ThreadAllocInfo {
     /// Tallies the total count and size of the allocation operation.
     #[inline]
     fn tally_n(&self, op: AllocOp, count: usize, size: usize) {
-        let tally = self.tallies.get(op);
+        let tally = self.tallies.0.get(op);
         tally.count.fetch_add(count as LocalCount, Relaxed);
         tally.size.fetch_add(size as LocalCount, Relaxed);
     }
@@ -387,7 +439,7 @@ impl ThreadAllocInfo {
         fn slow_impl(info: &'static ThreadAllocInfo) {
             // Although it is unlikely we fail to allocate and use the global
             // instance, skip it in case.
-            if ptr::eq(info, &ALL_THREAD_INFO) {
+            if ptr::eq(info, &ALLOC_META.thread_info_head) {
                 return;
             }
 
@@ -598,7 +650,7 @@ mod thread_info {
 
         #[crate::bench(crate = crate)]
         fn r#try() -> Option<&'static ThreadAllocInfo> {
-            CURRENT_THREAD_INFO.get()
+            ThreadAllocInfo::try_current()
         }
     }
 }
