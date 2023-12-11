@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: rustup update stable --no-self-update
       - run: rustc -Vv
       - run: cargo fmt --all -- --check
 
@@ -33,6 +34,7 @@ jobs:
             ${{ env.CARGO_HOME }}
             target
           key: rustdoc-${{ runner.os }}
+      - run: rustup update stable --no-self-update
       - run: rustc -Vv
       - run: cargo rustdoc --all-features -- --document-private-items
 
@@ -55,6 +57,7 @@ jobs:
             ${{ env.CARGO_HOME }}
             target
           key: clippy-${{ runner.os }}
+      - run: rustup update stable --no-self-update
       - run: rustc -Vv
       - run: cargo clippy --all --all-targets --all-features
 
@@ -81,6 +84,7 @@ jobs:
             target
           key: unit-test-${{ runner.os }}-${{ matrix.rust }}
       - run: rustup default ${{ matrix.rust }}
+      - run: rustup update ${{ matrix.rust }} --no-self-update
       - run: rustc -Vv
       - run: cargo test -p divan -p divan-macros
 
@@ -98,6 +102,7 @@ jobs:
             target
           key: miri-${{ runner.os }}
       - run: rustup default nightly
+      - run: rustup update nightly --no-self-update
       - run: rustup component add miri
       - run: rustc -Vv
       - run: cargo miri test -p divan -p divan-macros
@@ -129,6 +134,7 @@ jobs:
             target
           key: examples-test-${{ runner.os }}-${{ matrix.rust }}
       - run: rustup default ${{ matrix.rust }}
+      - run: rustup update ${{ matrix.rust }} --no-self-update
       - run: rustc -Vv
       - run: cargo test -p examples --all-features --benches
 
@@ -154,6 +160,7 @@ jobs:
             ${{ env.CARGO_HOME }}
             target
           key: examples-bench-${{ runner.os }}
+      - run: rustup update stable --no-self-update
       - run: rustc -Vv
       - run: cargo bench -p examples --all-features
 
@@ -179,5 +186,6 @@ jobs:
             ${{ env.CARGO_HOME }}
             target
           key: internals-bench-${{ runner.os }}
+      - run: rustup update stable --no-self-update
       - run: rustc -Vv
       - run: cargo bench -p internal_benches --all-features
