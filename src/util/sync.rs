@@ -7,9 +7,53 @@ use std::{
     sync::atomic::{Ordering::*, *},
 };
 
+use cfg_if::cfg_if;
 use libc::pthread_key_t;
 
 const KEY_UNINIT: pthread_key_t = 0;
+
+/// Returns a pointer to the corresponding thread-local variable.
+///
+/// The first element is reserved for `pthread_self`. This is widely known and
+/// also mentioned in page 251 of "*OS Internals Volume 1" by Jonathan Levin.
+///
+/// It appears that `pthread_key_create` allocates a slot into the buffer
+/// referenced by `gs` on x86_64 and `tpidrro_el0` on AArch64.
+///
+/// # Safety
+///
+/// `key` must not cause an out-of-bounds lookup.
+#[inline]
+#[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64"), not(miri)))]
+unsafe fn get_thread_local(key: usize) -> *mut libc::c_void {
+    #[cfg(target_arch = "x86_64")]
+    {
+        let result;
+        std::arch::asm!(
+            // https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L126
+            "mov {0}, gs:[8 * {1}]",
+            out(reg) result,
+            in(reg) key,
+            options(pure, readonly, nostack, preserves_flags),
+        );
+        result
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    {
+        let result: *const *mut libc::c_void;
+        std::arch::asm!(
+            // https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L163
+            "mrs {0}, tpidrro_el0",
+            // Clear bottom 3 bits just in case. This was historically the CPU
+            // core ID but that changed at some point.
+            "and {0}, {0}, #-8",
+            out(reg) result,
+            options(pure, nomem, nostack, preserves_flags),
+        );
+        *result.add(key)
+    }
+}
 
 /// Thread-local key accessed via
 /// [`pthread_getspecific`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_getspecific.html).
@@ -28,7 +72,27 @@ impl<T> PThreadKey<T> {
     pub fn get(&self) -> Option<&'static T> {
         match self.value.load(Relaxed) {
             KEY_UNINIT => None,
-            key => unsafe { libc::pthread_getspecific(key).cast::<T>().as_ref() },
+
+            key => unsafe {
+                #[allow(clippy::needless_late_init)]
+                let thread_local: *mut libc::c_void;
+
+                cfg_if! {
+                    if #[cfg(all(
+                        any(target_arch = "x86_64", target_arch = "aarch64"),
+                        not(miri)
+                    ))] {
+                        thread_local = get_thread_local(key as usize);
+
+                        #[cfg(test)]
+                        assert_eq!(thread_local, libc::pthread_getspecific(key));
+                    } else {
+                        thread_local = libc::pthread_getspecific(key);
+                    }
+                }
+
+                thread_local.cast::<T>().as_ref()
+            },
         }
     }
 
@@ -77,6 +141,9 @@ impl<T> PThreadKey<T> {
             }
         }
 
+        // This is the slow path, so don't bother with writing via
+        // `gs`/`tpidrro_el0` register.
+        //
         // SAFETY: The key has been created by us or another thread.
         unsafe { libc::pthread_setspecific(local_key, value as *const T as _) };
     }
