@@ -32,14 +32,31 @@ impl<T> PThreadKey<T> {
         }
     }
 
+    /// Assigns the value with its destructor.
     #[inline]
-    pub fn set(&self, value: &'static T) {
+    pub fn set<D>(&self, value: &'static T, _: D)
+    where
+        D: FnOnce(&'static T) + Copy,
+    {
+        assert_eq!(std::mem::size_of::<D>(), 0);
+
+        unsafe extern "C" fn dtor<T, D>(value: *mut libc::c_void)
+        where
+            T: 'static,
+            D: FnOnce(&'static T) + Copy,
+        {
+            // SAFETY: The dtor is zero-sized, so we can make one from thin air.
+            let dtor: D = unsafe { std::mem::zeroed() };
+
+            dtor(unsafe { &*value.cast() });
+        }
+
         let shared_key = &self.value;
         let mut local_key = shared_key.load(Relaxed);
 
         // Race against other threads to initialize `shared_key`.
         if local_key == KEY_UNINIT {
-            if unsafe { libc::pthread_key_create(&mut local_key, None) } == 0 {
+            if unsafe { libc::pthread_key_create(&mut local_key, Some(dtor::<T, D>)) } == 0 {
                 // Race to store our key into the global instance.
                 //
                 // On failure, delete our key and use the winner's key.
