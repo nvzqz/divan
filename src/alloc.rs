@@ -1,7 +1,6 @@
 use std::{
     alloc::*,
-    cell::Cell,
-    ptr::{self, NonNull},
+    ptr,
     sync::atomic::{AtomicPtr, Ordering::*},
 };
 
@@ -14,6 +13,9 @@ use crate::{
 
 #[cfg(target_os = "macos")]
 use crate::util::sync::PThreadKey;
+
+#[cfg(not(target_os = "macos"))]
+use std::cell::Cell;
 
 // Use `AllocProfiler` when running crate-internal tests. This enables us to
 // test it for undefined behavior with Miri.
@@ -30,7 +32,11 @@ pub(crate) fn init_current_thread_info() {
     // Allocate the info object using the `System` allocator since that's
     // convenient in this context. We may want to use the true global allocator
     // instead.
-    AllocProfiler::system().current_thread_info().make_reusable();
+    let _info = AllocProfiler::system().current_thread_info();
+
+    // On macOS, we use the thread destructor via `pthread_key_create`.
+    #[cfg(not(target_os = "macos"))]
+    _info.reuse_on_thread_dtor();
 }
 
 /// Measures [`GlobalAlloc`] memory usage.
@@ -156,7 +162,8 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
         let info = ThreadAllocInfo::current_or_global();
 
         // Enable info to be reused after thread termination.
-        info.make_reusable();
+        #[cfg(not(target_os = "macos"))]
+        info.reuse_on_thread_dtor();
 
         // Tally deallocation count.
         info.tally(AllocOp::Dealloc, layout.size());
@@ -276,7 +283,7 @@ pub(crate) struct ThreadAllocInfo {
     /// can be popped to reuse previously-allocated instances.
     ///
     /// This may be set to 1 to indicate `REUSE_THREAD_INFO` has been
-    /// initialized. See `ThreadAllocInfo::make_reusable`.
+    /// initialized. See `ThreadAllocInfo::reuse_on_thread_dtor`.
     reuse_next: AtomicPtr<ThreadAllocInfo>,
 }
 
@@ -284,32 +291,16 @@ pub(crate) struct ThreadAllocInfo {
 ///
 /// This avoids allocating new thread info and pushing it to
 /// `ALL_THREAD_INFO.next`.
+#[cfg(not(target_os = "macos"))]
 struct ThreadInfoReuseHandle {
     info: &'static ThreadAllocInfo,
 }
 
+#[cfg(not(target_os = "macos"))]
 impl Drop for ThreadInfoReuseHandle {
     #[inline]
     fn drop(&mut self) {
-        let mut current_head = ALLOC_META.thread_info_head.reuse_next.load(Acquire);
-
-        loop {
-            // Prepare `current_head` to become second node in the list.
-            self.info.reuse_next.store(current_head, Relaxed);
-
-            // Replace head node with `our_head`.
-            match ALLOC_META.thread_info_head.reuse_next.compare_exchange(
-                current_head,
-                self.info as *const _ as *mut _,
-                AcqRel,
-                Acquire,
-            ) {
-                // We updated `self.reuse_next`.
-                Ok(_) => return,
-
-                Err(their_head) => current_head = their_head,
-            }
-        }
+        self.info.reuse()
     }
 }
 
@@ -321,9 +312,12 @@ thread_local! {
     static CURRENT_THREAD_INFO: Cell<Option<&'static ThreadAllocInfo>> = const { Cell::new(None) };
 }
 
+#[cfg(not(target_os = "macos"))]
 thread_local! {
     /// When a thread terminates, this will be dropped and the allocation will
     /// be reclaimed for reuse.
+    ///
+    /// On macOS, we use the `pthread_key_create` destructor.
     static REUSE_THREAD_INFO: Cell<Option<ThreadInfoReuseHandle>> = const { Cell::new(None) };
 }
 
@@ -367,7 +361,9 @@ impl ThreadAllocInfo {
     pub fn set_as_current(&'static self) {
         cfg_if! {
             if #[cfg(target_os = "macos")] {
-                ALLOC_META.pthread_key.0.set(self);
+                // Assign `self` and later push it onto the reuse linked list
+                // when the thread terminates.
+                ALLOC_META.pthread_key.0.set(self, ThreadAllocInfo::reuse);
             } else {
                 CURRENT_THREAD_INFO.set(Some(self));
             }
@@ -415,12 +411,36 @@ impl ThreadAllocInfo {
         tally.size.fetch_add(size as LocalCount, Relaxed);
     }
 
+    /// Pushes `self` to the start of the reuse linked list.
+    fn reuse(&'static self) {
+        let mut current_head = ALLOC_META.thread_info_head.reuse_next.load(Acquire);
+
+        loop {
+            // Prepare `current_head` to become second node in the list.
+            self.reuse_next.store(current_head, Relaxed);
+
+            // Replace head node with `self`.
+            match ALLOC_META.thread_info_head.reuse_next.compare_exchange(
+                current_head,
+                self as *const _ as *mut _,
+                AcqRel,
+                Acquire,
+            ) {
+                // We updated `self.reuse_next`.
+                Ok(_) => return,
+
+                Err(their_head) => current_head = their_head,
+            }
+        }
+    }
+
     /// Registers `self` with `REUSE_THREAD_INFO` so that it can be reused on
     /// thread termination via `Drop` of `ThreadInfoReuseHandle`.
     #[inline]
-    fn make_reusable(&'static self) {
+    #[cfg(not(target_os = "macos"))]
+    fn reuse_on_thread_dtor(&'static self) {
         // This is 1 from `ptr::from_exposed_addr`, but usable in stable.
-        const IS_REUSABLE: *mut u8 = NonNull::dangling().as_ptr();
+        const IS_REUSABLE: *mut u8 = ptr::NonNull::dangling().as_ptr();
 
         // PERF: We check `reuse_next` pointer instead of always accessing
         // `REUSE_THREAD_INFO` because:
