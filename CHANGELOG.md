@@ -10,6 +10,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Changes
 
+- Improve [`AllocProfiler`] implementation documentation.
+
 - Limit [`AllocProfiler`] mean count outputs to 4 significant digits to not be
   very wide and for consistency with other outputs.
 

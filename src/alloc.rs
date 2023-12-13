@@ -103,14 +103,44 @@ pub(crate) fn init_current_thread_info() {
 ///
 /// # Implementation
 ///
+/// Collecting allocation information happens at any point during which Divan is
+/// also measuring the time. As a result, counting allocations affects timing.
+///
+/// To reduce Divan's footprint during benchmarking:
+/// - Allocation information is recorded in thread-local storage to prevent
+///   contention when benchmarks involve multiple threads, either through
+///   options like [`threads`](macro@crate::bench#threads) or internally
+///   spawning their own threads.
+/// - It does not check for overflow and assumes it will not happen. This is
+///   subject to change in the future.
+/// - Fast thread-local storage access is assembly-optimized on macOS.
+///
+/// Allocation information is the only data Divan records outside of timing, and
+/// thus it also has the only code that affects timing. Recording of alloc info
+/// takes place in 3 steps:
+/// 1. Load the thread-local slot for allocation information.
+///
+///    On macOS, this is via the
+///    [`gs`](https://github.com/nvzqz/divan/blob/v0.1.6/src/util/sync.rs#L34)/[`tpidrro_el0`](https://github.com/nvzqz/divan/blob/v0.1.6/src/util/sync.rs#L47)
+///    registers. Although this is not guaranteed as stable ABI, in practice
+///    many programs assume these registers store thread-local data.
+///    [`thread_local!`] is used on all other platforms.
+///
+/// 2. Perform a [`fetch_add`](SharedCount::fetch_add) for allocation operation
+///    invocation count.
+///
+/// 3. Perform a [`fetch_add`](SharedCount::fetch_add) for allocation operation
+///    bytes count (a.k.a. size).
+///
 /// Allocation information is recorded in thread-local storage to prevent
-/// contention when benchmarks involve multiple threads, either internally or
-/// through options like [`threads`](macro@crate::bench#threads).
+/// atomics contention when benchmarks involve multiple threads, through options
+/// like [`threads`](macro@crate::bench#threads) or internally spawning their
+/// own threads.
 ///
 /// This is currently achieved with:
 /// - [`thread_local!`] on most platforms
 /// - [`pthread_getspecific`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_getspecific.html)
-///   on macOS
+///   via registers on macOS, as mentioned earlier
 #[derive(Debug, Default)]
 pub struct AllocProfiler<Alloc = System> {
     alloc: Alloc,
