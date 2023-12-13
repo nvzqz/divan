@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.7] - 2023-12-13
+
 ### Changes
 
 - Improve [`AllocProfiler`] implementation documentation.
@@ -161,7 +163,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/nvzqz/divan/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/nvzqz/divan/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/nvzqz/divan/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/nvzqz/divan/compare/v0.1.3...v0.1.4
