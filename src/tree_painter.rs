@@ -201,7 +201,7 @@ impl TreePainter {
             Some(AllocTally {
                 count: column_tallies.map(|tally| {
                     if let Some((prefix, tally)) = tally {
-                        format!("{prefix}{}", tally.count)
+                        format!("{prefix}{}", util::fmt::format_f64(tally.count, 4))
                     } else {
                         String::new()
                     }

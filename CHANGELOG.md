@@ -8,12 +8,17 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changes
+
+- Limit [`AllocProfiler`] mean count outputs to 4 significant digits to not be
+  very wide and for consistency with other outputs.
+
 ## [0.1.6] - 2023-12-13
 
 ### Added
 
-- [`AllocProfiler`](https://docs.rs/divan/0.1.6/divan/struct.AllocProfiler.html)
-  allocator that tracks allocation counts and sizes during benchmarks.
+- [`AllocProfiler`] allocator that tracks allocation counts and sizes during
+  benchmarks.
 
 ## [0.1.5] - 2023-12-05
 
@@ -161,6 +166,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [0.1.3]: https://github.com/nvzqz/divan/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nvzqz/divan/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
+
+[`AllocProfiler`]: https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html
 
 [`black_box`]: https://doc.rust-lang.org/std/hint/fn.black_box.html
 [`Drop`]: https://doc.rust-lang.org/std/ops/trait.Drop.html
