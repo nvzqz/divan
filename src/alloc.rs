@@ -258,7 +258,7 @@ impl<A: GlobalAlloc> AllocProfiler<A> {
 
                 // Make `info` discoverable by pushing it onto the global
                 // linked list as the new head.
-                let mut current_head = ALLOC_META.thread_info_head.next.load(Acquire);
+                let mut current_head = ALLOC_META.thread_info_head.next.load(Relaxed);
                 loop {
                     // Prepare `current_head` to become second node in the list.
                     (*info).next = AtomicPtr::new(current_head);
@@ -442,7 +442,7 @@ impl ThreadAllocInfo {
 
     /// Pushes `self` to the start of the reuse linked list.
     fn reuse(&'static self) {
-        let mut current_head = ALLOC_META.thread_info_head.reuse_next.load(Acquire);
+        let mut current_head = ALLOC_META.thread_info_head.reuse_next.load(Relaxed);
 
         loop {
             // Prepare `current_head` to become second node in the list.
