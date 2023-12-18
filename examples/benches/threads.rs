@@ -303,6 +303,24 @@ mod thread_id {
     #[cfg(windows)]
     #[divan::bench]
     #[allow(non_snake_case)]
+    fn GetCurrentProcessorNumber() -> u32 {
+        unsafe { winapi::um::processthreadsapi::GetCurrentProcessorNumber() }
+    }
+
+    #[cfg(windows)]
+    #[divan::bench]
+    #[allow(non_snake_case)]
+    fn GetCurrentProcessorNumberEx() -> (u16, u8) {
+        unsafe {
+            let mut result = std::mem::zeroed();
+            winapi::um::processthreadsapi::GetCurrentProcessorNumberEx(&mut result);
+            (result.Group, result.Number)
+        }
+    }
+
+    #[cfg(windows)]
+    #[divan::bench]
+    #[allow(non_snake_case)]
     fn GetCurrentThread() -> std::os::windows::io::RawHandle {
         unsafe { winapi::um::processthreadsapi::GetCurrentThread().cast() }
     }
