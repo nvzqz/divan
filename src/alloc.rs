@@ -17,6 +17,11 @@ use crate::util::sync::PThreadKey;
 #[cfg(not(target_os = "macos"))]
 use std::cell::Cell;
 
+#[cfg(windows)]
+mod c {
+    pub use winapi::{shared::minwindef::*, um::winnt::*};
+}
+
 // Use `AllocProfiler` when running crate-internal tests. This enables us to
 // test it for undefined behavior with Miri.
 #[cfg(test)]
@@ -32,7 +37,7 @@ pub(crate) fn init_current_thread_info() {
     // If `AllocProfiler` is the global allocator, it will have initialized the
     // current thread's `ThreadAllocInfo` because we have already allocated by
     // this point.
-    #[cfg(not(unix))]
+    #[cfg(not(any(unix, windows)))]
     if let Some(info) = ThreadAllocInfo::try_current() {
         info.reuse_on_thread_dtor();
     }
@@ -191,7 +196,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
         let info = ThreadAllocInfo::current_or_global();
 
         // Enable info to be reused after thread termination.
-        #[cfg(not(unix))]
+        #[cfg(not(any(unix, windows)))]
         info.reuse_on_thread_dtor();
 
         // Tally deallocation count.
@@ -341,12 +346,13 @@ thread_local! {
     static CURRENT_THREAD_INFO: Cell<Option<&'static ThreadAllocInfo>> = const { Cell::new(None) };
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 thread_local! {
     /// When a thread terminates, this will be dropped and the allocation will
     /// be reclaimed for reuse.
     ///
-    /// On Unix, we use the `pthread_key_create` destructor.
+    /// On Unix and Windows, we use the `pthread_key_create` and
+    /// `PIMAGE_TLS_CALLBACK` destructor.
     static REUSE_THREAD_INFO: Cell<Option<ThreadInfoReuseHandle>> = const { Cell::new(None) };
 }
 
@@ -372,6 +378,33 @@ static ALLOC_META: ThreadAllocMeta = ThreadAllocMeta {
         next: AtomicPtr::new(ptr::null_mut()),
         reuse_next: AtomicPtr::new(ptr::null_mut()),
     },
+};
+
+#[link_section = ".CRT$XLB"]
+#[used]
+#[cfg(windows)]
+static TLS_CALLBACK: c::PIMAGE_TLS_CALLBACK = {
+    unsafe extern "system" fn tls_callback(_: c::LPVOID, reason: c::DWORD, _: c::LPVOID) {
+        if reason != c::DLL_THREAD_DETACH {
+            return;
+        }
+
+        if let Some(info) = ThreadAllocInfo::try_current() {
+            info.reuse();
+        }
+
+        // Alternative to `/INCLUDE: tls_used`.
+        #[cfg(target_env = "msvc")]
+        {
+            extern "C" {
+                static _tls_used: u8;
+            }
+
+            _ = ptr::addr_of!(_tls_used).read_volatile();
+        }
+    }
+
+    Some(tls_callback)
 };
 
 impl ThreadAllocInfo {
@@ -490,7 +523,7 @@ impl ThreadAllocInfo {
     /// Registers `self` with `REUSE_THREAD_INFO` so that it can be reused on
     /// thread termination via `Drop` of `ThreadInfoReuseHandle`.
     #[inline]
-    #[cfg(not(unix))]
+    #[cfg(not(any(unix, windows)))]
     fn reuse_on_thread_dtor(&'static self) {
         // This is 1 from `ptr::from_exposed_addr`, but usable in stable.
         const IS_REUSABLE: *mut u8 = ptr::NonNull::dangling().as_ptr();

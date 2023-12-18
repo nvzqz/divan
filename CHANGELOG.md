@@ -17,14 +17,17 @@ Versioning](http://semver.org/spec/v2.0.0.html).
   The `dyn_thread_local` crate option disables this optimization. This is
   recommended if your code or another dependency uses the same static key.
 
-- All Unix platforms now reclaim thread-local [`AllocProfiler`] info via the
-  [`pthread_key_create`] destructor. Previously this only applied to macOS.
-  Unlike a [`thread_local!`] value with a [`Drop`] destructor, this can be set
-  up in
-  [`GlobalAlloc::alloc`](https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#tymethod.alloc)
-  (see Rust issue [#116390](https://github.com/rust-lang/rust/issues/116390)).
-  This approach also reduces the work done in
-  [`AllocProfiler::dealloc`](https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html#method.dealloc).
+- All Unix and Windows platforms now reclaim thread-local [`AllocProfiler`] info
+  via the native destructor: [`pthread_key_create`] or
+  [`PIMAGE_TLS_CALLBACK`](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#tls-callback-functions).
+  Previously this only applied to macOS.
+
+  Benefits over [`thread_local!`] with [`Drop`] destructor:
+  - [`pthread_key_create`] can be called in
+    [`GlobalAlloc::alloc`](https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#tymethod.alloc)
+    (see Rust issue [#116390](https://github.com/rust-lang/rust/issues/116390)).
+  - This approach reduces the work done in
+    [`AllocProfiler::dealloc`](https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html#method.dealloc).
 
 ### Fixed
 
