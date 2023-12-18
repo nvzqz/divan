@@ -23,20 +23,19 @@ use std::cell::Cell;
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
 
-/// Initializes the current thread's allocation information object.
+/// Makes the current thread's `ThreadAllocInfo` instance reusable.
 ///
-/// Note that despite the work done here, we still initialize thread-local alloc
-/// info in the `GlobalAlloc` implementation for `Alloc` because benchmarks can
-/// allocate their own threads.
+/// This is a no-op on macOS because we instead use the `pthread_key_create`
+/// destructor.
+#[inline]
 pub(crate) fn init_current_thread_info() {
-    // Allocate the info object using the `System` allocator since that's
-    // convenient in this context. We may want to use the true global allocator
-    // instead.
-    let _info = AllocProfiler::system().current_thread_info();
-
-    // On macOS, we use the thread destructor via `pthread_key_create`.
+    // If `AllocProfiler` is the global allocator, it will have initialized the
+    // current thread's `ThreadAllocInfo` because we have already allocated by
+    // this point.
     #[cfg(not(target_os = "macos"))]
-    _info.reuse_on_thread_dtor();
+    if let Some(info) = ThreadAllocInfo::try_current() {
+        info.reuse_on_thread_dtor();
+    }
 }
 
 /// Measures [`GlobalAlloc`] memory usage.

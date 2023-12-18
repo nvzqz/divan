@@ -8,6 +8,11 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Remove unused allocations if [`AllocProfiler`] is not active as the global
+  allocator.
+
 ## [0.1.7] - 2023-12-13
 
 ### Changes
