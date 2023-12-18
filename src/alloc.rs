@@ -11,7 +11,7 @@ use crate::{
     util::{self, CachePadded, LocalCount, SharedCount},
 };
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 use crate::util::sync::PThreadKey;
 
 #[cfg(not(target_os = "macos"))]
@@ -32,7 +32,7 @@ pub(crate) fn init_current_thread_info() {
     // If `AllocProfiler` is the global allocator, it will have initialized the
     // current thread's `ThreadAllocInfo` because we have already allocated by
     // this point.
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(unix))]
     if let Some(info) = ThreadAllocInfo::try_current() {
         info.reuse_on_thread_dtor();
     }
@@ -191,7 +191,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
         let info = ThreadAllocInfo::current_or_global();
 
         // Enable info to be reused after thread termination.
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(unix))]
         info.reuse_on_thread_dtor();
 
         // Tally deallocation count.
@@ -341,18 +341,18 @@ thread_local! {
     static CURRENT_THREAD_INFO: Cell<Option<&'static ThreadAllocInfo>> = const { Cell::new(None) };
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(unix))]
 thread_local! {
     /// When a thread terminates, this will be dropped and the allocation will
     /// be reclaimed for reuse.
     ///
-    /// On macOS, we use the `pthread_key_create` destructor.
+    /// On Unix, we use the `pthread_key_create` destructor.
     static REUSE_THREAD_INFO: Cell<Option<ThreadInfoReuseHandle>> = const { Cell::new(None) };
 }
 
 #[repr(C)]
 struct ThreadAllocMeta {
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     pthread_key: CachePadded<PThreadKey<ThreadAllocInfo>>,
 
     /// This is used as:
@@ -364,7 +364,7 @@ struct ThreadAllocMeta {
 
 /// Global instance for allocation metadata.
 static ALLOC_META: ThreadAllocMeta = ThreadAllocMeta {
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     pthread_key: CachePadded(PThreadKey::new()),
 
     thread_info_head: ThreadAllocInfo {
@@ -384,7 +384,7 @@ impl ThreadAllocInfo {
 
     /// Assigns `self` as the current thread's info.
     ///
-    /// On macOS, each thread races to assign `ALLOC_META.pthread_key` via
+    /// On Unix, each thread races to assign `ALLOC_META.pthread_key` via
     /// `pthread_key_create`.
     #[inline]
     pub fn set_as_current(&'static self) {
@@ -399,19 +399,17 @@ impl ThreadAllocInfo {
                     target_arch = "x86_64",
                 ))]
                 unsafe {
-                    util::sync::set_static_thread_local(self);
-                }
-
-                // Assign `self` and later push it onto the reuse linked list
-                // when the thread terminates.
-                //
-                // When using the static fast path, this still ensures the
-                // `ThreadAllocInfo` will be reused on thread termination.
-                ALLOC_META.pthread_key.0.set(self, ThreadAllocInfo::reuse);
+                    util::sync::macos::set_static_thread_local(self);
+                };
             } else {
                 CURRENT_THREAD_INFO.set(Some(self));
             }
         }
+
+        // Write macOS access key and ensure `ThreadAllocInfo` will be reused on
+        // thread termination.
+        #[cfg(unix)]
+        ALLOC_META.pthread_key.0.set(self, ThreadAllocInfo::reuse)
     }
 
     /// Returns the current thread's allocation information if initialized.
@@ -426,7 +424,7 @@ impl ThreadAllocInfo {
                     target_arch = "x86_64",
                 ))]
                 unsafe {
-                    return util::sync::get_static_thread_local::<Self>().as_ref();
+                    return util::sync::macos::get_static_thread_local::<Self>().as_ref();
                 }
 
                 #[allow(unreachable_code)]
@@ -492,7 +490,7 @@ impl ThreadAllocInfo {
     /// Registers `self` with `REUSE_THREAD_INFO` so that it can be reused on
     /// thread termination via `Drop` of `ThreadInfoReuseHandle`.
     #[inline]
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(unix))]
     fn reuse_on_thread_dtor(&'static self) {
         // This is 1 from `ptr::from_exposed_addr`, but usable in stable.
         const IS_REUSABLE: *mut u8 = ptr::NonNull::dangling().as_ptr();

@@ -17,6 +17,15 @@ Versioning](http://semver.org/spec/v2.0.0.html).
   The `dyn_thread_local` crate option disables this optimization. This is
   recommended if your code or another dependency uses the same static key.
 
+- All Unix platforms now reclaim thread-local [`AllocProfiler`] info via the
+  [`pthread_key_create`] destructor. Previously this only applied to macOS.
+  Unlike a [`thread_local!`] value with a [`Drop`] destructor, this can be set
+  up in
+  [`GlobalAlloc::alloc`](https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#tymethod.alloc)
+  (see Rust issue [#116390](https://github.com/rust-lang/rust/issues/116390)).
+  This approach also reduces the work done in
+  [`AllocProfiler::dealloc`](https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html#method.dealloc).
+
 ### Fixed
 
 - Remove unused allocations if [`AllocProfiler`] is not active as the global
@@ -193,5 +202,6 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [`Iterator`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html
 [available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
 [drop_fn]: https://doc.rust-lang.org/std/mem/fn.drop.html
+[`thread_local!`]: https://doc.rust-lang.org/std/macro.thread_local.html
 
 [`pthread_key_create`]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_key_create.html

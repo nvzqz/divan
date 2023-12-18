@@ -1,95 +1,99 @@
 //! Synchronization utilities.
 
-#![cfg(target_os = "macos")]
+#![cfg(unix)]
 
 use std::{
     marker::PhantomData,
     sync::atomic::{Ordering::*, *},
 };
 
-use cfg_if::cfg_if;
 use libc::pthread_key_t;
 
 const KEY_UNINIT: pthread_key_t = 0;
 
-// Apple reserves key 11 (`__PTK_LIBC_RESERVED_WIN64`) for Windows:
-// https://github.com/apple-oss-distributions/libpthread/blob/libpthread-519/private/pthread/tsd_private.h#L99
-//
-// Key 6 is also reserved for Windows and Go, but we don't use it because it's
-// more well known and likely to be used by more libraries.
+/// Optimized alternatives to `pthread_getspecific`.
+#[cfg(target_os = "macos")]
+pub(crate) mod macos {
+    // Apple reserves key 11 (`__PTK_LIBC_RESERVED_WIN64`) for Windows:
+    // https://github.com/apple-oss-distributions/libpthread/blob/libpthread-519/private/pthread/tsd_private.h#L99
+    //
+    // Key 6 is also reserved for Windows and Go, but we don't use it because
+    // it's more well known and likely to be used by more libraries.
 
-/// Returns a pointer to a static thread-local variable.
-#[inline]
-#[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
-pub(crate) fn get_static_thread_local<T>() -> *const T {
-    unsafe {
-        let result;
-        std::arch::asm!(
-            "mov {}, gs:[88]",
-            out(reg) result,
-            options(pure, readonly, nostack, preserves_flags),
-        );
-        result
-    }
-}
-
-/// Sets the static thread-local variable.
-///
-/// # Safety
-///
-/// If the slot is in use, we will corrupt the other user's memory.
-#[inline]
-#[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
-pub(crate) unsafe fn set_static_thread_local<T>(ptr: *const T) {
-    unsafe {
-        std::arch::asm!(
-            "mov gs:[88], {}",
-            in(reg) ptr,
-            options(nostack, preserves_flags),
-        );
-    }
-}
-
-/// Returns a pointer to the corresponding thread-local variable.
-///
-/// The first element is reserved for `pthread_self`. This is widely known and
-/// also mentioned in page 251 of "*OS Internals Volume 1" by Jonathan Levin.
-///
-/// It appears that `pthread_key_create` allocates a slot into the buffer
-/// referenced by:
-/// - [`gs` on x86_64](https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L126)
-/// - [`tpidrro_el0` on AArch64](https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L163)
-///
-/// # Safety
-///
-/// `key` must not cause an out-of-bounds lookup.
-#[inline]
-#[cfg(all(not(miri), any(target_arch = "x86_64", target_arch = "aarch64")))]
-unsafe fn get_thread_local(key: usize) -> *mut libc::c_void {
-    #[cfg(target_arch = "x86_64")]
-    {
-        let result;
-        std::arch::asm!(
-            "mov {}, gs:[8 * {1}]",
-            out(reg) result,
-            in(reg) key,
-            options(pure, readonly, nostack, preserves_flags),
-        );
-        result
+    /// Returns a pointer to a static thread-local variable.
+    #[inline]
+    #[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
+    pub fn get_static_thread_local<T>() -> *const T {
+        unsafe {
+            let result;
+            std::arch::asm!(
+                "mov {}, gs:[88]",
+                out(reg) result,
+                options(pure, readonly, nostack, preserves_flags),
+            );
+            result
+        }
     }
 
-    #[cfg(target_arch = "aarch64")]
-    {
-        let result: *const *mut libc::c_void;
-        std::arch::asm!(
-            "mrs {0}, tpidrro_el0",
-            // Clear bottom 3 bits just in case. This was historically the CPU
-            // core ID but that changed at some point.
-            "and {0}, {0}, #-8",
-            out(reg) result,
-            options(pure, nomem, nostack, preserves_flags),
-        );
-        *result.add(key)
+    /// Sets the static thread-local variable.
+    ///
+    /// # Safety
+    ///
+    /// If the slot is in use, we will corrupt the other user's memory.
+    #[inline]
+    #[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
+    pub unsafe fn set_static_thread_local<T>(ptr: *const T) {
+        unsafe {
+            std::arch::asm!(
+                "mov gs:[88], {}",
+                in(reg) ptr,
+                options(nostack, preserves_flags),
+            );
+        }
+    }
+
+    /// Returns a pointer to the corresponding thread-local variable.
+    ///
+    /// The first element is reserved for `pthread_self`. This is widely known
+    /// and also mentioned in page 251 of "*OS Internals Volume 1" by Jonathan
+    /// Levin.
+    ///
+    /// It appears that `pthread_key_create` allocates a slot into the buffer
+    /// referenced by:
+    /// - [`gs` on x86_64](https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L126)
+    /// - [`tpidrro_el0` on AArch64](https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L163)
+    ///
+    /// # Safety
+    ///
+    /// `key` must not cause an out-of-bounds lookup.
+    #[inline]
+    #[cfg(all(not(miri), any(target_arch = "x86_64", target_arch = "aarch64")))]
+    pub unsafe fn get_thread_local(key: usize) -> *mut libc::c_void {
+        #[cfg(target_arch = "x86_64")]
+        {
+            let result;
+            std::arch::asm!(
+                "mov {}, gs:[8 * {1}]",
+                out(reg) result,
+                in(reg) key,
+                options(pure, readonly, nostack, preserves_flags),
+            );
+            result
+        }
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            let result: *const *mut libc::c_void;
+            std::arch::asm!(
+                "mrs {0}, tpidrro_el0",
+                // Clear bottom 3 bits just in case. This was historically the CPU
+                // core ID but that changed at some point.
+                "and {0}, {0}, #-8",
+                out(reg) result,
+                options(pure, nomem, nostack, preserves_flags),
+            );
+            *result.add(key)
+        }
     }
 }
 
@@ -107,6 +111,7 @@ impl<T> PThreadKey<T> {
     }
 
     #[inline]
+    #[cfg(target_os = "macos")]
     pub fn get(&self) -> Option<&'static T> {
         match self.value.load(Relaxed) {
             KEY_UNINIT => None,
@@ -115,12 +120,12 @@ impl<T> PThreadKey<T> {
                 #[allow(clippy::needless_late_init)]
                 let thread_local: *mut libc::c_void;
 
-                cfg_if! {
+                cfg_if::cfg_if! {
                     if #[cfg(all(
+                        not(miri),
                         any(target_arch = "x86_64", target_arch = "aarch64"),
-                        not(miri)
                     ))] {
-                        thread_local = get_thread_local(key as usize);
+                        thread_local = macos::get_thread_local(key as usize);
 
                         #[cfg(test)]
                         assert_eq!(thread_local, libc::pthread_getspecific(key));
