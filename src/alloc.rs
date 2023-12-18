@@ -390,8 +390,23 @@ impl ThreadAllocInfo {
     pub fn set_as_current(&'static self) {
         cfg_if! {
             if #[cfg(target_os = "macos")] {
+                // When using static thread local key, write directly because it
+                // is undefined behavior to call `pthread_setspecific` with a
+                // key that didn't originate from `pthread_key_create`.
+                #[cfg(all(
+                    not(miri),
+                    not(feature = "dyn_thread_local"),
+                    target_arch = "x86_64",
+                ))]
+                unsafe {
+                    util::sync::set_static_thread_local(self);
+                }
+
                 // Assign `self` and later push it onto the reuse linked list
                 // when the thread terminates.
+                //
+                // When using the static fast path, this still ensures the
+                // `ThreadAllocInfo` will be reused on thread termination.
                 ALLOC_META.pthread_key.0.set(self, ThreadAllocInfo::reuse);
             } else {
                 CURRENT_THREAD_INFO.set(Some(self));
@@ -404,6 +419,17 @@ impl ThreadAllocInfo {
     pub fn try_current() -> Option<&'static Self> {
         cfg_if! {
             if #[cfg(target_os = "macos")] {
+                // Fast path: static thread local.
+                #[cfg(all(
+                    not(miri),
+                    not(feature = "dyn_thread_local"),
+                    target_arch = "x86_64",
+                ))]
+                unsafe {
+                    return util::sync::get_static_thread_local::<Self>().as_ref();
+                }
+
+                #[allow(unreachable_code)]
                 ALLOC_META.pthread_key.0.get()
             } else {
                 CURRENT_THREAD_INFO.get()

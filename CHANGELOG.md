@@ -8,6 +8,15 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changes
+
+- Reduce [`AllocProfiler`] footprint on x86_64 macOS with improved thread-local
+  performance by using a static lookup key instead of a dynamic key from
+  [`pthread_key_create`]. Key 11 is used because it is reserved for Windows.
+
+  The `dyn_thread_local` crate option disables this optimization. This is
+  recommended if your code or another dependency uses the same static key.
+
 ### Fixed
 
 - Remove unused allocations if [`AllocProfiler`] is not active as the global
@@ -184,3 +193,5 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [`Iterator`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html
 [available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
 [drop_fn]: https://doc.rust-lang.org/std/mem/fn.drop.html
+
+[`pthread_key_create`]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_key_create.html

@@ -31,6 +31,13 @@ default = ["wrap_help"]
 help = ["clap/help"]
 wrap_help = ["help", "clap/wrap_help"]
 
+# Opt out of faster static thread-local access and instead always dynamically
+# allocate thread-local storage.
+#
+# On x86_64 macOS we use TLS key 11 (reserved for Windows ABI compatability):
+# https://github.com/apple-oss-distributions/libpthread/blob/libpthread-519/private/pthread/tsd_private.h#L99
+dyn_thread_local = []
+
 # Benchmark internals. Not meant for public use.
 internal_benches = []
 

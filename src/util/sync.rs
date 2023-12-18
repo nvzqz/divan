@@ -12,6 +12,44 @@ use libc::pthread_key_t;
 
 const KEY_UNINIT: pthread_key_t = 0;
 
+// Apple reserves key 11 (`__PTK_LIBC_RESERVED_WIN64`) for Windows:
+// https://github.com/apple-oss-distributions/libpthread/blob/libpthread-519/private/pthread/tsd_private.h#L99
+//
+// Key 6 is also reserved for Windows and Go, but we don't use it because it's
+// more well known and likely to be used by more libraries.
+
+/// Returns a pointer to a static thread-local variable.
+#[inline]
+#[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
+pub(crate) fn get_static_thread_local<T>() -> *const T {
+    unsafe {
+        let result;
+        std::arch::asm!(
+            "mov {}, gs:[88]",
+            out(reg) result,
+            options(pure, readonly, nostack, preserves_flags),
+        );
+        result
+    }
+}
+
+/// Sets the static thread-local variable.
+///
+/// # Safety
+///
+/// If the slot is in use, we will corrupt the other user's memory.
+#[inline]
+#[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
+pub(crate) unsafe fn set_static_thread_local<T>(ptr: *const T) {
+    unsafe {
+        std::arch::asm!(
+            "mov gs:[88], {}",
+            in(reg) ptr,
+            options(nostack, preserves_flags),
+        );
+    }
+}
+
 /// Returns a pointer to the corresponding thread-local variable.
 ///
 /// The first element is reserved for `pthread_self`. This is widely known and
@@ -26,13 +64,13 @@ const KEY_UNINIT: pthread_key_t = 0;
 ///
 /// `key` must not cause an out-of-bounds lookup.
 #[inline]
-#[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64"), not(miri)))]
+#[cfg(all(not(miri), any(target_arch = "x86_64", target_arch = "aarch64")))]
 unsafe fn get_thread_local(key: usize) -> *mut libc::c_void {
     #[cfg(target_arch = "x86_64")]
     {
         let result;
         std::arch::asm!(
-            "mov {0}, gs:[8 * {1}]",
+            "mov {}, gs:[8 * {1}]",
             out(reg) result,
             in(reg) key,
             options(pure, readonly, nostack, preserves_flags),
