@@ -350,32 +350,45 @@ mod thread_id {
         }
     }
 
-    // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDRRO-EL0--EL0-Read-Only-Software-Thread-ID-Register?lang=en
-    #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+    #[cfg(all(
+        any(target_arch = "x86_64", target_arch = "aarch64"),
+        any(target_os = "linux", target_os = "macos", target_os = "windows"),
+    ))]
     #[divan::bench]
     fn asm() -> usize {
         unsafe {
             let result: usize;
+
+            #[cfg(all(target_arch = "x86_64", any(target_os = "macos", target_os = "windows")))]
+            std::arch::asm!(
+                "mov {}, gs",
+                out(reg) result,
+                options(nostack, nomem, preserves_flags)
+            );
+
+            #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+            std::arch::asm!(
+                "mov {}, fs",
+                out(reg) result,
+                options(nostack, nomem, preserves_flags)
+            );
+
+            // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDRRO-EL0--EL0-Read-Only-Software-Thread-ID-Register?lang=en
+            #[cfg(all(target_arch = "aarch64", any(target_os = "macos", target_os = "windows")))]
             std::arch::asm!(
                 "mrs {}, tpidrro_el0",
                 out(reg) result,
                 options(nostack, nomem, preserves_flags)
             );
-            result
-        }
-    }
 
-    // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDR-EL0--EL0-Read-Write-Software-Thread-ID-Register?lang=en
-    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-    #[divan::bench]
-    fn asm() -> usize {
-        unsafe {
-            let result: usize;
+            // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDR-EL0--EL0-Read-Write-Software-Thread-ID-Register?lang=en
+            #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
             std::arch::asm!(
                 "mrs {}, tpidr_el0",
                 out(reg) result,
                 options(nostack, nomem, preserves_flags)
             );
+
             result
         }
     }
