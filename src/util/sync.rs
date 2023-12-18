@@ -18,7 +18,9 @@ const KEY_UNINIT: pthread_key_t = 0;
 /// also mentioned in page 251 of "*OS Internals Volume 1" by Jonathan Levin.
 ///
 /// It appears that `pthread_key_create` allocates a slot into the buffer
-/// referenced by `gs` on x86_64 and `tpidrro_el0` on AArch64.
+/// referenced by:
+/// - [`gs` on x86_64](https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L126)
+/// - [`tpidrro_el0` on AArch64](https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L163)
 ///
 /// # Safety
 ///
@@ -30,7 +32,6 @@ unsafe fn get_thread_local(key: usize) -> *mut libc::c_void {
     {
         let result;
         std::arch::asm!(
-            // https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L126
             "mov {0}, gs:[8 * {1}]",
             out(reg) result,
             in(reg) key,
@@ -43,7 +44,6 @@ unsafe fn get_thread_local(key: usize) -> *mut libc::c_void {
     {
         let result: *const *mut libc::c_void;
         std::arch::asm!(
-            // https://github.com/apple-oss-distributions/xnu/blob/xnu-10002.41.9/libsyscall/os/tsd.h#L163
             "mrs {0}, tpidrro_el0",
             // Clear bottom 3 bits just in case. This was historically the CPU
             // core ID but that changed at some point.
