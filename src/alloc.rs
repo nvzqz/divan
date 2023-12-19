@@ -1,4 +1,4 @@
-use std::{alloc::*, ptr::NonNull};
+use std::{alloc::*, fmt, ptr::NonNull};
 
 use cfg_if::cfg_if;
 
@@ -10,8 +10,11 @@ use crate::util::sync::{CachePadded, PThreadKey};
 #[cfg(not(target_os = "macos"))]
 use std::cell::UnsafeCell;
 
-// Use `AllocProfiler` when running crate-internal tests. This enables us to
-// test it for undefined behavior with Miri.
+/// The `AllocProfiler` when running crate-internal tests.
+///
+/// This enables us to test it for:
+/// - Undefined behavior with Miri
+/// - Correctness when tallying
 #[cfg(test)]
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
@@ -200,6 +203,7 @@ impl<A> AllocProfiler<A> {
 }
 
 /// Thread-local allocation information.
+#[derive(Default)]
 pub(crate) struct ThreadAllocInfo {
     pub tallies: ThreadAllocTallyMap,
 }
@@ -330,7 +334,7 @@ impl ThreadAllocInfo {
 /// Aligning to 16 nudges the compiler to emit aligned SIMD operations.
 ///
 /// Placing `count` first generates less code on AArch64.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(C, align(16))]
 pub(crate) struct AllocTally<Count> {
     /// The number of times this operation was performed.
@@ -364,7 +368,7 @@ impl<C> AllocTally<C> {
 /// Allocation number categories.
 ///
 /// Note that grow/shrink are first to improve code generation for `realloc`.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AllocOp {
     Grow,
     Shrink,
@@ -391,6 +395,16 @@ impl AllocOp {
     }
 
     #[inline]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Grow => "grow",
+            Self::Shrink => "shrink",
+            Self::Alloc => "alloc",
+            Self::Dealloc => "dealloc",
+        }
+    }
+
+    #[inline]
     pub fn prefix(self) -> &'static str {
         match self {
             Self::Grow => "grow:",
@@ -402,7 +416,7 @@ impl AllocOp {
 }
 
 /// Values keyed by `AllocOp`.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct AllocOpMap<T> {
     pub values: [T; 4],
 }
@@ -410,6 +424,12 @@ pub(crate) struct AllocOpMap<T> {
 pub(crate) type ThreadAllocTallyMap = AllocOpMap<ThreadAllocTally>;
 
 pub(crate) type TotalAllocTallyMap = AllocOpMap<TotalAllocTally>;
+
+impl<T: fmt::Debug> fmt::Debug for AllocOpMap<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_map().entries(AllocOp::ALL.iter().map(|&op| (op.name(), self.get(op)))).finish()
+    }
+}
 
 impl ThreadAllocTallyMap {
     #[inline]
@@ -432,6 +452,14 @@ impl ThreadAllocTallyMap {
 }
 
 impl<T> AllocOpMap<T> {
+    #[cfg(test)]
+    pub fn from_fn<F>(f: F) -> Self
+    where
+        F: FnMut(AllocOp) -> T,
+    {
+        Self { values: AllocOp::ALL.map(f) }
+    }
+
     #[inline]
     pub const fn get(&self, op: AllocOp) -> &T {
         &self.values[op as usize]
@@ -479,5 +507,68 @@ mod benches {
         fn r#try() -> Option<NonNull<ThreadAllocInfo>> {
             ThreadAllocInfo::try_current()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tests that `AllocProfiler` is counting correctly.
+    #[test]
+    fn tally() {
+        // Initialize the thread's alloc info.
+        //
+        // SAFETY: This cannot be kept as a reference and is instead a raw
+        // pointer because a reference would cause undefined behavior when
+        // `AllocProfiler` attempts to update tallies.
+        let mut alloc_info = ThreadAllocInfo::current().unwrap();
+
+        // Resets the allocation tallies and returns the previous tallies.
+        let mut take_alloc_tallies = || std::mem::take(unsafe { &mut alloc_info.as_mut().tallies });
+
+        // Start fresh.
+        _ = take_alloc_tallies();
+
+        // Helper to create `ThreadAllocTallyMap` since each operation only
+        // changes `buf` by 1 `i32`.
+        let item_tally = ThreadAllocTally { count: 1, size: std::mem::size_of::<i32>() as _ };
+        let make_tally_map = |op: AllocOp| {
+            ThreadAllocTallyMap::from_fn(|other_op| {
+                if other_op == op {
+                    item_tally
+                } else {
+                    Default::default()
+                }
+            })
+        };
+
+        // Test zero.
+        let mut buf: Vec<i32> = Vec::new();
+        assert_eq!(take_alloc_tallies(), Default::default());
+
+        // Test allocation.
+        buf.reserve_exact(1);
+        assert_eq!(take_alloc_tallies(), make_tally_map(AllocOp::Alloc));
+
+        // Test grow.
+        buf.reserve_exact(2);
+        assert_eq!(take_alloc_tallies(), make_tally_map(AllocOp::Grow));
+
+        // Test shrink.
+        buf.shrink_to(1);
+        assert_eq!(take_alloc_tallies(), make_tally_map(AllocOp::Shrink));
+
+        // Test dealloc.
+        drop(buf);
+        assert_eq!(take_alloc_tallies(), make_tally_map(AllocOp::Dealloc));
+
+        // Test all of the above together.
+        let mut buf: Vec<i32> = Vec::new();
+        buf.reserve_exact(1); // alloc
+        buf.reserve_exact(2); // grow
+        buf.shrink_to(1); // shrink
+        drop(buf); // dealloc
+        assert_eq!(take_alloc_tallies(), ThreadAllocTallyMap { values: [item_tally; 4] });
     }
 }
