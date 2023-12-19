@@ -444,7 +444,7 @@ impl<T> AllocOpMap<T> {
 }
 
 #[cfg(feature = "internal_benches")]
-mod thread_info {
+mod benches {
     use super::*;
 
     // We want the approach to scale well with thread count.

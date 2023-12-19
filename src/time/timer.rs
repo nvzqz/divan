@@ -174,23 +174,25 @@ pub(crate) enum TimerKind {
 }
 
 #[cfg(feature = "internal_benches")]
-#[crate::bench(crate = crate)]
-fn get_tsc() -> Result<Timer, TscUnavailable> {
-    Timer::get_tsc()
-}
-
-#[cfg(feature = "internal_benches")]
-mod measure {
+mod benches {
     use super::*;
 
     #[crate::bench(crate = crate)]
-    fn precision() -> FineDuration {
-        Timer::Os.measure_precision()
+    fn get_tsc() -> Result<Timer, TscUnavailable> {
+        Timer::get_tsc()
     }
 
-    #[cfg(feature = "internal_benches")]
-    #[crate::bench(crate = crate)]
-    fn sample_loop_overhead() -> FineDuration {
-        Timer::Os.measure_sample_loop_overhead()
+    mod measure {
+        use super::*;
+
+        #[crate::bench(crate = crate)]
+        fn precision() -> FineDuration {
+            Timer::Os.measure_precision()
+        }
+
+        #[crate::bench(crate = crate)]
+        fn sample_loop_overhead() -> FineDuration {
+            Timer::Os.measure_sample_loop_overhead()
+        }
     }
 }
