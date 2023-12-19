@@ -463,7 +463,7 @@ impl ThreadAllocInfo {
                 #[allow(unreachable_code)]
                 ALLOC_META.pthread_key.0.get()
             } else {
-                CURRENT_THREAD_INFO.get()
+                CURRENT_THREAD_INFO.try_with(|info| info.get()).unwrap_or_default()
             }
         }
     }
