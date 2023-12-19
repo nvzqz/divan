@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.8] - 2023-12-19
+
 ### Changes
 
 - Reduce [`AllocProfiler`] footprint from 6-10ns to 1-2ns:
@@ -190,7 +192,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/nvzqz/divan/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/nvzqz/divan/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/nvzqz/divan/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/nvzqz/divan/compare/v0.1.4...v0.1.5
