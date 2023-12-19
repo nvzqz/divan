@@ -5,16 +5,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering::Relaxed},
 };
 
-// Use 64-bit atomic counts if available.
-#[cfg(target_has_atomic = "64")]
-pub use {std::sync::atomic::AtomicU64 as SharedCount, u64 as LocalCount};
-
-// Otherwise use atomic `usize`, which is likely available.
-#[cfg(not(target_has_atomic = "64"))]
-pub use {std::sync::atomic::AtomicUsize as SharedCount, usize as LocalCount};
-
 pub mod fmt;
-pub mod miri;
 pub mod sync;
 
 /// Public-in-private type like `()` but meant to be externally-unreachable.
@@ -23,11 +14,6 @@ pub mod sync;
 /// working with `()` unintentionally.
 #[non_exhaustive]
 pub struct Unit;
-
-/// Prevents false sharing by aligning to the cache line.
-#[derive(Clone, Copy)]
-#[repr(align(64))]
-pub struct CachePadded<T>(pub T);
 
 /// Makes the wrapped value [`Send`] + [`Sync`] even though it isn't.
 pub struct SyncWrap<T> {

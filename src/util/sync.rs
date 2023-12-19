@@ -1,9 +1,10 @@
 //! Synchronization utilities.
 
-#![cfg(unix)]
+#![cfg(target_os = "macos")]
 
 use std::{
     marker::PhantomData,
+    ptr::NonNull,
     sync::atomic::{Ordering::*, *},
 };
 
@@ -12,8 +13,7 @@ use libc::pthread_key_t;
 const KEY_UNINIT: pthread_key_t = 0;
 
 /// Optimized alternatives to `pthread_getspecific`.
-#[cfg(target_os = "macos")]
-pub(crate) mod macos {
+pub(crate) mod fast {
     // Apple reserves key 11 (`__PTK_LIBC_RESERVED_WIN64`) for Windows:
     // https://github.com/apple-oss-distributions/libpthread/blob/libpthread-519/private/pthread/tsd_private.h#L99
     //
@@ -97,6 +97,11 @@ pub(crate) mod macos {
     }
 }
 
+/// Prevents false sharing by aligning to the cache line.
+#[derive(Clone, Copy)]
+#[repr(align(64))]
+pub struct CachePadded<T>(pub T);
+
 /// Thread-local key accessed via
 /// [`pthread_getspecific`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_getspecific.html).
 pub(crate) struct PThreadKey<T: 'static> {
@@ -112,7 +117,7 @@ impl<T> PThreadKey<T> {
 
     #[inline]
     #[cfg(target_os = "macos")]
-    pub fn get(&self) -> Option<&'static T> {
+    pub fn get(&self) -> Option<NonNull<T>> {
         match self.value.load(Relaxed) {
             KEY_UNINIT => None,
 
@@ -125,7 +130,7 @@ impl<T> PThreadKey<T> {
                         not(miri),
                         any(target_arch = "x86_64", target_arch = "aarch64"),
                     ))] {
-                        thread_local = macos::get_thread_local(key as usize);
+                        thread_local = fast::get_thread_local(key as usize);
 
                         #[cfg(test)]
                         assert_eq!(thread_local, libc::pthread_getspecific(key));
@@ -134,28 +139,31 @@ impl<T> PThreadKey<T> {
                     }
                 }
 
-                thread_local.cast::<T>().as_ref()
+                NonNull::new(thread_local.cast())
             },
         }
     }
 
     /// Assigns the value with its destructor.
     #[inline]
-    pub fn set<D>(&self, value: &'static T, _: D)
+    pub fn set<D>(&self, ptr: *const T, _: D) -> bool
     where
-        D: FnOnce(&'static T) + Copy,
+        D: FnOnce(NonNull<T>) + Copy,
     {
         assert_eq!(std::mem::size_of::<D>(), 0);
 
-        unsafe extern "C" fn dtor<T, D>(value: *mut libc::c_void)
+        unsafe extern "C" fn dtor<T, D>(ptr: *mut libc::c_void)
         where
             T: 'static,
-            D: FnOnce(&'static T) + Copy,
+            D: FnOnce(NonNull<T>) + Copy,
         {
             // SAFETY: The dtor is zero-sized, so we can make one from thin air.
             let dtor: D = unsafe { std::mem::zeroed() };
 
-            dtor(unsafe { &*value.cast() });
+            // Although we're guaranteed `ptr` is not null, check in case.
+            if let Some(ptr) = NonNull::new(ptr) {
+                dtor(ptr.cast());
+            }
         }
 
         let shared_key = &self.value;
@@ -179,7 +187,7 @@ impl<T> PThreadKey<T> {
                 // On create failure, check if another thread succeeded.
                 local_key = shared_key.load(Relaxed);
                 if local_key == KEY_UNINIT {
-                    return;
+                    return false;
                 }
             }
         }
@@ -188,7 +196,7 @@ impl<T> PThreadKey<T> {
         // `gs`/`tpidrro_el0` register.
         //
         // SAFETY: The key has been created by us or another thread.
-        unsafe { libc::pthread_setspecific(local_key, value as *const T as _) };
+        unsafe { libc::pthread_setspecific(local_key, ptr.cast()) == 0 }
     }
 }
 

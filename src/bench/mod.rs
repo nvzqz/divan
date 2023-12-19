@@ -9,8 +9,8 @@ use std::{
 
 use crate::{
     alloc::{
-        AllocOp, AllocOpMap, AllocTally, LocalAllocTally, LocalAllocTallyMap, ThreadAllocInfo,
-        TotalAllocTallyMap,
+        AllocOp, AllocOpMap, AllocTally, ThreadAllocCount, ThreadAllocInfo, ThreadAllocTally,
+        ThreadAllocTallyMap, TotalAllocTallyMap,
     },
     black_box, black_box_drop,
     counter::{
@@ -20,7 +20,7 @@ use crate::{
     divan::SharedContext,
     stats::{RawSample, SampleCollection, Stats, StatsSet, ThreadSample, TimeSample},
     time::{FineDuration, Timestamp, UntaggedTimestamp},
-    util::{self, LocalCount, SyncWrap, Unit},
+    util::{self, SyncWrap, Unit},
 };
 
 #[cfg(test)]
@@ -857,7 +857,7 @@ impl<'a> BenchContext<'a> {
         Option<&Barrier>,
         &mut DeferStore<I, O>,
         &mut dyn FnMut(&I),
-    ) -> ([Timestamp; 2], LocalAllocTallyMap) {
+    ) -> ([Timestamp; 2], ThreadAllocTallyMap) {
         // We defer:
         // - Usage of `gen_input` values.
         // - Drop destructor for `O`, preventing it from affecting sample
@@ -871,12 +871,16 @@ impl<'a> BenchContext<'a> {
               barrier: Option<&Barrier>,
               defer_store: &mut DeferStore<I, O>,
               count_input: &mut dyn FnMut(&I)| {
-            let mut alloc_tallies = LocalAllocTallyMap::default();
+            let mut alloc_tallies = ThreadAllocTallyMap::new();
+
             let alloc_info = ThreadAllocInfo::try_current();
 
             let mut sum_alloc_tallies = || {
                 if let Some(alloc_info) = alloc_info {
-                    alloc_tallies = alloc_info.tallies.0.load();
+                    // SAFETY: We have exclusive access.
+                    let alloc_info = unsafe { alloc_info.as_ref() };
+
+                    alloc_tallies = alloc_info.tallies;
                 }
             };
 
@@ -892,27 +896,21 @@ impl<'a> BenchContext<'a> {
                 #[inline(never)]
                 fn sync_impl(barrier: Option<&Barrier>, is_start: bool) {
                     // Ensure benchmarked section has a `ThreadAllocInfo`
-                    // allocated for the current thread.
-                    if is_start {
-                        crate::alloc::init_current_thread_info();
-                    }
+                    // allocated for the current thread and clear previous info.
+                    let alloc_info = if is_start { ThreadAllocInfo::current() } else { None };
 
                     // Synchronize all threads.
                     //
                     // This is the final synchronization point for the end.
-                    let is_leader = match barrier {
-                        // Single thread.
-                        None => true,
+                    if let Some(barrier) = barrier {
+                        barrier.wait();
+                    }
 
-                        // Multi thread.
-                        Some(barrier) => barrier.wait().is_leader(),
-                    };
+                    if let Some(mut alloc_info) = alloc_info {
+                        // SAFETY: We have exclusive access.
+                        let alloc_info = unsafe { alloc_info.as_mut() };
 
-                    // Clear allocation information for all threads before starting.
-                    if is_start {
-                        if is_leader {
-                            ThreadAllocInfo::all().for_each(ThreadAllocInfo::clear);
-                        }
+                        alloc_info.clear();
 
                         // Synchronize all threads.
                         if let Some(barrier) = barrier {
@@ -1179,7 +1177,7 @@ impl<'a> BenchContext<'a> {
             })
         });
 
-        let sample_alloc_tally = |sample: Option<&TimeSample>, op: AllocOp| -> LocalAllocTally {
+        let sample_alloc_tally = |sample: Option<&TimeSample>, op: AllocOp| -> ThreadAllocTally {
             sample
                 .and_then(|sample| u32::try_from(index_of_sample(sample)).ok())
                 .and_then(|index| self.samples.alloc_tallies.get(&index))
@@ -1222,14 +1220,14 @@ impl<'a> BenchContext<'a> {
                             }
                         },
                         median: {
-                            let tally_for_median = |index: usize| -> LocalAllocTally {
+                            let tally_for_median = |index: usize| -> ThreadAllocTally {
                                 sample_alloc_tally(median_samples.get(index).copied(), op)
                             };
 
                             let a = tally_for_median(0);
                             let b = tally_for_median(1);
 
-                            let median_count = median_samples.len().max(1) as LocalCount;
+                            let median_count = median_samples.len().max(1) as ThreadAllocCount;
 
                             let total_count = (a.count + b.count) / median_count;
                             let total_size = (a.size + b.size) / median_count;

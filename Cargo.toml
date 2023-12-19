@@ -23,9 +23,6 @@ regex = { package = "regex-lite", version = "0.1", default-features = false, fea
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
 
-[target.'cfg(windows)'.dependencies]
-winapi = { workspace = true, features = ["winnt", "minwindef"] }
-
 [dev-dependencies]
 mimalloc = "0.1"
 
@@ -49,5 +46,4 @@ members = ["macros", "examples", "internal_benches"]
 
 [workspace.dependencies]
 divan = { path = "." }
-winapi = { version = "0.3", default-features = false }
 libc = "0.2.148"

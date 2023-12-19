@@ -10,24 +10,23 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Changes
 
-- Reduce [`AllocProfiler`] footprint on x86_64 macOS with improved thread-local
-  performance by using a static lookup key instead of a dynamic key from
-  [`pthread_key_create`]. Key 11 is used because it is reserved for Windows.
+- Reduce [`AllocProfiler`] footprint:
 
-  The `dyn_thread_local` crate option disables this optimization. This is
-  recommended if your code or another dependency uses the same static key.
+  - Thread-local values are now exclusively owned by their threads and are no
+    longer kept in a global list. This enables some optimizations:
 
-- All Unix and Windows platforms now reclaim thread-local [`AllocProfiler`] info
-  via the native destructor: [`pthread_key_create`] or
-  [`PIMAGE_TLS_CALLBACK`](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#tls-callback-functions).
-  Previously this only applied to macOS.
+    - Performing faster unsynchronized arithmetic.
 
-  Benefits over [`thread_local!`] with [`Drop`] destructor:
-  - [`pthread_key_create`] can be called in
-    [`GlobalAlloc::alloc`](https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#tymethod.alloc)
-    (see Rust issue [#116390](https://github.com/rust-lang/rust/issues/116390)).
-  - This approach reduces the work done in
-    [`AllocProfiler::dealloc`](https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html#method.dealloc).
+    - Removing one level of pointer indirection by storing the thread-local
+      value entirely inline in [`thread_local!`], rather than storing a pointer
+      to a globally-shared instance.
+
+  - Improved thread-local lookup on x86_64 macOS by using a static lookup key
+    instead of a dynamic key from [`pthread_key_create`]. Key 11 is used because
+    it is reserved for Windows.
+
+    The `dyn_thread_local` crate feature disables this optimization. This is
+    recommended if your code or another dependency uses the same static key.
 
 ### Fixed
 
