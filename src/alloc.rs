@@ -324,8 +324,14 @@ impl ThreadAllocInfo {
 }
 
 /// Allocation numbers being accumulated.
+///
+/// # Memory Layout
+///
+/// Aligning to 16 nudges the compiler to emit aligned SIMD operations.
+///
+/// Placing `count` first generates less code on AArch64.
 #[derive(Clone, Copy, Default)]
-#[repr(C)]
+#[repr(C, align(16))]
 pub(crate) struct AllocTally<Count> {
     /// The number of times this operation was performed.
     pub count: Count,

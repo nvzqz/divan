@@ -10,7 +10,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Changes
 
-- Reduce [`AllocProfiler`] footprint:
+- Reduce [`AllocProfiler`] footprint from 6-10ns to 1-2ns:
 
   - Thread-local values are now exclusively owned by their threads and are no
     longer kept in a global list. This enables some optimizations:
@@ -20,6 +20,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
     - Removing one level of pointer indirection by storing the thread-local
       value entirely inline in [`thread_local!`], rather than storing a pointer
       to a globally-shared instance.
+
+    - Compiler emits SIMD arithmetic for x86_64 using `paddq`.
 
   - Improved thread-local lookup on x86_64 macOS by using a static lookup key
     instead of a dynamic key from [`pthread_key_create`]. Key 11 is used because
