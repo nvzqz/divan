@@ -99,8 +99,8 @@ pub fn black_box_drop<T>(dummy: T) {
 /// }
 /// ```
 ///
-/// If context is needed within the benchmarked function, take a [`Bencher`] and
-/// use [`Bencher::bench`]:
+/// If benchmarks need to setup context before running, they can take a
+/// [`Bencher`] and use [`Bencher::bench`]:
 ///
 /// ```
 /// use divan::{Bencher, black_box};
