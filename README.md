@@ -7,7 +7,7 @@
         <img src="https://img.shields.io/crates/d/divan.svg" alt="Downloads badge">
     </a>
     <a href="https://github.com/nvzqz/divan">
-        <img src="https://img.shields.io/github/stars/nvzqz/divan.svg?color=black" alt="GitHub stars badge">
+        <img src="https://img.shields.io/github/stars/nvzqz/divan.svg?style=flat&color=black" alt="GitHub stars badge">
     </a>
     <a href="https://github.com/nvzqz/divan/actions/workflows/ci.yml">
         <img src="https://github.com/nvzqz/divan/actions/workflows/ci.yml/badge.svg" alt="CI build status badge">
