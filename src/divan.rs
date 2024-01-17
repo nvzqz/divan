@@ -9,7 +9,7 @@ use crate::{
     counter::{
         BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
     },
-    entry::{AnyBenchEntry, EntryTree},
+    entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
     time::{FineDuration, Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
     Bencher,
@@ -281,18 +281,18 @@ impl Divan {
         // Whether we should emit child branches for thread counts.
         let has_thread_branches = thread_counts.len() > 1;
 
-        bench_entry.bench(&mut |bench_display_name, with_bencher| {
-            let bench_display_name = bench_display_name.unwrap_or(entry_display_name);
-
+        let run_bench = |bench_display_name: &str,
+                         is_last_bench: bool,
+                         with_bencher: &dyn Fn(Bencher)| {
             if has_thread_branches {
-                tree_painter.borrow_mut().start_parent(bench_display_name, is_last_entry);
+                tree_painter.borrow_mut().start_parent(bench_display_name, is_last_bench);
             } else {
-                tree_painter.borrow_mut().start_leaf(bench_display_name, is_last_entry);
+                tree_painter.borrow_mut().start_leaf(bench_display_name, is_last_bench);
             }
 
             for (i, &thread_count) in thread_counts.iter().enumerate() {
                 let is_last_thread_count =
-                    if has_thread_branches { i == thread_counts.len() - 1 } else { is_last_entry };
+                    if has_thread_branches { i == thread_counts.len() - 1 } else { is_last_bench };
 
                 if has_thread_branches {
                     tree_painter
@@ -323,10 +323,31 @@ impl Divan {
                     tree_painter.borrow_mut().finish_empty_leaf();
                 }
             }
-        });
 
-        if has_thread_branches {
-            tree_painter.borrow_mut().finish_parent();
+            if has_thread_branches {
+                tree_painter.borrow_mut().finish_parent();
+            }
+        };
+
+        match bench_entry.bench_runner() {
+            BenchEntryRunner::Plain(bench) => run_bench(entry_display_name, is_last_entry, bench),
+
+            BenchEntryRunner::Args(bench_runner) => {
+                tree_painter.borrow_mut().start_parent(entry_display_name, is_last_entry);
+
+                let bench_runner = bench_runner();
+                let arg_names = bench_runner.arg_names();
+
+                for (i, arg_name) in arg_names.iter().enumerate() {
+                    let is_last_arg = i == arg_names.len() - 1;
+
+                    run_bench(arg_name, is_last_arg, &|bencher| {
+                        bench_runner.bench(bencher, i);
+                    });
+                }
+
+                tree_painter.borrow_mut().finish_parent();
+            }
         }
     }
 }

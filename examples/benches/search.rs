@@ -54,23 +54,23 @@ fn gen_inputs(len: usize) -> impl FnMut() -> (Vec<u64>, u64) {
     }
 }
 
-#[divan::bench(consts = SIZES, max_time = 1)]
-fn linear<const N: usize>(bencher: Bencher) {
+#[divan::bench(args = SIZES, max_time = 1)]
+fn linear(bencher: Bencher, len: usize) {
     bencher
-        .with_inputs(gen_inputs(N))
+        .with_inputs(gen_inputs(len))
         .bench_local_refs(|(haystack, needle)| haystack.iter().find(|v| **v == *needle).copied())
 }
 
-#[divan::bench(consts = SIZES, max_time = 1)]
-fn binary<const N: usize>(bencher: Bencher) {
+#[divan::bench(args = SIZES, max_time = 1)]
+fn binary(bencher: Bencher, len: usize) {
     bencher
-        .with_inputs(gen_inputs(N))
+        .with_inputs(gen_inputs(len))
         .bench_local_refs(|(haystack, needle)| haystack.binary_search_by(|v| v.cmp(needle)))
 }
 
-#[divan::bench(consts = SIZES, max_time = 1)]
-fn btree_set<const N: usize>(bencher: Bencher) {
-    let mut gen_inputs = gen_inputs(N);
+#[divan::bench(args = SIZES, max_time = 1)]
+fn btree_set(bencher: Bencher, len: usize) {
+    let mut gen_inputs = gen_inputs(len);
 
     bencher
         .with_inputs(|| -> (BTreeSet<u64>, u64) {
@@ -94,15 +94,15 @@ impl BuildHasher for WyHash {
 }
 
 #[divan::bench(
-    consts = SIZES,
+    args = SIZES,
     max_time = 1,
     types = [RandomState, WyHash],
 )]
-fn hash_set<H, const N: usize>(bencher: Bencher)
+fn hash_set<H>(bencher: Bencher, len: usize)
 where
     H: BuildHasher + Default,
 {
-    let mut gen_inputs = gen_inputs(N);
+    let mut gen_inputs = gen_inputs(len);
 
     bencher
         .with_inputs(|| -> (HashSet<u64, H>, u64) {
@@ -112,9 +112,9 @@ where
         .bench_local_refs(|(haystack, needle)| haystack.get(needle).copied())
 }
 
-#[divan::bench(consts = SIZES, max_time = 1)]
-fn ordsearch<const N: usize>(bencher: Bencher) {
-    let mut gen_inputs = gen_inputs(N);
+#[divan::bench(args = SIZES, max_time = 1)]
+fn ordsearch(bencher: Bencher, len: usize) {
+    let mut gen_inputs = gen_inputs(len);
 
     bencher
         .with_inputs(|| {

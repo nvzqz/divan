@@ -26,11 +26,16 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
+mod args;
 mod defer;
 mod options;
 
 use defer::{DeferSlot, DeferStore};
-pub use options::BenchOptions;
+
+pub use self::{
+    args::{BenchArgs, BenchArgsRunner},
+    options::BenchOptions,
+};
 
 pub(crate) const DEFAULT_SAMPLE_COUNT: u32 = 100;
 

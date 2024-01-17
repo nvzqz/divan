@@ -6,7 +6,7 @@
 
 use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
 
-use divan::{black_box, AllocProfiler, Bencher};
+use divan::{AllocProfiler, Bencher};
 
 mod util;
 
@@ -38,10 +38,10 @@ fn default<T: Default>() -> T {
         BinaryHeap<i32>,
         HashSet<i32>,
     ],
-    consts = LENS,
+    args = LENS,
 )]
-fn with_capacity<T: util::WithCapacity, const N: usize>(bencher: Bencher) {
-    bencher.counter(N).bench(|| T::with_capacity(black_box(N)))
+fn with_capacity<T: util::WithCapacity>(bencher: Bencher, len: usize) {
+    bencher.counter(len).bench(|| T::with_capacity(len))
 }
 
 #[divan::bench(
@@ -53,10 +53,10 @@ fn with_capacity<T: util::WithCapacity, const N: usize>(bencher: Bencher) {
         HashSet<i32>,
         BTreeSet<i32>,
     ],
-    consts = LENS,
+    args = LENS,
 )]
-fn from_iter<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
-    bencher.counter(N).bench(|| util::collect_nums::<T>(N))
+fn from_iter<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
+    bencher.counter(len).bench(|| util::collect_nums::<T>(len))
 }
 
 #[divan::bench(
@@ -68,10 +68,10 @@ fn from_iter<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
         HashSet<i32>,
         BTreeSet<i32>,
     ],
-    consts = LENS,
+    args = LENS,
 )]
-fn drop<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
-    bencher.counter(N).with_inputs(|| util::collect_nums::<T>(N)).bench_values(std::mem::drop);
+fn drop<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
+    bencher.counter(len).with_inputs(|| util::collect_nums::<T>(len)).bench_values(std::mem::drop);
 }
 
 #[divan::bench(
@@ -83,9 +83,9 @@ fn drop<T: FromIterator<i32>, const N: usize>(bencher: Bencher) {
         HashSet<i32>,
         BTreeSet<i32>,
     ],
-    consts = LENS,
+    args = LENS,
     max_time = 1,
 )]
-fn clear<T: FromIterator<i32> + util::Clear, const N: usize>(bencher: Bencher) {
-    bencher.counter(N).with_inputs(|| util::collect_nums::<T>(N)).bench_refs(T::clear);
+fn clear<T: FromIterator<i32> + util::Clear>(bencher: Bencher, len: usize) {
+    bencher.counter(len).with_inputs(|| util::collect_nums::<T>(len)).bench_refs(T::clear);
 }

@@ -66,6 +66,9 @@ macro_rules! consts {
 #[divan::bench(consts = consts!())]
 fn bench_consts<const N: isize>() {}
 
+#[divan::bench(args = [])]
+fn empty_args(_: usize) {}
+
 #[divan::bench(types = [])]
 #[allow(dead_code)]
 fn empty_types<T>() {}
@@ -73,6 +76,10 @@ fn empty_types<T>() {}
 #[divan::bench(consts = [])]
 #[allow(dead_code)]
 fn empty_consts<const C: usize>() {}
+
+#[divan::bench(args = [], consts = [])]
+#[allow(dead_code)]
+fn empty_args_consts<const C: usize>(_: usize) {}
 
 #[divan::bench(types = [], consts = [])]
 #[allow(dead_code)]

@@ -4,8 +4,8 @@
 //! cargo bench -q -p examples --bench math
 //! ```
 
-use std::collections::{BTreeMap, HashMap};
 use divan::black_box;
+use std::collections::{BTreeMap, HashMap};
 
 fn main() {
     divan::main();
@@ -44,36 +44,28 @@ mod fibonacci {
     const VALUES: &[u64] = &[0, 5, 10, 20, 30, 40];
 
     // O(n)
-    #[divan::bench(consts = VALUES)]
-    fn iterative<const N: u64>() -> u64 {
-        fn fibonacci(n: u64) -> u64 {
-            let mut previous = 1;
-            let mut current = 1;
+    #[divan::bench(args = VALUES)]
+    fn iterative(n: u64) -> u64 {
+        let mut previous = 1;
+        let mut current = 1;
 
-            for _ in 2..=n {
-                let next = previous + current;
-                previous = current;
-                current = next;
-            }
-
-            current
+        for _ in 2..=n {
+            let next = previous + current;
+            previous = current;
+            current = next;
         }
 
-        fibonacci(black_box(N))
+        current
     }
 
     // O(2^n)
-    #[divan::bench(consts = VALUES, max_time = 1)]
-    fn recursive<const N: u64>() -> u64 {
-        fn fibonacci(n: u64) -> u64 {
-            if n <= 1 {
-                1
-            } else {
-                fibonacci(n - 2) + fibonacci(n - 1)
-            }
+    #[divan::bench(args = VALUES, max_time = 1)]
+    fn recursive(n: u64) -> u64 {
+        if n <= 1 {
+            1
+        } else {
+            recursive(n - 2) + recursive(n - 1)
         }
-
-        fibonacci(black_box(N))
     }
 
     trait Map: Default {
@@ -104,9 +96,9 @@ mod fibonacci {
     // O(n)
     #[divan::bench(
         types = [BTreeMap<u64, u64>, HashMap<u64, u64>],
-        consts = VALUES,
+        args = VALUES,
     )]
-    fn recursive_memoized<M: Map, const N: u64>() -> u64 {
+    fn recursive_memoized<M: Map>(n: u64) -> u64 {
         fn fibonacci<M: Map>(n: u64, cache: &mut M) -> u64 {
             if let Some(result) = cache.get(n) {
                 return result;
@@ -121,6 +113,6 @@ mod fibonacci {
             result
         }
 
-        fibonacci(black_box(N), &mut M::default())
+        fibonacci(n, &mut M::default())
     }
 }

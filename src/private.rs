@@ -4,13 +4,63 @@ pub use std::{
 };
 
 pub use crate::{
-    bench::BenchOptions,
+    bench::{BenchArgs, BenchOptions},
     entry::{
-        BenchEntry, EntryConst, EntryList, EntryLocation, EntryMeta, EntryType, GenericBenchEntry,
-        GroupEntry, BENCH_ENTRIES, GROUP_ENTRIES,
+        BenchEntry, BenchEntryRunner, EntryConst, EntryList, EntryLocation, EntryMeta, EntryType,
+        GenericBenchEntry, GroupEntry, BENCH_ENTRIES, GROUP_ENTRIES,
     },
     time::IntoDuration,
 };
+
+/// Used by `#[divan::bench(args = ...)]` to enable polymorphism.
+pub trait Arg<T> {
+    fn get(self) -> T;
+}
+
+impl<T> Arg<T> for T {
+    #[inline]
+    fn get(self) -> T {
+        self
+    }
+}
+
+impl<'a, T: ?Sized> Arg<&'a T> for &'a Cow<'a, T>
+where
+    T: ToOwned,
+{
+    #[inline]
+    fn get(self) -> &'a T {
+        self
+    }
+}
+
+impl<'a> Arg<&'a str> for &'a String {
+    #[inline]
+    fn get(self) -> &'a str {
+        self
+    }
+}
+
+impl<T: Copy> Arg<T> for &T {
+    #[inline]
+    fn get(self) -> T {
+        *self
+    }
+}
+
+impl<T: Copy> Arg<T> for &&T {
+    #[inline]
+    fn get(self) -> T {
+        **self
+    }
+}
+
+impl<T: Copy> Arg<T> for &&&T {
+    #[inline]
+    fn get(self) -> T {
+        ***self
+    }
+}
 
 /// Used by `#[divan::bench(threads = ...)]` to leak thread counts for easy
 /// global usage in [`BenchOptions::threads`].

@@ -27,6 +27,9 @@ pub(crate) struct AttrOptions {
     /// Custom name for the benchmark or group.
     pub name_expr: Option<Expr>,
 
+    /// `IntoIterator` from which to provide runtime arguments.
+    pub args_expr: Option<Expr>,
+
     /// Options for generic functions.
     pub generic: GenericOptions,
 
@@ -46,6 +49,7 @@ impl AttrOptions {
 
         let mut divan_crate = None::<syn::Path>;
         let mut name_expr = None::<Expr>;
+        let mut args_expr = None::<Expr>;
         let mut bench_options = Vec::new();
 
         let mut counters = Vec::<(proc_macro2::TokenStream, Option<&str>)>::new();
@@ -110,6 +114,18 @@ impl AttrOptions {
                     }
 
                     parse!(generic.consts);
+                }
+                "args" => {
+                    match target_macro {
+                        Macro::Bench { fn_sig } => {
+                            if !matches!(fn_sig.inputs.len(), 1 | 2) {
+                                return Err(meta.error(format_args!("function argument required for '{macro_name}' option '{ident_name}'")));
+                            }
+                        }
+                        _ => return unsupported_error(),
+                    }
+
+                    parse!(args_expr);
                 }
                 "counter" => {
                     if counters_ident.is_some() {
@@ -207,7 +223,7 @@ impl AttrOptions {
             })
             .unwrap_or_default();
 
-        Ok(Self { std_crate, private_mod, name_expr, generic, counters, bench_options })
+        Ok(Self { std_crate, private_mod, name_expr, args_expr, generic, counters, bench_options })
     }
 
     /// Produces a function expression for creating `BenchOptions`.

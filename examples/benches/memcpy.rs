@@ -20,28 +20,28 @@ const LENS: &[usize] = &[
     1024 * 1024 * 4,
 ];
 
-#[divan::bench(consts = LENS)]
-fn memcpy<const N: usize>(bencher: Bencher) {
-    bencher.counter(BytesCount::new(N)).with_inputs(Input::gen(N)).bench_local_refs(
+#[divan::bench(args = LENS)]
+fn memcpy(bencher: Bencher, len: usize) {
+    bencher.counter(BytesCount::new(len)).with_inputs(Input::gen(len)).bench_local_refs(
         |input| unsafe {
             let src_ptr = input.src_ptr();
             let dst_ptr = input.dst_ptr();
-            libc::memcpy(dst_ptr.cast(), src_ptr.cast(), divan::black_box(N));
+            libc::memcpy(dst_ptr.cast(), src_ptr.cast(), len);
         },
     )
 }
 
-#[divan::bench(consts = LENS)]
+#[divan::bench(args = LENS)]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-fn movsb<const N: usize>(bencher: Bencher) {
+fn movsb(bencher: Bencher, len: usize) {
     use std::arch::asm;
 
-    bencher.counter(BytesCount::new(N)).with_inputs(Input::gen(N)).bench_local_refs(
+    bencher.counter(BytesCount::new(len)).with_inputs(Input::gen(len)).bench_local_refs(
         |input| unsafe {
             #[cfg(target_arch = "x86")]
             asm!(
                 "rep movsb",
-                inout("ecx") divan::black_box(N) => _,
+                inout("ecx") len => _,
                 inout("esi") input.src_ptr() => _,
                 inout("edi") input.dst_ptr() => _,
                 options(nostack, preserves_flags),
@@ -50,7 +50,7 @@ fn movsb<const N: usize>(bencher: Bencher) {
             #[cfg(target_arch = "x86_64")]
             asm!(
                 "rep movsb",
-                inout("rcx") divan::black_box(N) => _,
+                inout("rcx") len => _,
                 inout("rsi") input.src_ptr() => _,
                 inout("rdi") input.dst_ptr() => _,
                 options(nostack, preserves_flags),

@@ -42,20 +42,20 @@ struct Sha3_512;
         twox_hash::XxHash64,
         wyhash::WyHash,
     ],
-    consts = [0, 8, 64, 1024, 1024 * 1024],
+    args = [0, 8, 64, 1024, 1024 * 1024],
     max_time = 1,
 )]
-fn hash<H, const L: usize>(bencher: divan::Bencher)
+fn hash<H>(bencher: divan::Bencher, len: usize)
 where
     H: Hasher,
 {
     let bytes: Vec<u8> = {
         let mut rng = fastrand::Rng::new();
-        (0..L).map(|_| rng.u8(..)).collect()
+        (0..len).map(|_| rng.u8(..)).collect()
     };
 
     bencher
-        .counter(divan::counter::BytesCount::new(L))
+        .counter(divan::counter::BytesCount::new(len))
         .with_inputs(|| bytes.clone())
         .bench_refs(|bytes| H::hash(bytes));
 }

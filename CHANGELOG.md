@@ -8,6 +8,39 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- [`args`] option for providing runtime arguments to benchmarks:
+
+  ```rs
+  #[divan::bench(args = [1, 2, 3])]
+  fn args_list(arg: usize) { ... }
+
+  #[divan::bench(args = 1..=3)]
+  fn args_range(arg: usize) { ... }
+
+  const ARGS: &[usize] = [1, 2, 3];
+
+  #[divan::bench(args = ARGS)]
+  fn args_const(arg: usize) { ... }
+  ```
+
+  This option may be preferred over the similar [`consts`] option because:
+  - It is compatible with more types, only requiring that the argument type
+    implements [`Any`], [`Copy`], [`Send`], [`Sync`], and [`ToString`]. [`Copy`]
+    is not needed if the argument is used through a reference.
+  - It does not increase compile times, unlike [`consts`] which needs to
+    generate new code for each constant used.
+
+[`args`]: https://docs.rs/divan/latest/divan/attr.bench.html#args
+[`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
+
+[`Any`]: https://doc.rust-lang.org/std/any/trait.Any.html
+[`Copy`]: https://doc.rust-lang.org/std/marker/trait.Copy.html
+[`Send`]: https://doc.rust-lang.org/std/marker/trait.Send.html
+[`Sync`]: https://doc.rust-lang.org/std/marker/trait.Sync.html
+[`ToString`]: https://doc.rust-lang.org/std/string/trait.ToString.html
+
 ## [0.1.8] - 2023-12-19
 
 ### Changes

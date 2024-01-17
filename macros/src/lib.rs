@@ -9,7 +9,7 @@ use quote::{quote, ToTokens};
 mod attr_options;
 
 use attr_options::*;
-use syn::Expr;
+use syn::{Expr, FnArg};
 
 #[derive(Clone, Copy)]
 enum Macro<'a> {
@@ -152,20 +152,131 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
     let meta = entry_meta_expr(&fn_name, &options, ignore_attr_ident);
 
+    let bench_entry_runner = quote! { #private_mod::BenchEntryRunner };
+
+    // Creates a `__DIVAN_ARGS` global variable to be used in the entry.
+    let bench_args_global = if options.args_expr.is_some() {
+        quote! {
+            static __DIVAN_ARGS: #private_mod::BenchArgs = #private_mod::BenchArgs::new();
+        }
+    } else {
+        Default::default()
+    };
+
+    // The last argument type is used as the only `args` item type because we
+    // currently only support one runtime argument.
+    let last_arg_type = if options.args_expr.is_some() {
+        fn_args.last().map(|arg| match arg {
+            FnArg::Receiver(arg) => &*arg.ty,
+            FnArg::Typed(arg) => &*arg.ty,
+        })
+    } else {
+        None
+    };
+
+    let last_arg_type_tokens = last_arg_type
+        .map(|ty| match ty {
+            // Remove lifetime from references to not use the lifetime outside
+            // of its declaration. This allows benchmarks to take arguments with
+            // lifetimes.
+            syn::Type::Reference(ty) if ty.lifetime.is_some() => {
+                let mut ty = ty.clone();
+                ty.lifetime = None;
+                ty.to_token_stream()
+            }
+
+            _ => ty.to_token_stream(),
+        })
+        .unwrap_or_default();
+
+    // Some argument literals need an explicit type.
+    let arg_return_tokens = options
+        .args_expr
+        .as_ref()
+        .map(|args| match args {
+            // Empty array.
+            Expr::Array(args) if args.elems.is_empty() => quote! {
+                -> [#last_arg_type_tokens; 0]
+            },
+
+            _ => Default::default(),
+        })
+        .unwrap_or_default();
+
     // Creates a function expr for the benchmarking function, optionally
     // monomorphized with generic parameters.
     let make_bench_fn = |generics: &[&dyn ToTokens]| {
-        let fn_expr = if generics.is_empty() {
+        let mut fn_expr = if generics.is_empty() {
+            // Use identifier as-is.
             fn_ident.to_token_stream()
         } else {
+            // Apply generic arguments.
             quote! { #fn_ident::< #(#generics),* > }
         };
 
-        match (is_extern_abi, fn_args.is_empty()) {
-            (false, false) => fn_expr,
-            (false, true) => quote! { |divan| divan.bench(#fn_expr) },
-            (true, false) => quote! { |divan| #fn_expr(divan) },
-            (true, true) => quote! { |divan| divan.bench(|| #fn_expr()) },
+        // Handle function arguments.
+        match (fn_args.len(), &options.args_expr) {
+            // Simple benchmark with no arguments provided.
+            (0, None) => {
+                // Wrap in Rust ABI.
+                if is_extern_abi {
+                    fn_expr = quote! { || #fn_expr() };
+                }
+
+                quote! {
+                    #bench_entry_runner::Plain(|divan /* Bencher */| divan.bench(#fn_expr))
+                }
+            }
+
+            // `args` option used without function arguments; handled earlier in
+            // `AttrOptions::parse`.
+            (0, Some(_)) => unreachable!(),
+
+            // `Bencher` function argument.
+            (1, None) => {
+                // Wrap in Rust ABI.
+                if is_extern_abi {
+                    fn_expr = quote! { |divan /* Bencher */| #fn_expr(divan) };
+                }
+
+                quote! { #bench_entry_runner::Plain(#fn_expr) }
+            }
+
+            // Function argument comes from `args` option.
+            (1, Some(args)) => quote! {
+                #bench_entry_runner::Args(|| __DIVAN_ARGS.runner(
+                    || #arg_return_tokens { #args },
+
+                    |divan, __divan_arg| divan.bench(|| #fn_expr(
+                        #private_mod::Arg::<#last_arg_type_tokens>::get(__divan_arg)
+                    )),
+                ))
+            },
+
+            // `Bencher` and `args` option function arguments.
+            (2, Some(args)) => quote! {
+                #bench_entry_runner::Args(|| __DIVAN_ARGS.runner(
+                    || #arg_return_tokens { #args },
+
+                    |divan, __divan_arg| #fn_expr(
+                        divan,
+                        #private_mod::Arg::<#last_arg_type_tokens>::get(__divan_arg),
+                    ),
+                ))
+            },
+
+            // Ensure `args` is set if arguments are provided after `Bencher`.
+            (_, None) => quote! {
+                #std_crate::compile_error!(#std_crate::concat!(
+                    "expected 'args' option containing '",
+                    #std_crate::stringify!(#last_arg_type_tokens),
+                    "'",
+                ))
+            },
+
+            // `args` option used with unsupported number of arguments; handled
+            // earlier in `AttrOptions::parse`.
+            (_, Some(_)) => unreachable!(),
         }
     };
 
@@ -201,6 +312,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                         #private_mod::GROUP_ENTRIES.push(&NODE);
                     }
                 }
+
+                // All generic entries share the same `BenchArgs` instance for
+                // efficiency and to ensure all entries use the same values, or
+                // at least the same names in the case of interior mutability.
+                #bench_args_global
 
                 #entry
             };
@@ -283,6 +399,8 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                                 #private_mod::BENCH_ENTRIES.push(&NODE);
                             }
                         }
+
+                        #bench_args_global
 
                         #entry
                     };

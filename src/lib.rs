@@ -183,6 +183,7 @@ pub fn black_box_drop<T>(dummy: T) {
 ///
 /// - [`name`]
 /// - [`crate`]
+/// - [`args`]
 /// - [`consts`]
 /// - [`types`]
 /// - [`sample_count`]
@@ -228,11 +229,126 @@ pub fn black_box_drop<T>(dummy: T) {
 /// }
 /// ```
 ///
+/// ## `args`
+/// [`args`]: #args
+///
+/// Divan supports providing runtime arguments to benchmarked functions.
+///
+/// ```
+/// #[divan::bench(args = [1000, LEN, len()])]
+/// fn init_vec(len: usize) -> Vec<usize> {
+///     (0..len).collect()
+/// }
+///
+/// const LEN: usize = // ...
+/// # 0;
+///
+/// fn len() -> usize {
+///     // ...
+///     # 0
+/// }
+/// ```
+///
+/// The list of arguments can be shared across multiple benchmarks through an
+/// external [`Iterator`]:
+///
+/// ```
+/// const LENS: &[usize] = // ...
+/// # &[];
+///
+/// #[divan::bench(args = LENS)]
+/// fn bench_vec1(len: usize) -> Vec<usize> {
+///     // ...
+///     # vec![]
+/// }
+///
+/// #[divan::bench(args = LENS)]
+/// fn bench_vec2(len: usize) -> Vec<usize> {
+///     // ...
+///     # vec![]
+/// }
+/// ```
+///
+/// Unlike the [`consts`] option, any argument type is supported if it
+/// implements [`Any`], [`Copy`], [`Send`], [`Sync`], and [`ToString`]:
+///
+/// ```
+/// #[derive(Clone, Copy)]
+/// enum Arg {
+///     A, B
+/// }
+///
+/// // `Display` implies `ToString`.
+/// impl std::fmt::Display for Arg {
+///     // ...
+///     # fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+///     #    Ok(())
+///     # }
+/// }
+///
+/// #[divan::bench(args = [Arg::A, Arg::B])]
+/// fn bench_args(arg: Arg) {
+///     // ...
+/// }
+/// ```
+///
+/// The argument type does not need to implement [`Copy`] if it is used through
+/// a reference:
+///
+/// ```
+/// enum Arg {
+///     A, B
+/// }
+///
+/// impl std::fmt::Display for Arg {
+///     // ...
+///     # fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+///     #    Ok(())
+///     # }
+/// }
+///
+/// #[divan::bench(args = [Arg::A, Arg::B])]
+/// fn bench_args(arg: &Arg) {
+///     // ...
+/// }
+/// ```
+///
+/// For convenience, common string types are coerced to [`&str`](primitive@str):
+///
+/// ```
+/// fn strings() -> impl Iterator<Item = String> {
+///     // ...
+///     # [].into_iter()
+/// }
+///
+/// #[divan::bench(args = strings())]
+/// fn bench_strings(s: &str) {
+///     // ...
+/// }
+/// ```
+///
+/// Arguments can also be used with [`Bencher`]. This allows for providing
+/// throughput information via [`Counter`s](crate::counter::Counter):
+///
+/// ```
+/// use divan::Bencher;
+///
+/// #[divan::bench(args = [1, 2, 3])]
+/// fn bench(bencher: Bencher, len: usize) {
+///     bencher
+///         .counter(len)
+///         .bench(|| {
+///             // ...
+///         });
+/// }
+/// ```
+///
 /// ## `consts`
 /// [`consts`]: #consts
 ///
-/// Divan supports benchmarking generic functions over a list of constants via
-/// the [`consts`] option.
+/// Divan supports benchmarking functions with [`const`
+/// generics](https://doc.rust-lang.org/reference/items/generics.html#const-generics)
+/// via the [`consts`] option.
 ///
 /// The following example benchmarks initialization of [`[i32; N]`](prim@array)
 /// for values of `N` provided by a [literal](https://doc.rust-lang.org/reference/expressions/literal-expr.html),
@@ -315,7 +431,7 @@ pub fn black_box_drop<T>(dummy: T) {
 /// }
 /// ```
 ///
-/// The [`types`] and [`consts`] options can be combined to benchmark _T_ × _C_
+/// The [`types`] and [`args`] options can be combined to benchmark _T_ × _A_
 /// scenarios. The following example benchmarks the [`FromIterator`]
 /// implementations for [`Vec`], [`BTreeSet`], and [`HashSet`]:
 ///
@@ -324,13 +440,13 @@ pub fn black_box_drop<T>(dummy: T) {
 ///
 /// #[divan::bench(
 ///     types = [Vec<i32>, BTreeSet<i32>, HashSet<i32>],
-///     consts = [0, 2, 4, 16, 256, 4096],
+///     args = [0, 2, 4, 16, 256, 4096],
 /// )]
-/// fn from_range<T, const N: i32>() -> T
+/// fn from_range<T>(n: i32) -> T
 /// where
 ///     T: FromIterator<i32>,
 /// {
-///     divan::black_box(0..N).collect()
+///     (0..n).collect()
 /// }
 /// ```
 ///
@@ -650,6 +766,7 @@ pub fn black_box_drop<T>(dummy: T) {
 /// }
 /// ```
 ///
+/// [`Any`]: std::any::Any
 /// [`Duration`]: std::time::Duration
 /// [available parallelism]: std::thread::available_parallelism
 pub use divan_macros::bench;
