@@ -5,7 +5,7 @@ use crate::{
     config::SortingAttr,
     counter::KnownCounterKind,
     entry::{AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry},
-    tree_painter::TreeColumn,
+    output::tree_painter::TreeColumn,
 };
 
 /// `BenchEntry` tree organized by path components.

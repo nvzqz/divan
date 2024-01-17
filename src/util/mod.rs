@@ -117,12 +117,12 @@ mod tests {
     fn slice_middle() {
         use super::slice_middle;
 
-        assert_eq!(slice_middle::<i32>(&[]), &[]);
+        assert_eq!(slice_middle::<i32>(&[]), &[] as &[i32]);
 
-        assert_eq!(slice_middle(&[1]), &[1]);
-        assert_eq!(slice_middle(&[1, 2]), &[1, 2]);
-        assert_eq!(slice_middle(&[1, 2, 3]), &[2]);
-        assert_eq!(slice_middle(&[1, 2, 3, 4]), &[2, 3]);
-        assert_eq!(slice_middle(&[1, 2, 3, 4, 5]), &[3]);
+        assert_eq!(slice_middle::<i32>(&[1]), &[1]);
+        assert_eq!(slice_middle::<i32>(&[1, 2]), &[1, 2]);
+        assert_eq!(slice_middle::<i32>(&[1, 2, 3]), &[2]);
+        assert_eq!(slice_middle::<i32>(&[1, 2, 3, 4]), &[2, 3]);
+        assert_eq!(slice_middle::<i32>(&[1, 2, 3, 4, 5]), &[3]);
     }
 }

@@ -1,19 +1,21 @@
-#![allow(clippy::too_many_arguments)]
-
-use std::{borrow::Cow, cell::RefCell, fmt, num::NonZeroUsize, time::Duration};
+use std::{borrow::Cow, fmt, num::NonZeroUsize, path::PathBuf, time::Duration};
 
 use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
     bench::BenchOptions,
-    config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
+    config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr, WriteMode},
     counter::{
         BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
+    output::{
+        json_output,
+        tree_painter::{TreeColumn, TreePainter},
+        LeafStat, OutputStats, StatCollector, StatTree,
+    },
     time::{FineDuration, Timer, TimerKind},
-    tree_painter::{TreeColumn, TreePainter},
     util, Bencher,
 };
 
@@ -30,6 +32,7 @@ pub struct Divan {
     skip_filters: Vec<Filter>,
     run_ignored: RunIgnored,
     bench_options: BenchOptions<'static>,
+    file_output: Option<(PathBuf, WriteMode)>,
 }
 
 /// Immutable context shared between entry runs.
@@ -175,10 +178,25 @@ impl Divan {
             [0; TreeColumn::COUNT]
         };
 
-        let tree_painter =
-            RefCell::new(TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths));
+        let mut out =
+            StatCollector::new(TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths));
 
-        self.run_tree(action, &tree, &shared_context, None, &tree_painter);
+        self.output(OutputStats {
+            tree: self.run_tree(action, &tree, &shared_context, None, &mut out),
+            precision: timer.precision().picos,
+        })
+        .unwrap_or_else(|e| eprint!("Failed to write output: {}", e));
+    }
+
+    fn output(&self, result: OutputStats) -> std::io::Result<()> {
+        if let Some((path, mode)) = &self.file_output {
+            let file = std::fs::File::create(path)?;
+            (match mode {
+                WriteMode::Json => json_output,
+            })(result, file)?;
+            println!("Results written to {}", path.display());
+        }
+        Ok(())
     }
 
     fn run_tree(
@@ -187,47 +205,45 @@ impl Divan {
         tree: &[EntryTree],
         shared_context: &SharedContext,
         parent_options: Option<&BenchOptions>,
-        tree_painter: &RefCell<TreePainter>,
-    ) {
-        for (i, child) in tree.iter().enumerate() {
-            let is_last = i == tree.len() - 1;
+        out: &mut StatCollector,
+    ) -> Vec<StatTree> {
+        tree.iter()
+            .enumerate()
+            .map(|(i, child)| {
+                let is_last = i == tree.len() - 1;
+                let name = child.display_name();
+                let child_options = child.bench_options();
 
-            let name = child.display_name();
+                // Overwrite `parent_options` with `child_options` if applicable.
+                let options: BenchOptions;
+                let options: Option<&BenchOptions> = match (parent_options, child_options) {
+                    (None, None) => None,
+                    (Some(options), None) | (None, Some(options)) => Some(options),
+                    (Some(parent_options), Some(child_options)) => {
+                        options = child_options.overwrite(parent_options);
+                        Some(&options)
+                    }
+                };
 
-            let child_options = child.bench_options();
-
-            // Overwrite `parent_options` with `child_options` if applicable.
-            let options: BenchOptions;
-            let options: Option<&BenchOptions> = match (parent_options, child_options) {
-                (None, None) => None,
-                (Some(options), None) | (None, Some(options)) => Some(options),
-                (Some(parent_options), Some(child_options)) => {
-                    options = child_options.overwrite(parent_options);
-                    Some(&options)
+                match child {
+                    EntryTree::Leaf { entry, args } => self.run_bench_entry(
+                        action,
+                        *entry,
+                        args.as_deref(),
+                        shared_context,
+                        options,
+                        out,
+                        is_last,
+                    ),
+                    EntryTree::Parent { children, .. } => out.parent(name, is_last, |out| {
+                        self.run_tree(action, children, shared_context, options, out)
+                    }),
                 }
-            };
-
-            match child {
-                EntryTree::Leaf { entry, args } => self.run_bench_entry(
-                    action,
-                    *entry,
-                    args.as_deref(),
-                    shared_context,
-                    options,
-                    tree_painter,
-                    is_last,
-                ),
-                EntryTree::Parent { children, .. } => {
-                    tree_painter.borrow_mut().start_parent(name, is_last);
-
-                    self.run_tree(action, children, shared_context, options, tree_painter);
-
-                    tree_painter.borrow_mut().finish_parent();
-                }
-            }
-        }
+            })
+            .collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn run_bench_entry(
         &self,
         action: Action,
@@ -235,9 +251,9 @@ impl Divan {
         bench_arg_names: Option<&[&&str]>,
         shared_context: &SharedContext,
         entry_options: Option<&BenchOptions>,
-        tree_painter: &RefCell<TreePainter>,
+        out: &mut StatCollector,
         is_last_entry: bool,
-    ) {
+    ) -> StatTree {
         use crate::bench::BenchContext;
 
         let entry_display_name = bench_entry.display_name();
@@ -253,16 +269,12 @@ impl Divan {
         };
 
         if self.should_ignore(options.ignore.unwrap_or_default()) {
-            tree_painter.borrow_mut().ignore_leaf(entry_display_name, is_last_entry);
-            return;
+            return out.leaf(entry_display_name, is_last_entry, LeafStat::Ignored);
         }
 
         // Paint empty leaf when simply listing.
         if action.is_list() {
-            let mut tree_painter = tree_painter.borrow_mut();
-            tree_painter.start_leaf(entry_display_name, is_last_entry);
-            tree_painter.finish_empty_leaf();
-            return;
+            return out.leaf(entry_display_name, is_last_entry, LeafStat::Empty);
         }
 
         let mut thread_counts: Vec<NonZeroUsize> = options
@@ -285,74 +297,90 @@ impl Divan {
         // Whether we should emit child branches for thread counts.
         let has_thread_branches = thread_counts.len() > 1;
 
-        let run_bench = |bench_display_name: &str,
-                         is_last_bench: bool,
-                         with_bencher: &dyn Fn(Bencher)| {
-            if has_thread_branches {
-                tree_painter.borrow_mut().start_parent(bench_display_name, is_last_bench);
-            } else {
-                tree_painter.borrow_mut().start_leaf(bench_display_name, is_last_bench);
+        let bench_leaf = |thread_count: &NonZeroUsize,
+                          bench_display_name: &str,
+                          out: &mut StatCollector,
+                          last_entry: bool,
+                          with_bencher: &dyn Fn(Bencher)|
+         -> StatTree {
+            let mut bench_context = BenchContext::new(shared_context, options, *thread_count);
+            with_bencher(Bencher::new(&mut bench_context));
+
+            if !bench_context.did_run {
+                eprintln!("warning: No benchmark function registered for '{bench_display_name}'");
             }
 
-            for (i, &thread_count) in thread_counts.iter().enumerate() {
-                let is_last_thread_count =
-                    if has_thread_branches { i == thread_counts.len() - 1 } else { is_last_bench };
+            let should_compute_stats = bench_context.did_run && shared_context.action.is_bench();
 
-                if has_thread_branches {
-                    tree_painter
-                        .borrow_mut()
-                        .start_leaf(&format!("t={thread_count}"), is_last_thread_count);
-                }
-
-                let mut bench_context = BenchContext::new(shared_context, options, thread_count);
-                with_bencher(Bencher::new(&mut bench_context));
-
-                if !bench_context.did_run {
-                    eprintln!(
-                        "warning: No benchmark function registered for '{bench_display_name}'"
-                    );
-                }
-
-                let should_compute_stats =
-                    bench_context.did_run && shared_context.action.is_bench();
-
+            out.leaf(
+                bench_display_name,
+                last_entry,
                 if should_compute_stats {
-                    let stats = bench_context.compute_stats();
-                    tree_painter.borrow_mut().finish_leaf(
-                        is_last_thread_count,
-                        &stats,
-                        self.bytes_format,
-                    );
+                    LeafStat::Benched {
+                        stats: Box::new(bench_context.compute_stats()),
+                        bytes_format: self.bytes_format,
+                    }
                 } else {
-                    tree_painter.borrow_mut().finish_empty_leaf();
-                }
-            }
+                    LeafStat::Empty
+                },
+            )
+        };
 
+        let run_bench = |out: &mut StatCollector,
+                         bench_display_name: &str,
+                         is_last_bench: bool,
+                         with_bencher: &dyn Fn(Bencher)|
+         -> StatTree {
             if has_thread_branches {
-                tree_painter.borrow_mut().finish_parent();
+                out.parent(bench_display_name, is_last_bench, |out| {
+                    thread_counts
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &thread_count)| {
+                            bench_leaf(
+                                &thread_count,
+                                &format!("t={thread_count}"),
+                                out,
+                                i == thread_counts.len() - 1,
+                                with_bencher,
+                            )
+                        })
+                        .collect()
+                })
+            } else {
+                bench_leaf(
+                    thread_counts.first().unwrap(),
+                    bench_display_name,
+                    out,
+                    is_last_bench,
+                    with_bencher,
+                )
             }
         };
 
         match bench_entry.bench_runner() {
-            BenchEntryRunner::Plain(bench) => run_bench(entry_display_name, is_last_entry, bench),
-
+            BenchEntryRunner::Plain(bench) => {
+                run_bench(out, entry_display_name, is_last_entry, bench)
+            }
             BenchEntryRunner::Args(bench_runner) => {
-                tree_painter.borrow_mut().start_parent(entry_display_name, is_last_entry);
+                out.parent(entry_display_name, is_last_entry, |out| {
+                    let bench_runner = bench_runner();
+                    let orig_arg_names = bench_runner.arg_names();
+                    let bench_arg_names = bench_arg_names.unwrap_or_default();
 
-                let bench_runner = bench_runner();
-                let orig_arg_names = bench_runner.arg_names();
-                let bench_arg_names = bench_arg_names.unwrap_or_default();
+                    bench_arg_names
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &arg_name)| {
+                            let is_last_arg = i == bench_arg_names.len() - 1;
+                            let arg_index = util::slice_ptr_index(orig_arg_names, arg_name);
 
-                for (i, &arg_name) in bench_arg_names.iter().enumerate() {
-                    let is_last_arg = i == bench_arg_names.len() - 1;
-                    let arg_index = util::slice_ptr_index(orig_arg_names, arg_name);
-
-                    run_bench(arg_name, is_last_arg, &|bencher| {
-                        bench_runner.bench(bencher, arg_index);
-                    });
-                }
-
-                tree_painter.borrow_mut().finish_parent();
+                            run_bench(out, arg_name, is_last_arg, &|bencher| {
+                                bench_runner.bench(bencher, arg_index);
+                            })
+                        })
+                        .collect()
+                })
             }
         }
     }
@@ -478,6 +506,13 @@ impl Divan {
 
         if let Some(&count) = matches.get_one::<MaxCountUInt>("chars-count") {
             self.counter_mut(CharsCount::new(count));
+        }
+
+        // the "format" option requires the "file" option to be present, so if mode is None, so is path.
+        if let (Some(path), mode) =
+            (matches.get_one::<PathBuf>("file"), matches.get_one::<WriteMode>("format"))
+        {
+            self.file_output = Some((path.clone(), mode.map_or(WriteMode::Json, |m| *m)));
         }
 
         self

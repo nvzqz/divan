@@ -182,3 +182,9 @@ impl SortingAttr {
         Ordering::Equal
     }
 }
+
+#[derive(Clone, Copy, Default)]
+pub(crate) enum WriteMode {
+    #[default]
+    Json,
+}

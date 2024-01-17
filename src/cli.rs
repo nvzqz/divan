@@ -1,7 +1,9 @@
+use std::path::PathBuf;
+
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
 use crate::{
-    config::{ParsedSeconds, SortingAttr},
+    config::{ParsedSeconds, SortingAttr, WriteMode},
     counter::MaxCountUInt,
     time::TimerKind,
 };
@@ -156,6 +158,21 @@ pub(crate) fn command() -> Command {
                 .help("Set every benchmark to have a throughput of N string scalars")
                 .value_parser(value_parser!(MaxCountUInt)),
         )
+        .arg(
+            option("file")
+                .env("DIVAN_WRITE_FILE")
+                .value_name("PATH")
+                .help("Set the file path to output the results to")
+                .value_parser(value_parser!(PathBuf))
+        )
+        .arg(
+            option("format")
+                .env("DIVAN_FILE_FORMAT")
+                .requires("file")
+                .value_name("FORMAT")
+                .help("Set output file type")
+                .value_parser(value_parser!(WriteMode))
+        )
         // ignored:
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])
 }
@@ -184,6 +201,19 @@ impl ValueEnum for SortingAttr {
             Self::Kind => "kind",
             Self::Name => "name",
             Self::Location => "location",
+        };
+        Some(PossibleValue::new(name))
+    }
+}
+
+impl ValueEnum for WriteMode {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Json]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        let name = match self {
+            WriteMode::Json => "json",
         };
         Some(PossibleValue::new(name))
     }

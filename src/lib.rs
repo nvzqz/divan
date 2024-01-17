@@ -15,11 +15,12 @@ mod bench;
 mod cli;
 mod compile_fail;
 mod config;
+pub mod counter;
 mod divan;
 mod entry;
+mod output;
 mod stats;
 mod time;
-mod tree_painter;
 mod util;
 
 pub mod counter;
