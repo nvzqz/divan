@@ -4,6 +4,7 @@
 //! cargo bench -q -p examples --bench math
 //! ```
 
+use std::collections::{BTreeMap, HashMap};
 use divan::black_box;
 
 fn main() {
@@ -73,5 +74,53 @@ mod fibonacci {
         }
 
         fibonacci(black_box(N))
+    }
+
+    trait Map: Default {
+        fn get(&self, key: u64) -> Option<u64>;
+        fn set(&mut self, key: u64, value: u64);
+    }
+
+    impl Map for HashMap<u64, u64> {
+        fn get(&self, key: u64) -> Option<u64> {
+            self.get(&key).copied()
+        }
+
+        fn set(&mut self, key: u64, value: u64) {
+            self.insert(key, value);
+        }
+    }
+
+    impl Map for BTreeMap<u64, u64> {
+        fn get(&self, key: u64) -> Option<u64> {
+            self.get(&key).copied()
+        }
+
+        fn set(&mut self, key: u64, value: u64) {
+            self.insert(key, value);
+        }
+    }
+
+    // O(n)
+    #[divan::bench(
+        types = [BTreeMap<u64, u64>, HashMap<u64, u64>],
+        consts = VALUES,
+    )]
+    fn recursive_memoized<M: Map, const N: u64>() -> u64 {
+        fn fibonacci<M: Map>(n: u64, cache: &mut M) -> u64 {
+            if let Some(result) = cache.get(n) {
+                return result;
+            }
+
+            if n <= 1 {
+                return 1;
+            }
+
+            let result = fibonacci(n - 2, cache) + fibonacci(n - 1, cache);
+            cache.set(n, result);
+            result
+        }
+
+        fibonacci(black_box(N), &mut M::default())
     }
 }
