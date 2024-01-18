@@ -5,7 +5,7 @@ use regex::Regex;
 
 use crate::{
     bench::BenchOptions,
-    config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr, WriteMode},
+    config::{Action, FileFormat, Filter, ParsedSeconds, RunIgnored, SortingAttr},
     counter::{
         BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
     },
@@ -32,7 +32,7 @@ pub struct Divan {
     skip_filters: Vec<Filter>,
     run_ignored: RunIgnored,
     bench_options: BenchOptions<'static>,
-    file_output: Option<(PathBuf, WriteMode)>,
+    file_output: Option<(PathBuf, FileFormat)>,
 }
 
 /// Immutable context shared between entry runs.
@@ -192,7 +192,7 @@ impl Divan {
         if let Some((path, mode)) = &self.file_output {
             let file = std::fs::File::create(path)?;
             (match mode {
-                WriteMode::Json => json_output,
+                FileFormat::Json => json_output,
             })(result, file)?;
             println!("Results written to {}", path.display());
         }
@@ -510,9 +510,9 @@ impl Divan {
 
         // the "format" option requires the "file" option to be present, so if mode is None, so is path.
         if let (Some(path), mode) =
-            (matches.get_one::<PathBuf>("file"), matches.get_one::<WriteMode>("format"))
+            (matches.get_one::<PathBuf>("file"), matches.get_one::<FileFormat>("format"))
         {
-            self.file_output = Some((path.clone(), mode.map_or(WriteMode::Json, |m| *m)));
+            self.file_output = Some((path.clone(), mode.map_or(FileFormat::Json, |m| *m)));
         }
 
         self

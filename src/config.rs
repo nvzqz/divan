@@ -184,7 +184,7 @@ impl SortingAttr {
 }
 
 #[derive(Clone, Copy, Default)]
-pub(crate) enum WriteMode {
+pub(crate) enum FileFormat {
     #[default]
     Json,
 }

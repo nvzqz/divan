@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
 
 use crate::{
-    config::{ParsedSeconds, SortingAttr, WriteMode},
+    config::{FileFormat, ParsedSeconds, SortingAttr},
     counter::MaxCountUInt,
     time::TimerKind,
 };
@@ -171,7 +171,7 @@ pub(crate) fn command() -> Command {
                 .requires("file")
                 .value_name("FORMAT")
                 .help("Set output file type")
-                .value_parser(value_parser!(WriteMode))
+                .value_parser(value_parser!(FileFormat))
         )
         // ignored:
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])
@@ -206,14 +206,14 @@ impl ValueEnum for SortingAttr {
     }
 }
 
-impl ValueEnum for WriteMode {
+impl ValueEnum for FileFormat {
     fn value_variants<'a>() -> &'a [Self] {
         &[Self::Json]
     }
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
         let name = match self {
-            WriteMode::Json => "json",
+            FileFormat::Json => "json",
         };
         Some(PossibleValue::new(name))
     }
