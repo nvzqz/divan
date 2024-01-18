@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt, num::NonZeroUsize, time::Duration};
+use std::{borrow::Cow, cell::RefCell, fmt, num::NonZeroUsize, time::Duration};
 
 use clap::ColorChoice;
 use regex::Regex;
@@ -173,9 +173,10 @@ impl Divan {
             [0; TreeColumn::COUNT]
         };
 
-        let mut tree_painter = TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths);
+        let tree_painter =
+            RefCell::new(TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths));
 
-        self.run_tree(action, &tree, &shared_context, None, &mut tree_painter);
+        self.run_tree(action, &tree, &shared_context, None, &tree_painter);
     }
 
     fn run_tree(
@@ -184,7 +185,7 @@ impl Divan {
         tree: &[EntryTree],
         shared_context: &SharedContext,
         parent_options: Option<&BenchOptions>,
-        tree_painter: &mut TreePainter,
+        tree_painter: &RefCell<TreePainter>,
     ) {
         for (i, child) in tree.iter().enumerate() {
             let is_last = i == tree.len() - 1;
@@ -214,11 +215,11 @@ impl Divan {
                     is_last,
                 ),
                 EntryTree::Parent { children, .. } => {
-                    tree_painter.start_parent(name, is_last);
+                    tree_painter.borrow_mut().start_parent(name, is_last);
 
                     self.run_tree(action, children, shared_context, options, tree_painter);
 
-                    tree_painter.finish_parent();
+                    tree_painter.borrow_mut().finish_parent();
                 }
             }
         }
@@ -230,7 +231,7 @@ impl Divan {
         bench_entry: AnyBenchEntry,
         shared_context: &SharedContext,
         entry_options: Option<&BenchOptions>,
-        tree_painter: &mut TreePainter,
+        tree_painter: &RefCell<TreePainter>,
         is_last_entry: bool,
     ) {
         use crate::bench::BenchContext;
@@ -248,12 +249,13 @@ impl Divan {
         };
 
         if self.should_ignore(options.ignore.unwrap_or_default()) {
-            tree_painter.ignore_leaf(entry_display_name, is_last_entry);
+            tree_painter.borrow_mut().ignore_leaf(entry_display_name, is_last_entry);
             return;
         }
 
         // Paint empty leaf when simply listing.
         if action.is_list() {
+            let mut tree_painter = tree_painter.borrow_mut();
             tree_painter.start_leaf(entry_display_name, is_last_entry);
             tree_painter.finish_empty_leaf();
             return;
@@ -283,9 +285,9 @@ impl Divan {
             let bench_display_name = bench_display_name.unwrap_or(entry_display_name);
 
             if has_thread_branches {
-                tree_painter.start_parent(bench_display_name, is_last_entry);
+                tree_painter.borrow_mut().start_parent(bench_display_name, is_last_entry);
             } else {
-                tree_painter.start_leaf(bench_display_name, is_last_entry);
+                tree_painter.borrow_mut().start_leaf(bench_display_name, is_last_entry);
             }
 
             for (i, &thread_count) in thread_counts.iter().enumerate() {
@@ -293,7 +295,9 @@ impl Divan {
                     if has_thread_branches { i == thread_counts.len() - 1 } else { is_last_entry };
 
                 if has_thread_branches {
-                    tree_painter.start_leaf(&format!("t={thread_count}"), is_last_thread_count);
+                    tree_painter
+                        .borrow_mut()
+                        .start_leaf(&format!("t={thread_count}"), is_last_thread_count);
                 }
 
                 let mut bench_context = BenchContext::new(shared_context, options, thread_count);
@@ -310,15 +314,19 @@ impl Divan {
 
                 if should_compute_stats {
                     let stats = bench_context.compute_stats();
-                    tree_painter.finish_leaf(is_last_thread_count, &stats, self.bytes_format);
+                    tree_painter.borrow_mut().finish_leaf(
+                        is_last_thread_count,
+                        &stats,
+                        self.bytes_format,
+                    );
                 } else {
-                    tree_painter.finish_empty_leaf();
+                    tree_painter.borrow_mut().finish_empty_leaf();
                 }
             }
         });
 
         if has_thread_branches {
-            tree_painter.finish_parent();
+            tree_painter.borrow_mut().finish_parent();
         }
     }
 }
