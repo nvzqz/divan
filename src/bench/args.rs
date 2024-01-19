@@ -2,6 +2,7 @@
 
 use std::{
     any::{Any, TypeId},
+    borrow::Cow,
     mem, slice,
     sync::OnceLock,
 };
@@ -69,11 +70,31 @@ impl BenchArgs {
             let args: &'static [I::Item] = Box::leak(make_args().into_iter().collect());
 
             // Collect printable representations of arguments.
-            let names: &'static [&str] = Box::leak(
-                args.iter()
-                    .map(|arg| Box::leak(arg.to_string().into_boxed_str()) as &str)
-                    .collect(),
-            );
+            let names: &'static [&str] = 'names: {
+                // PERF: Reuse items allocation as-is.
+                if let Some(args) = (&args as &dyn Any).downcast_ref::<&[&str]>() {
+                    break 'names args;
+                }
+
+                Box::leak(
+                    args.iter()
+                        .map(|arg| -> &str {
+                            // PERF: Use strings as-is.
+                            if let Some(arg) = (arg as &dyn Any).downcast_ref::<String>() {
+                                return arg;
+                            }
+                            if let Some(arg) = (arg as &dyn Any).downcast_ref::<Box<str>>() {
+                                return arg;
+                            }
+                            if let Some(arg) = (arg as &dyn Any).downcast_ref::<Cow<str>>() {
+                                return arg;
+                            }
+
+                            Box::leak(arg.to_string().into_boxed_str())
+                        })
+                        .collect(),
+                )
+            };
 
             ErasedArgsSlice {
                 // We `black_box` arguments to prevent the compiler from
@@ -156,4 +177,85 @@ where
     };
 
     bench_impl(bencher, &typed_args[arg_index]);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that optimizations for string items are applied.
+    mod optimizations {
+        use std::borrow::Borrow;
+
+        use super::*;
+
+        /// Tests that two slices contain the same exact strings.
+        fn test_eq_ptr<A: Borrow<str>, B: Borrow<str>>(a: &[A], b: &[B]) {
+            assert_eq!(a.len(), b.len());
+
+            for (a, b) in a.iter().zip(b) {
+                let a = a.borrow();
+                let b = b.borrow();
+                assert_eq!(a, b);
+                assert_eq!(a.as_ptr(), b.as_ptr());
+            }
+        }
+
+        #[test]
+        fn str() {
+            static ARGS: BenchArgs = BenchArgs::new();
+
+            let runner = ARGS.runner(|| ["a", "b"], |_, _| {});
+
+            let typed_args = runner.args.typed_args::<&str>().unwrap();
+            let names = runner.arg_names();
+
+            assert_eq!(names, ["a", "b"]);
+            assert_eq!(names, typed_args);
+            assert_eq!(names.as_ptr(), typed_args.as_ptr());
+        }
+
+        #[test]
+        fn string() {
+            static ARGS: BenchArgs = BenchArgs::new();
+
+            let runner = ARGS.runner(|| ["a".to_owned(), "b".to_owned()], |_, _| {});
+
+            let typed_args = runner.args.typed_args::<String>().unwrap();
+            let names = runner.arg_names();
+
+            assert_eq!(names, ["a", "b"]);
+            test_eq_ptr(names, typed_args);
+        }
+
+        #[test]
+        fn box_str() {
+            static ARGS: BenchArgs = BenchArgs::new();
+
+            let runner = ARGS.runner(
+                || ["a".to_owned().into_boxed_str(), "b".to_owned().into_boxed_str()],
+                |_, _| {},
+            );
+
+            let typed_args = runner.args.typed_args::<Box<str>>().unwrap();
+            let names = runner.arg_names();
+
+            assert_eq!(names, ["a", "b"]);
+            test_eq_ptr(names, typed_args);
+        }
+
+        #[test]
+        fn cow_str() {
+            static ARGS: BenchArgs = BenchArgs::new();
+
+            let runner =
+                ARGS.runner(|| [Cow::Owned("a".to_owned()), Cow::Borrowed("b")], |_, _| {});
+
+            let typed_args = runner.args.typed_args::<Cow<str>>().unwrap();
+            let names = runner.arg_names();
+
+            assert_eq!(names, ["a", "b"]);
+            test_eq_ptr(names, typed_args);
+        }
+    }
 }
