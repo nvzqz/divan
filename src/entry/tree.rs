@@ -54,13 +54,29 @@ impl<'a> EntryTree<'a> {
     pub fn max_name_span(tree: &[Self], depth: usize) -> usize {
         tree.iter()
             .map(|node| {
-                let node_prefix_len = depth * 3;
-                let node_name_len = node.display_name().chars().count();
-                let node_name_span = node_prefix_len + node_name_len;
+                let node_name_span = {
+                    let prefix_len = depth * 3;
+                    let name_len = node.display_name().chars().count();
+                    prefix_len + name_len
+                };
 
-                let children_max = Self::max_name_span(node.children(), depth + 1);
+                // The maximum span of any descendent.
+                let children_max_span = Self::max_name_span(node.children(), depth + 1);
 
-                node_name_span.max(children_max)
+                // The maximum span of any runtime argument.
+                let args_max_span = node
+                    .arg_names()
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|arg| {
+                        let prefix_len = (depth + 1) * 3;
+                        let name_len = arg.chars().count();
+                        prefix_len + name_len
+                    })
+                    .max()
+                    .unwrap_or_default();
+
+                node_name_span.max(children_max_span).max(args_max_span)
             })
             .max()
             .unwrap_or_default()
@@ -376,6 +392,13 @@ impl<'a> EntryTree<'a> {
         match self {
             Self::Leaf { .. } => &[],
             Self::Parent { children, .. } => children,
+        }
+    }
+
+    fn arg_names(&self) -> Option<&[&'static &'static str]> {
+        match self {
+            Self::Leaf { args, .. } => args.as_deref(),
+            Self::Parent { .. } => None,
         }
     }
 }
