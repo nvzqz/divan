@@ -129,7 +129,44 @@ impl SortingAttr {
         for attr in self.with_tie_breakers() {
             let ordering = match attr {
                 SortingAttr::Kind => Ordering::Equal,
-                SortingAttr::Name => a.cmp(b),
+
+                SortingAttr::Name => 'ordering: {
+                    // Compare as integers.
+                    match (a.parse::<u128>(), a.parse::<u128>()) {
+                        (Ok(a_u128), Ok(b_u128)) => break 'ordering a_u128.cmp(&b_u128),
+
+                        (Ok(_), Err(_)) => {
+                            if b.parse::<i128>().is_ok() {
+                                // a > b
+                                break 'ordering Ordering::Greater;
+                            }
+                        }
+
+                        (Err(_), Ok(_)) => {
+                            if a.parse::<i128>().is_ok() {
+                                // b > a
+                                break 'ordering Ordering::Greater;
+                            }
+                        }
+
+                        (Err(_), Err(_)) => {
+                            if let (Ok(a_i128), Ok(b_i128)) = (a.parse::<i128>(), a.parse::<i128>())
+                            {
+                                break 'ordering a_i128.cmp(&b_i128);
+                            }
+                        }
+                    }
+
+                    // Compare as floats.
+                    if let (Ok(a), Ok(b)) = (a.parse::<f64>(), b.parse::<f64>()) {
+                        if let Some(ordering) = a.partial_cmp(&b) {
+                            break 'ordering ordering;
+                        }
+                    }
+
+                    a.cmp(b)
+                }
+
                 SortingAttr::Location => {
                     let a: *const &str = a;
                     let b: *const &str = b;

@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Sort [`args`] numbers like [`consts`].
+
 ## [0.1.9] - 2024-01-20
 
 ### Added
