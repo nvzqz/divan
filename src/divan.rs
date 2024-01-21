@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use std::{borrow::Cow, cell::RefCell, fmt, num::NonZeroUsize, time::Duration};
 
 use clap::ColorChoice;
@@ -12,7 +14,7 @@ use crate::{
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
     time::{FineDuration, Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
-    Bencher,
+    util, Bencher,
 };
 
 /// The benchmark runner.
@@ -206,9 +208,10 @@ impl Divan {
             };
 
             match child {
-                EntryTree::Leaf(child) => self.run_bench_entry(
+                EntryTree::Leaf { entry, args } => self.run_bench_entry(
                     action,
-                    *child,
+                    *entry,
+                    args.as_deref(),
                     shared_context,
                     options,
                     tree_painter,
@@ -229,6 +232,7 @@ impl Divan {
         &self,
         action: Action,
         bench_entry: AnyBenchEntry,
+        bench_arg_names: Option<&[&&str]>,
         shared_context: &SharedContext,
         entry_options: Option<&BenchOptions>,
         tree_painter: &RefCell<TreePainter>,
@@ -336,13 +340,15 @@ impl Divan {
                 tree_painter.borrow_mut().start_parent(entry_display_name, is_last_entry);
 
                 let bench_runner = bench_runner();
-                let arg_names = bench_runner.arg_names();
+                let orig_arg_names = bench_runner.arg_names();
+                let bench_arg_names = bench_arg_names.unwrap_or_default();
 
-                for (i, arg_name) in arg_names.iter().enumerate() {
-                    let is_last_arg = i == arg_names.len() - 1;
+                for (i, &arg_name) in bench_arg_names.iter().enumerate() {
+                    let is_last_arg = i == bench_arg_names.len() - 1;
+                    let arg_index = util::slice_ptr_index(orig_arg_names, arg_name);
 
                     run_bench(arg_name, is_last_arg, &|bencher| {
-                        bench_runner.bench(bencher, i);
+                        bench_runner.bench(bencher, arg_index);
                     });
                 }
 

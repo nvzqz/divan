@@ -55,6 +55,13 @@ pub(crate) fn cast_ref<T: Any>(r: &impl Any) -> Option<&T> {
     }
 }
 
+/// Returns the index of `ptr` in the slice, assuming it is in the slice.
+#[inline]
+pub(crate) fn slice_ptr_index<T>(slice: &[T], ptr: *const T) -> usize {
+    // Safe pointer `offset_from`.
+    (ptr as usize - slice.as_ptr() as usize) / std::mem::size_of::<T>()
+}
+
 /// Returns the values in the middle of `slice`.
 ///
 /// If the slice has an even length, two middle values exist.

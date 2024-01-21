@@ -14,7 +14,13 @@ pub(crate) enum EntryTree<'a> {
     Parent { raw_name: &'a str, group: Option<&'a GroupEntry>, children: Vec<Self> },
 
     /// Benchmark entry leaf.
-    Leaf(AnyBenchEntry<'a>),
+    Leaf {
+        /// The benchmark entry being run.
+        entry: AnyBenchEntry<'a>,
+
+        /// The names of arguments to run.
+        args: Option<Vec<&'static &'static str>>,
+    },
 }
 
 impl<'a> EntryTree<'a> {
@@ -135,20 +141,30 @@ impl<'a> EntryTree<'a> {
             filter: &mut impl FnMut(&str) -> bool,
         ) {
             tree.retain_mut(|subtree| {
-                let full_path: String;
-                let full_path: &str = if parent_path.is_empty() {
+                let subtree_path: String;
+                let subtree_path: &str = if parent_path.is_empty() {
                     subtree.display_name()
                 } else {
-                    full_path = format!("{parent_path}::{}", subtree.display_name());
-                    &full_path
+                    subtree_path = format!("{parent_path}::{}", subtree.display_name());
+                    &subtree_path
                 };
 
                 match subtree {
                     EntryTree::Parent { children, .. } => {
-                        retain(children, full_path, filter);
+                        retain(children, subtree_path, filter);
+
+                        // If no children exist, filter out this parent.
                         !children.is_empty()
                     }
-                    EntryTree::Leaf { .. } => filter(full_path),
+
+                    EntryTree::Leaf { args: None, .. } => filter(subtree_path),
+
+                    EntryTree::Leaf { args: Some(args), .. } => {
+                        args.retain(|arg| filter(&format!("{subtree_path}::{arg}")));
+
+                        // If no arguments exist, filter out this leaf.
+                        !args.is_empty()
+                    }
                 }
             });
         }
@@ -157,15 +173,26 @@ impl<'a> EntryTree<'a> {
 
     /// Sorts the tree by the given ordering.
     pub fn sort_by_attr(tree: &mut [Self], attr: SortingAttr, reverse: bool) {
-        tree.sort_unstable_by(|a, b| {
-            let ordering = a.cmp_by_attr(b, attr);
-            if reverse {
-                ordering.reverse()
-            } else {
-                ordering
+        let apply_reverse =
+            |ordering: Ordering| if reverse { ordering.reverse() } else { ordering };
+
+        tree.sort_unstable_by(|a, b| apply_reverse(a.cmp_by_attr(b, attr)));
+
+        tree.iter_mut().for_each(|tree| {
+            match tree {
+                // Sort benchmark arguments.
+                EntryTree::Leaf { args, .. } => {
+                    if let Some(args) = args {
+                        args.sort_by(|&a, &b| apply_reverse(attr.cmp_bench_arg_names(a, b)));
+                    }
+                }
+
+                // Sort children.
+                EntryTree::Parent { children, .. } => {
+                    Self::sort_by_attr(children, attr, reverse);
+                }
             }
         });
-        tree.iter_mut().for_each(|tree| Self::sort_by_attr(tree.children_mut(), attr, reverse));
     }
 
     fn cmp_by_attr(&self, other: &Self, attr: SortingAttr) -> Ordering {
@@ -218,7 +245,10 @@ impl<'a> EntryTree<'a> {
         rem_modules: &mut dyn Iterator<Item = &'a str>,
     ) {
         let Some(current_module) = rem_modules.next() else {
-            tree.push(Self::Leaf(entry));
+            tree.push(Self::Leaf {
+                entry,
+                args: entry.arg_names().map(|args| args.iter().collect()),
+            });
             return;
         };
 
@@ -239,7 +269,7 @@ impl<'a> EntryTree<'a> {
         let child = if let Some(next_module) = rem_modules.next() {
             Self::from_path(entry, next_module, rem_modules)
         } else {
-            Self::Leaf(entry)
+            Self::Leaf { entry, args: entry.arg_names().map(|args| args.iter().collect()) }
         };
         Self::Parent { raw_name: current_module, group: None, children: vec![child] }
     }
@@ -267,7 +297,7 @@ impl<'a> EntryTree<'a> {
     /// Returns a pointer to use as the identity of the entry.
     pub fn entry_addr(&self) -> Option<NonNull<()>> {
         match self {
-            Self::Leaf(bench) => Some(bench.entry_addr()),
+            Self::Leaf { entry, .. } => Some(entry.entry_addr()),
             Self::Parent { group, .. } => {
                 group.map(|entry: &GroupEntry| NonNull::from(entry).cast())
             }
@@ -277,7 +307,7 @@ impl<'a> EntryTree<'a> {
     pub fn meta(&self) -> Option<&'a EntryMeta> {
         match self {
             Self::Parent { group, .. } => Some(&(*group)?.meta),
-            Self::Leaf(bench) => Some(bench.meta()),
+            Self::Leaf { entry, .. } => Some(entry.meta()),
         }
     }
 
@@ -289,13 +319,13 @@ impl<'a> EntryTree<'a> {
         match self {
             Self::Parent { group: Some(group), .. } => group.meta.raw_name,
             Self::Parent { raw_name, .. } => raw_name,
-            Self::Leaf(bench) => bench.raw_name(),
+            Self::Leaf { entry, .. } => entry.raw_name(),
         }
     }
 
     pub fn display_name(&self) -> &'a str {
-        if let Self::Leaf(bench) = self {
-            bench.display_name()
+        if let Self::Leaf { entry, .. } = self {
+            entry.display_name()
         } else if let Some(common) = self.meta() {
             common.display_name
         } else {
@@ -322,14 +352,20 @@ impl<'a> EntryTree<'a> {
     fn cmp_display_name(&self, other: &Self) -> Ordering {
         match (self, other) {
             (
-                Self::Leaf(AnyBenchEntry::GenericBench(GenericBenchEntry {
-                    const_value: Some(this),
+                Self::Leaf {
+                    entry:
+                        AnyBenchEntry::GenericBench(GenericBenchEntry {
+                            const_value: Some(this), ..
+                        }),
                     ..
-                })),
-                Self::Leaf(AnyBenchEntry::GenericBench(GenericBenchEntry {
-                    const_value: Some(other),
+                },
+                Self::Leaf {
+                    entry:
+                        AnyBenchEntry::GenericBench(GenericBenchEntry {
+                            const_value: Some(other), ..
+                        }),
                     ..
-                })),
+                },
             ) => this.cmp_name(other),
 
             _ => self.display_name().cmp(other.display_name()),
@@ -339,13 +375,6 @@ impl<'a> EntryTree<'a> {
     fn children(&self) -> &[Self] {
         match self {
             Self::Leaf { .. } => &[],
-            Self::Parent { children, .. } => children,
-        }
-    }
-
-    fn children_mut(&mut self) -> &mut [Self] {
-        match self {
-            Self::Leaf { .. } => &mut [],
             Self::Parent { children, .. } => children,
         }
     }

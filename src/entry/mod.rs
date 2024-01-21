@@ -88,6 +88,18 @@ impl<'a> AnyBenchEntry<'a> {
         }
     }
 
+    /// Returns this entry's argument names.
+    #[inline]
+    pub fn arg_names(self) -> Option<&'static [&'static str]> {
+        match self.bench_runner() {
+            BenchEntryRunner::Args(bench_runner) => {
+                let bench_runner = bench_runner();
+                Some(bench_runner.arg_names())
+            }
+            _ => None,
+        }
+    }
+
     #[inline]
     pub fn meta(self) -> &'a EntryMeta {
         match self {

@@ -1125,10 +1125,7 @@ impl<'a> BenchContext<'a> {
         let median_samples = util::slice_middle(&sorted_samples);
 
         let index_of_sample = |sample: &TimeSample| -> usize {
-            // Safe pointer `offset_from`.
-            let start = self.samples.time_samples.as_ptr() as usize;
-            let sample = sample as *const TimeSample as usize;
-            (sample - start) / mem::size_of::<TimeSample>()
+            util::slice_ptr_index(&self.samples.time_samples, sample)
         };
 
         let counter_count_for_sample =

@@ -1,4 +1,4 @@
-use std::{error::Error, str::FromStr, time::Duration};
+use std::{cmp::Ordering, error::Error, str::FromStr, time::Duration};
 
 use regex::Regex;
 
@@ -119,5 +119,29 @@ impl SortingAttr {
             Name => [self, Location, Kind],
             Location => [self, Kind, Name],
         }
+    }
+
+    /// Compares benchmark runtime argument names.
+    ///
+    /// This takes `&&str` to handle `SortingAttr::Location` since the strings
+    /// are considered to be within the same `&[&str]`.
+    pub fn cmp_bench_arg_names(self, a: &&str, b: &&str) -> Ordering {
+        for attr in self.with_tie_breakers() {
+            let ordering = match attr {
+                SortingAttr::Kind => Ordering::Equal,
+                SortingAttr::Name => a.cmp(b),
+                SortingAttr::Location => {
+                    let a: *const &str = a;
+                    let b: *const &str = b;
+                    a.cmp(&b)
+                }
+            };
+
+            if ordering != Ordering::Equal {
+                return ordering;
+            }
+        }
+
+        Ordering::Equal
     }
 }

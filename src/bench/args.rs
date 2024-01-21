@@ -117,7 +117,7 @@ impl BenchArgsRunner {
     }
 
     #[inline]
-    pub(crate) fn arg_names(&self) -> &[&str] {
+    pub(crate) fn arg_names(&self) -> &'static [&'static str] {
         self.args.names()
     }
 }
@@ -139,7 +139,7 @@ impl ErasedArgsSlice {
     /// Names are in the same order as args and thus their indices can be used
     /// to reference arguments.
     #[inline]
-    fn names(&self) -> &[&str] {
+    fn names(&self) -> &'static [&str] {
         // SAFETY: `BenchArgs::runner` guarantees storing `len` names.
         unsafe { slice::from_raw_parts(self.names, self.len) }
     }
