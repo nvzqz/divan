@@ -137,15 +137,15 @@ impl SortingAttr {
 
                         (Ok(_), Err(_)) => {
                             if b.parse::<i128>().is_ok() {
-                                // a > b
+                                // a > b, because b is negative.
                                 break 'ordering Ordering::Greater;
                             }
                         }
 
                         (Err(_), Ok(_)) => {
                             if a.parse::<i128>().is_ok() {
-                                // b > a
-                                break 'ordering Ordering::Greater;
+                                // a < b, because a is negative.
+                                break 'ordering Ordering::Less;
                             }
                         }
 

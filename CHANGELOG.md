@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Sorting negative [`args`] numbers.
+
 ## [0.1.10] - 2024-01-20
 
 ### Fixed
