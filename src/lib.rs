@@ -24,6 +24,94 @@ mod util;
 
 pub mod counter;
 
+/// Prevents compiler optimizations on a value.
+///
+/// `black_box` should only be used on [inputs](#benchmark-inputs) and
+/// [outputs](#benchmark-outputs) of benchmarks. Newcomers to benchmarking may
+/// be tempted to also use `black_box` within the implementation, but doing so
+/// will overly pessimize the measured code without any benefit.
+///
+/// ## Benchmark Inputs
+///
+/// When benchmarking, it's good practice to ensure measurements are accurate by
+/// preventing the compiler from optimizing based on assumptions about benchmark
+/// inputs.
+///
+/// The compiler can optimize code for indices it knows about, such as by
+/// removing bounds checks or unrolling loops. If real-world use of your code
+/// would not know indices up front, consider preventing optimizations on them
+/// in benchmarks:
+///
+/// ```
+/// use divan::black_box;
+///
+/// const INDEX: usize = // ...
+/// # 0;
+/// const SLICE: &[u8] = // ...
+/// # &[];
+///
+/// #[divan::bench]
+/// fn bench() {
+///     # fn work<T>(_: T) {}
+///     work(&SLICE[black_box(INDEX)..]);
+/// }
+/// ```
+///
+/// The compiler may also optimize for the data itself, which can also be
+/// avoided with `black_box`:
+///
+/// ```
+/// # use divan::black_box;
+/// # const INDEX: usize = 0;
+/// # const SLICE: &[u8] = &[];
+/// #[divan::bench]
+/// fn bench() {
+///     # fn work<T>(_: T) {}
+///     work(black_box(&SLICE[black_box(INDEX)..]));
+/// }
+/// ```
+///
+/// ## Benchmark Outputs
+///
+/// When benchmarking, it's best to ensure that all of the code is actually
+/// being run. If the compiler knows an output is unused, it may remove the code
+/// that generated the output. This optimization can make benchmarks appear much
+/// faster than they really are.
+///
+/// At the end of a benchmark, we can force the compiler to treat outputs as if
+/// they were actually used:
+///
+/// ```
+/// # use divan::black_box;
+/// #[divan::bench]
+/// fn bench() {
+///     # let value = 1;
+///     black_box(value.to_string());
+/// }
+/// ```
+///
+/// To make the code clearer to readers that the output is discarded, this code
+/// could instead call [`black_box_drop`].
+///
+/// Alternatively, the output can be returned from the benchmark:
+///
+/// ```
+/// #[divan::bench]
+/// fn bench() -> String {
+///     # let value = 1;
+///     value.to_string()
+/// }
+/// ```
+///
+/// Returning the output will `black_box` it and also avoid measuring the time
+/// to [drop](Drop) the output, which in this case is the time to deallocate a
+/// [`String`]. Read more about this in the [`#[divan::bench]`
+/// docs](macro@bench#drop).
+///
+/// ---
+///
+/// <h1>Standard Library Documentation</h1>
+///
 #[doc(inline)]
 pub use std::hint::black_box;
 

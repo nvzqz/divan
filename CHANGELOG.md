@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Documentation of when to use [`black_box`] in benchmarks.
+
 ## [0.1.11] - 2024-01-20
 
 ### Fixed
@@ -253,8 +257,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
 
 [`AllocProfiler`]: https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html
+[`black_box`]: https://docs.rs/divan/latest/divan/fn.black_box.html
 
-[`black_box`]: https://doc.rust-lang.org/std/hint/fn.black_box.html
 [`Drop`]: https://doc.rust-lang.org/std/ops/trait.Drop.html
 [`Iterator`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html
 [available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
