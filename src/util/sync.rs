@@ -116,7 +116,6 @@ impl<T> PThreadKey<T> {
     }
 
     #[inline]
-    #[cfg(target_os = "macos")]
     pub fn get(&self) -> Option<NonNull<T>> {
         match self.value.load(Relaxed) {
             KEY_UNINIT => None,
