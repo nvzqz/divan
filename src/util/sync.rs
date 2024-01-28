@@ -121,20 +121,17 @@ impl<T> PThreadKey<T> {
             KEY_UNINIT => None,
 
             key => unsafe {
-                #[allow(clippy::needless_late_init)]
-                let thread_local: *mut libc::c_void;
-
                 cfg_if::cfg_if! {
                     if #[cfg(all(
                         not(miri),
                         any(target_arch = "x86_64", target_arch = "aarch64"),
                     ))] {
-                        thread_local = fast::get_thread_local(key as usize);
+                        let thread_local = fast::get_thread_local(key as usize);
 
                         #[cfg(test)]
                         assert_eq!(thread_local, libc::pthread_getspecific(key));
                     } else {
-                        thread_local = libc::pthread_getspecific(key);
+                        let thread_local = libc::pthread_getspecific(key);
                     }
                 }
 
