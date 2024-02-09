@@ -18,6 +18,13 @@
     </p>
 </div>
 
+## Sponsor
+
+If you or your company find Divan valuable, consider [sponsoring on
+GitHub](https://github.com/sponsors/nvzqz) or [donating via
+PayPal](https://paypal.me/nvzqz). Sponsorships help me progress on what's
+possible with benchmarking in Rust.
+
 ## Guide
 
 A guide is being worked on. In the meantime, [see announcement post](https://nikolaivazquez.com/blog/divan/).
