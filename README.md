@@ -27,7 +27,9 @@ possible with benchmarking in Rust.
 
 ## Guide
 
-A guide is being worked on. In the meantime, [see announcement post](https://nikolaivazquez.com/blog/divan/).
+A guide is being worked on. In the meantime, see:
+- [Announcement post](https://nikolaivazquez.com/blog/divan/)
+- ["Proving Performance" FOSDEM talk](https://youtu.be/P87C4jNakGs)
 
 ## Getting Started
 
