@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Missing update to `divan-macros` dependency.
+
 ## [0.1.12] - 2024-02-09
 
 ### Added
