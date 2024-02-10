@@ -58,11 +58,12 @@ impl BenchArgs {
     pub fn runner<I, B>(
         &'static self,
         make_args: impl FnOnce() -> I,
+        arg_to_string: impl Fn(&I::Item) -> String,
         _bench_impl: B,
     ) -> BenchArgsRunner
     where
         I: IntoIterator,
-        I::Item: Any + ToString + Send + Sync,
+        I::Item: Any + Send + Sync,
         B: FnOnce(Bencher, &I::Item) + Copy,
     {
         let args = self.args.get_or_init(|| {
@@ -90,7 +91,7 @@ impl BenchArgs {
                                 return arg;
                             }
 
-                            Box::leak(arg.to_string().into_boxed_str())
+                            Box::leak(arg_to_string(arg).into_boxed_str())
                         })
                         .collect(),
                 )
@@ -205,7 +206,7 @@ mod tests {
         fn str() {
             static ARGS: BenchArgs = BenchArgs::new();
 
-            let runner = ARGS.runner(|| ["a", "b"], |_, _| {});
+            let runner = ARGS.runner(|| ["a", "b"], ToString::to_string, |_, _| {});
 
             let typed_args = runner.args.typed_args::<&str>().unwrap();
             let names = runner.arg_names();
@@ -219,7 +220,8 @@ mod tests {
         fn string() {
             static ARGS: BenchArgs = BenchArgs::new();
 
-            let runner = ARGS.runner(|| ["a".to_owned(), "b".to_owned()], |_, _| {});
+            let runner =
+                ARGS.runner(|| ["a".to_owned(), "b".to_owned()], ToString::to_string, |_, _| {});
 
             let typed_args = runner.args.typed_args::<String>().unwrap();
             let names = runner.arg_names();
@@ -234,6 +236,7 @@ mod tests {
 
             let runner = ARGS.runner(
                 || ["a".to_owned().into_boxed_str(), "b".to_owned().into_boxed_str()],
+                ToString::to_string,
                 |_, _| {},
             );
 
@@ -248,8 +251,11 @@ mod tests {
         fn cow_str() {
             static ARGS: BenchArgs = BenchArgs::new();
 
-            let runner =
-                ARGS.runner(|| [Cow::Owned("a".to_owned()), Cow::Borrowed("b")], |_, _| {});
+            let runner = ARGS.runner(
+                || [Cow::Owned("a".to_owned()), Cow::Borrowed("b")],
+                ToString::to_string,
+                |_, _| {},
+            );
 
             let typed_args = runner.args.typed_args::<Cow<str>>().unwrap();
             let names = runner.arg_names();

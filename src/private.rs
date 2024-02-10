@@ -1,7 +1,7 @@
-use std::borrow::Borrow;
 pub use std::{
     self, any, borrow::Cow, default::Default, iter::FromIterator, option::Option::*, sync::OnceLock,
 };
+use std::{borrow::Borrow, fmt::Debug};
 
 pub use crate::{
     bench::{BenchArgs, BenchOptions},
@@ -11,6 +11,29 @@ pub use crate::{
     },
     time::IntoDuration,
 };
+
+/// Helper to convert values to strings via `ToString` or fallback to `Debug`.
+///
+/// This works by having a `Debug`-based `ToString::to_string` method that will
+/// be chosen if the wrapped type implements `Debug` *but not* `ToString`. If
+/// the wrapped type implements `ToString`, then the inherent
+/// `ToStringHelper::to_string` method will be chosen instead.
+pub struct ToStringHelper<'a, T: 'static>(pub &'a T);
+
+impl<T: Debug> ToString for ToStringHelper<'_, T> {
+    #[inline]
+    fn to_string(&self) -> String {
+        format!("{:?}", self.0)
+    }
+}
+
+impl<T: ToString> ToStringHelper<'_, T> {
+    #[allow(clippy::inherent_to_string)]
+    #[inline]
+    pub fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+}
 
 /// Used by `#[divan::bench(args = ...)]` to enable polymorphism.
 pub trait Arg<T> {

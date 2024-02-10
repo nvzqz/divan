@@ -247,6 +247,8 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                 #bench_entry_runner::Args(|| __DIVAN_ARGS.runner(
                     || #arg_return_tokens { #args },
 
+                    |arg| #private_mod::ToStringHelper(arg).to_string(),
+
                     |divan, __divan_arg| divan.bench(|| #fn_expr(
                         #private_mod::Arg::<#last_arg_type_tokens>::get(__divan_arg)
                     )),
@@ -257,6 +259,8 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             (2, Some(args)) => quote! {
                 #bench_entry_runner::Args(|| __DIVAN_ARGS.runner(
                     || #arg_return_tokens { #args },
+
+                    |arg| #private_mod::ToStringHelper(arg).to_string(),
 
                     |divan, __divan_arg| #fn_expr(
                         divan,

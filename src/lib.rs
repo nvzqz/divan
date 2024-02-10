@@ -358,20 +358,13 @@ pub fn black_box_drop<T>(dummy: T) {
 /// ```
 ///
 /// Unlike the [`consts`] option, any argument type is supported if it
-/// implements [`Any`], [`Copy`], [`Send`], [`Sync`], and [`ToString`]:
+/// implements [`Any`], [`Copy`], [`Send`], [`Sync`], and [`ToString`] (or
+/// [`Debug`](std::fmt::Debug)):
 ///
 /// ```
-/// #[derive(Clone, Copy)]
+/// #[derive(Clone, Copy, Debug)]
 /// enum Arg {
 ///     A, B
-/// }
-///
-/// // `Display` implies `ToString`.
-/// impl std::fmt::Display for Arg {
-///     // ...
-///     # fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-///     #    Ok(())
-///     # }
 /// }
 ///
 /// #[divan::bench(args = [Arg::A, Arg::B])]
@@ -384,15 +377,9 @@ pub fn black_box_drop<T>(dummy: T) {
 /// a reference:
 ///
 /// ```
+/// #[derive(Debug)]
 /// enum Arg {
 ///     A, B
-/// }
-///
-/// impl std::fmt::Display for Arg {
-///     // ...
-///     # fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-///     #    Ok(())
-///     # }
 /// }
 ///
 /// #[divan::bench(args = [Arg::A, Arg::B])]

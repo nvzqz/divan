@@ -10,6 +10,21 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Display [`args`] option values with [`Debug`] instead if [`ToString`] is not
+  implemented.
+
+  This makes it simple to use enums with derived [`Debug`]:
+
+  ```rs
+  #[derive(Debug)]
+  enum Arg { A, B }
+
+  #[divan::bench(args = [Arg::A, Arg::B])]
+  fn bench_args(arg: &Arg) {
+      ...
+  }
+  ```
+
 - Documentation of when to use [`black_box`] in benchmarks.
 
 ## [0.1.11] - 2024-01-20
@@ -49,15 +64,6 @@ Versioning](http://semver.org/spec/v2.0.0.html).
     is not needed if the argument is used through a reference.
   - It does not increase compile times, unlike [`consts`] which needs to
     generate new code for each constant used.
-
-[`args`]: https://docs.rs/divan/latest/divan/attr.bench.html#args
-[`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
-
-[`Any`]: https://doc.rust-lang.org/std/any/trait.Any.html
-[`Copy`]: https://doc.rust-lang.org/std/marker/trait.Copy.html
-[`Send`]: https://doc.rust-lang.org/std/marker/trait.Send.html
-[`Sync`]: https://doc.rust-lang.org/std/marker/trait.Sync.html
-[`ToString`]: https://doc.rust-lang.org/std/string/trait.ToString.html
 
 ## [0.1.8] - 2023-12-19
 
@@ -257,10 +263,18 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
 
 [`AllocProfiler`]: https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html
+[`args`]: https://docs.rs/divan/latest/divan/attr.bench.html#args
 [`black_box`]: https://docs.rs/divan/latest/divan/fn.black_box.html
+[`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
 
+[`Any`]: https://doc.rust-lang.org/std/any/trait.Any.html
+[`Copy`]: https://doc.rust-lang.org/std/marker/trait.Copy.html
+[`Debug`]: https://doc.rust-lang.org/std/fmt/trait.Debug.html
 [`Drop`]: https://doc.rust-lang.org/std/ops/trait.Drop.html
 [`Iterator`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html
+[`Send`]: https://doc.rust-lang.org/std/marker/trait.Send.html
+[`Sync`]: https://doc.rust-lang.org/std/marker/trait.Sync.html
+[`ToString`]: https://doc.rust-lang.org/std/string/trait.ToString.html
 [available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
 [drop_fn]: https://doc.rust-lang.org/std/mem/fn.drop.html
 [`thread_local!`]: https://doc.rust-lang.org/std/macro.thread_local.html
