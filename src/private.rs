@@ -20,6 +20,7 @@ pub use crate::{
 /// `ToStringHelper::to_string` method will be chosen instead.
 pub struct ToStringHelper<'a, T: 'static>(pub &'a T);
 
+#[allow(clippy::to_string_trait_impl)]
 impl<T: Debug> ToString for ToStringHelper<'_, T> {
     #[inline]
     fn to_string(&self) -> String {
