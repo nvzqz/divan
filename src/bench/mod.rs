@@ -4,7 +4,6 @@ use std::{
     mem::{self, MaybeUninit},
     num::NonZeroUsize,
     sync::Barrier,
-    thread,
 };
 
 use crate::{
@@ -714,29 +713,17 @@ impl<'a> BenchContext<'a> {
                     raw_samples.push(sample);
                 }
             } else {
-                // TODO: Reuse auxiliary threads across samples.
-                thread::scope(|scope| {
-                    let thread_handles: Vec<_> = (0..aux_thread_count)
-                        .map(|_| scope.spawn(|| record_sample(&mut DeferStore::default())))
-                        .collect();
+                self.shared_context.auxiliary_threads.with_threads(
+                    aux_thread_count,
+                    || record_sample(&mut DeferStore::default()),
+                    |threaded_samples| {
+                        let local_sample = record_sample(&mut defer_store);
 
-                    let local_sample = record_sample(&mut defer_store);
-
-                    if !is_test {
-                        raw_samples.extend(
-                            thread_handles
-                                .into_iter()
-                                .map(|handle| {
-                                    // Propagate panics to behave the same as
-                                    // automatic joining.
-                                    handle
-                                        .join()
-                                        .unwrap_or_else(|error| std::panic::resume_unwind(error))
-                                })
-                                .chain(Some(local_sample)),
-                        );
-                    }
-                });
+                        if !is_test {
+                            raw_samples.extend(threaded_samples.chain(Some(local_sample)));
+                        }
+                    },
+                );
             }
 
             #[cfg(test)]
