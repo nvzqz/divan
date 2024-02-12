@@ -52,26 +52,28 @@ A guide is being worked on. In the meantime, see:
         divan::main();
     }
 
-    // Define a `fibonacci` function and register it for benchmarking.
-    #[divan::bench]
-    fn fibonacci() -> u64 {
-        fn compute(n: u64) -> u64 {
-            if n <= 1 {
-                1
-            } else {
-                compute(n - 2) + compute(n - 1)
-            }
+    // Register a `fibonacci` function and benchmark it over multiple cases.
+    #[divan::bench(args = [1, 2, 4, 8, 16, 32])]
+    fn fibonacci(n: u64) -> u64 {
+        if n <= 1 {
+            1
+        } else {
+            fibonacci(n - 2) + fibonacci(n - 1)
         }
-
-        compute(divan::black_box(10))
     }
     ```
 
 3. Run your benchmarks with [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html):
 
     ```txt
-    example       fastest  │ slowest │ median   │ mean     │ samples │ iters
-    ╰─ f​ibonacci  196.1 ns │ 217 ns  │ 197.5 ns │ 198.1 ns │ 100     │ 3200
+    example       fastest  │ slowest  │ median   │ mean     │ samples │ iters
+    ╰─ fibonacci           │          │          │          │         │
+       ├─ 1       0.626 ns │ 1.735 ns │ 0.657 ns │ 0.672 ns │ 100     │ 819200
+       ├─ 2       2.767 ns │ 3.154 ns │ 2.788 ns │ 2.851 ns │ 100     │ 204800
+       ├─ 4       6.816 ns │ 7.671 ns │ 7.061 ns │ 7.167 ns │ 100     │ 102400
+       ├─ 8       57.31 ns │ 62.51 ns │ 57.96 ns │ 58.55 ns │ 100     │ 12800
+       ├─ 16      2.874 µs │ 3.812 µs │ 2.916 µs │ 3.006 µs │ 100     │ 200
+       ╰─ 32      6.267 ms │ 6.954 ms │ 6.283 ms │ 6.344 ms │ 100     │ 100
     ```
 
 See [`#[divan::bench]`][bench_attr] for info on benchmark function registration.
