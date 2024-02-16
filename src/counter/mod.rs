@@ -142,7 +142,7 @@ impl BytesCount {
     where
         I: IntoIterator<Item = T>,
     {
-        Self::new(mem::size_of::<T>() * iter.into_iter().count())
+        Self::of_many::<T>(iter.into_iter().count())
     }
 
     /// Counts the bytes of a [`&str`].

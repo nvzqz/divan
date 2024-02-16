@@ -12,6 +12,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 - Improve [`args`] documentation by relating it to using [`Bencher`].
 
+- Define [`BytesCount::of_iter`] in terms of [`BytesCount::of_many`].
+
 ## [0.1.13] - 2024-02-09
 
 ### Fixed
@@ -280,6 +282,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [`args`]: https://docs.rs/divan/latest/divan/attr.bench.html#args
 [`Bencher`]: https://docs.rs/divan/0.1/divan/struct.Bencher.html
 [`black_box`]: https://docs.rs/divan/latest/divan/fn.black_box.html
+[`BytesCount::of_iter`]: https://docs.rs/divan/0.1/divan/counter/struct.BytesCount.html#method.of_iter
+[`BytesCount::of_many`]: https://docs.rs/divan/0.1/divan/counter/struct.BytesCount.html#method.of_many
 [`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
 
 [`Any`]: https://doc.rust-lang.org/std/any/trait.Any.html
