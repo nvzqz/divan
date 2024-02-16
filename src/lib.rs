@@ -320,7 +320,15 @@ pub fn black_box_drop<T>(dummy: T) {
 /// ## `args`
 /// [`args`]: #args
 ///
-/// Divan supports providing runtime arguments to benchmarked functions.
+/// Function arguments can be provided to benchmark the function over multiple
+/// cases. This is used for comparing across parameters like collection lengths
+/// and [`enum`](https://doc.rust-lang.org/std/keyword.enum.html) variants. If
+/// you are not comparing cases and just need to pass a value into the
+/// benchmark, instead consider passing local values into the [`Bencher::bench`]
+/// closure or use [`Bencher::with_inputs`] for many distinct values.
+///
+/// The following example benchmarks converting a [`Range`](std::ops::Range) to
+/// [`Vec`] over different lengths:
 ///
 /// ```
 /// #[divan::bench(args = [1000, LEN, len()])]
@@ -402,18 +410,23 @@ pub fn black_box_drop<T>(dummy: T) {
 /// }
 /// ```
 ///
-/// Arguments can also be used with [`Bencher`]. This allows for providing
-/// throughput information via [`Counter`s](crate::counter::Counter):
+/// Arguments can also be used with [`Bencher`]. This allows for generating
+/// inputs based on [`args`] values or providing throughput information via
+/// [`Counter`s](crate::counter::Counter):
 ///
 /// ```
+/// # fn new_value<T>(v: T) -> T { v }
+/// # fn do_work<T>(_: T) {}
 /// use divan::Bencher;
 ///
 /// #[divan::bench(args = [1, 2, 3])]
 /// fn bench(bencher: Bencher, len: usize) {
+///     let value = new_value(len);
+///
 ///     bencher
 ///         .counter(len)
 ///         .bench(|| {
-///             // ...
+///             do_work(value);
 ///         });
 /// }
 /// ```

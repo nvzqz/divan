@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changes
+
+- Improve [`args`] documentation by relating it to using [`Bencher`].
+
 ## [0.1.13] - 2024-02-09
 
 ### Fixed
@@ -274,6 +278,7 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 
 [`AllocProfiler`]: https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html
 [`args`]: https://docs.rs/divan/latest/divan/attr.bench.html#args
+[`Bencher`]: https://docs.rs/divan/0.1/divan/struct.Bencher.html
 [`black_box`]: https://docs.rs/divan/latest/divan/fn.black_box.html
 [`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
 
