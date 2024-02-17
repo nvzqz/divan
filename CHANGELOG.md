@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Set correct field in [`Divan::max_time`]. ([#45](https://github.com/nvzqz/divan/pull/45))
+
 ### Changes
 
 - Improve [`args`] documentation by relating it to using [`Bencher`].
@@ -285,6 +289,7 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [`BytesCount::of_iter`]: https://docs.rs/divan/0.1/divan/counter/struct.BytesCount.html#method.of_iter
 [`BytesCount::of_many`]: https://docs.rs/divan/0.1/divan/counter/struct.BytesCount.html#method.of_many
 [`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
+[`Divan::max_time`]: https://docs.rs/divan/0.1/divan/struct.Divan.html#method.max_time
 
 [`Any`]: https://doc.rust-lang.org/std/any/trait.Any.html
 [`Copy`]: https://doc.rust-lang.org/std/marker/trait.Copy.html
