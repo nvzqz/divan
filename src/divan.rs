@@ -663,7 +663,7 @@ impl Divan {
     /// This option is equivalent to the `--max-time` CLI argument.
     #[inline]
     pub fn max_time(mut self, time: Duration) -> Self {
-        self.bench_options.min_time = Some(time);
+        self.bench_options.max_time = Some(time);
         self
     }
 
