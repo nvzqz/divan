@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.14] - 2024-02-17
+
 ### Fixed
 
 - Set correct field in [`Divan::max_time`]. ([#45](https://github.com/nvzqz/divan/pull/45))
@@ -267,7 +269,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.13...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.14...HEAD
+[0.1.14]: https://github.com/nvzqz/divan/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/nvzqz/divan/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/nvzqz/divan/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/nvzqz/divan/compare/v0.1.10...v0.1.11
