@@ -223,7 +223,6 @@ static ALLOC_PTHREAD_KEY: CachePadded<PThreadKey<ThreadAllocInfo>> = CachePadded
 
 impl ThreadAllocInfo {
     #[inline]
-    #[cfg(not(target_os = "macos"))]
     pub const fn new() -> Self {
         Self { tallies: ThreadAllocTallyMap::new() }
     }
@@ -306,10 +305,7 @@ impl ThreadAllocInfo {
 
     /// Sets 0 to all values.
     pub fn clear(&mut self) {
-        for tally in &mut self.tallies.values {
-            tally.count = 0;
-            tally.size = 0;
-        }
+        *self = Self::new();
     }
 
     /// Tallies the total count and size of the allocation operation.

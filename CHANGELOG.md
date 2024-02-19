@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changes
+
+- Simplify `ThreadAllocInfo::clear`.
+
 ## [0.1.14] - 2024-02-17
 
 ### Fixed
