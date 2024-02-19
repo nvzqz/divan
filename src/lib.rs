@@ -18,6 +18,7 @@ mod config;
 mod divan;
 mod entry;
 mod stats;
+mod threads;
 mod time;
 mod tree_painter;
 mod util;
