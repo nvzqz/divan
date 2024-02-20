@@ -19,6 +19,32 @@ pub trait Clear {
     fn clear(&mut self);
 }
 
+pub trait PopFront<T> {
+    fn pop_front(&mut self) -> Option<T>;
+}
+
+impl<T> PopFront<T> for Vec<T> {
+    fn pop_front(&mut self) -> Option<T> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self.remove(0))
+        }
+    }
+}
+
+impl<T> PopFront<T> for VecDeque<T> {
+    fn pop_front(&mut self) -> Option<T> {
+        self.pop_front()
+    }
+}
+
+impl<T> PopFront<T> for LinkedList<T> {
+    fn pop_front(&mut self) -> Option<T> {
+        self.pop_front()
+    }
+}
+
 macro_rules! impl_with_capacity {
     ($($t:ident),+) => {
         $(impl WithCapacity for $t<i32> {
@@ -120,4 +146,16 @@ fn drop<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
 )]
 fn clear<T: FromIterator<i32> + Clear>(bencher: Bencher, len: usize) {
     bencher.counter(len).with_inputs(|| collect_nums::<T>(len)).bench_refs(T::clear);
+}
+
+#[divan::bench(
+    types = [
+        Vec<i32>,
+        VecDeque<i32>,
+        LinkedList<i32>,
+    ],
+    args = LENS,
+)]
+fn pop_front<T: FromIterator<i32> + PopFront<i32>>(bencher: Bencher, len: usize) {
+    bencher.counter(len).with_inputs(|| collect_nums::<T>(len)).bench_refs(T::pop_front);
 }
