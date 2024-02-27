@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt, num::NonZeroUsize, path::PathBuf, time::Duration};
+use std::{borrow::Cow, fmt, fs::OpenOptions, num::NonZeroUsize, path::PathBuf, time::Duration};
 
 use clap::ColorChoice;
 use regex::Regex;
@@ -190,7 +190,7 @@ impl Divan {
 
     fn output(&self, result: OutputStats) -> std::io::Result<()> {
         if let Some((path, mode)) = &self.file_output {
-            let file = std::fs::File::create(path)?;
+            let file = OpenOptions::new().append(true).write(true).create(true).open(path)?;
             (match mode {
                 FileFormat::Json => json_output,
             })(result, file)?;
