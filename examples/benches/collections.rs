@@ -4,11 +4,43 @@
 //! cargo bench -q -p examples --bench collections
 //! ```
 
+use divan::{black_box, AllocProfiler, Bencher};
 use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
 
-use divan::{AllocProfiler, Bencher};
+pub fn collect_nums<T: FromIterator<i32>>(n: usize) -> T {
+    black_box(0..(n as i32)).collect()
+}
 
-mod util;
+pub trait WithCapacity {
+    fn with_capacity(c: usize) -> Self;
+}
+
+pub trait Clear {
+    fn clear(&mut self);
+}
+
+macro_rules! impl_with_capacity {
+    ($($t:ident),+) => {
+        $(impl WithCapacity for $t<i32> {
+            fn with_capacity(c: usize) -> Self {
+                $t::with_capacity(c)
+            }
+        })+
+    };
+}
+
+macro_rules! impl_clear {
+    ($($t:ident),+) => {
+        $(impl Clear for $t<i32> {
+            fn clear(&mut self) {
+                $t::clear(self);
+            }
+        })+
+    };
+}
+
+impl_with_capacity!(Vec, VecDeque, BinaryHeap, HashSet);
+impl_clear!(Vec, VecDeque, BinaryHeap, HashSet, LinkedList, BTreeSet);
 
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
@@ -40,7 +72,7 @@ fn default<T: Default>() -> T {
     ],
     args = LENS,
 )]
-fn with_capacity<T: util::WithCapacity>(bencher: Bencher, len: usize) {
+fn with_capacity<T: WithCapacity>(bencher: Bencher, len: usize) {
     bencher.counter(len).bench(|| T::with_capacity(len))
 }
 
@@ -56,7 +88,7 @@ fn with_capacity<T: util::WithCapacity>(bencher: Bencher, len: usize) {
     args = LENS,
 )]
 fn from_iter<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
-    bencher.counter(len).bench(|| util::collect_nums::<T>(len))
+    bencher.counter(len).bench(|| collect_nums::<T>(len))
 }
 
 #[divan::bench(
@@ -71,7 +103,7 @@ fn from_iter<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
     args = LENS,
 )]
 fn drop<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
-    bencher.counter(len).with_inputs(|| util::collect_nums::<T>(len)).bench_values(std::mem::drop);
+    bencher.counter(len).with_inputs(|| collect_nums::<T>(len)).bench_values(std::mem::drop);
 }
 
 #[divan::bench(
@@ -86,6 +118,6 @@ fn drop<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
     args = LENS,
     max_time = 1,
 )]
-fn clear<T: FromIterator<i32> + util::Clear>(bencher: Bencher, len: usize) {
-    bencher.counter(len).with_inputs(|| util::collect_nums::<T>(len)).bench_refs(T::clear);
+fn clear<T: FromIterator<i32> + Clear>(bencher: Bencher, len: usize) {
+    bencher.counter(len).with_inputs(|| collect_nums::<T>(len)).bench_refs(T::clear);
 }
