@@ -23,8 +23,6 @@ mod stats;
 mod time;
 mod util;
 
-pub mod counter;
-
 /// Prevents compiler optimizations on a value.
 ///
 /// `black_box` should only be used on [inputs](#benchmark-inputs) and
