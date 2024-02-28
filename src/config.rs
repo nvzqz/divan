@@ -187,4 +187,5 @@ impl SortingAttr {
 pub(crate) enum FileFormat {
     #[default]
     Json,
+    JsonFlat,
 }

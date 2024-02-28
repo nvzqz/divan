@@ -208,12 +208,13 @@ impl ValueEnum for SortingAttr {
 
 impl ValueEnum for FileFormat {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Json]
+        &[Self::Json, Self::JsonFlat]
     }
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
         let name = match self {
             FileFormat::Json => "json",
+            FileFormat::JsonFlat => "jsonflat",
         };
         Some(PossibleValue::new(name))
     }

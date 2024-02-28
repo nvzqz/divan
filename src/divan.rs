@@ -11,6 +11,7 @@ use crate::{
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
     output::{
+        json::json_flat_output,
         json_output,
         tree_painter::{TreeColumn, TreePainter},
         LeafStat, OutputStats, StatCollector, StatTree,
@@ -190,9 +191,10 @@ impl Divan {
 
     fn output(&self, result: OutputStats) -> std::io::Result<()> {
         if let Some((path, mode)) = &self.file_output {
-            let file = OpenOptions::new().append(true).write(true).create(true).open(path)?;
+            let file = OpenOptions::new().append(true).create(true).open(path)?;
             (match mode {
                 FileFormat::Json => json_output,
+                FileFormat::JsonFlat => json_flat_output,
             })(result, file)?;
             println!("Results written to {}", path.display());
         }
