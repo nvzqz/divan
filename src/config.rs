@@ -182,3 +182,10 @@ impl SortingAttr {
         Ordering::Equal
     }
 }
+
+#[derive(Clone, Copy, Default)]
+pub(crate) enum FileFormat {
+    #[default]
+    Json,
+    JsonFlat,
+}
