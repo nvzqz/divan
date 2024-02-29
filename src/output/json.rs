@@ -113,13 +113,18 @@ fn json_flat_write(names: &mut Vec<String>, st: StatTree, out: &mut Vec<JsonValu
         StatTree::Leaf { name, result } => {
             names.push(name);
             //let bench_name = names.join(".");
+            let path = names.clone();
+            names.pop();
+
+            let result = trans_leaf(result);
+            if result == json!("Ignored") || result == json!("Empty") {
+                return;
+            }
 
             let value = json!({
-                "path": names,
-                "result": trans_leaf(result)
+                "path": path,
+                "result": result
             });
-
-            names.pop();
 
             // let v = json!({ "row": (bench_name, trans_leaf(result)) });
             out.push(value);
