@@ -162,7 +162,7 @@ pub(crate) fn command() -> Command {
             option("file")
                 .env("DIVAN_WRITE_FILE")
                 .value_name("PATH")
-                .help("Set the file path to output the results to")
+                .help("Set the file path to append the results to")
                 .value_parser(value_parser!(PathBuf))
         )
         .arg(
