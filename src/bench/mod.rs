@@ -655,7 +655,7 @@ impl<'a> BenchContext<'a> {
         let skip_ext_time = self.options.skip_ext_time.unwrap_or_default();
         let initial_start = if skip_ext_time { None } else { Some(Timestamp::start(timer_kind)) };
 
-        let bench_overhead = timer.sample_loop_overhead();
+        let bench_overheads = timer.bench_overheads();
 
         while {
             // Conditions for when sampling is over:
@@ -779,17 +779,18 @@ impl<'a> BenchContext<'a> {
                 }
             }
 
-            // Account the sample duration for the per-sample benchmarking
-            // overhead.
-            let sub_sample_overhead = {
-                let overhead = bench_overhead.picos.saturating_mul(sample_size as u128);
+            // Returns the sample's duration adjusted for overhead.
+            let sample_duration_sub_overhead = |raw_sample: &RawSample| {
+                let overhead = bench_overheads.total_overhead(sample_size, &raw_sample.alloc_info);
 
-                move |d: FineDuration| {
-                    FineDuration {
-                        picos: d.clamp_to(timer_precision).picos.saturating_sub(overhead),
-                    }
-                    .clamp_to(timer_precision)
+                FineDuration {
+                    picos: raw_sample
+                        .duration()
+                        .clamp_to(timer_precision)
+                        .picos
+                        .saturating_sub(overhead.picos),
                 }
+                .clamp_to(timer_precision)
             };
 
             for raw_sample in &raw_samples {
@@ -797,7 +798,7 @@ impl<'a> BenchContext<'a> {
 
                 self.samples
                     .time_samples
-                    .push(TimeSample { duration: sub_sample_overhead(raw_sample.duration()) });
+                    .push(TimeSample { duration: sample_duration_sub_overhead(raw_sample) });
 
                 if !raw_sample.alloc_info.tallies.is_empty() {
                     self.samples

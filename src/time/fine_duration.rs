@@ -105,6 +105,8 @@ impl<I: Into<u128>> ops::Div<I> for FineDuration {
 }
 
 impl FineDuration {
+    pub const ZERO: Self = Self { picos: 0 };
+
     pub const MAX: Self = Self { picos: u128::MAX };
 
     #[inline]

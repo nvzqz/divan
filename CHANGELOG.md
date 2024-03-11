@@ -22,6 +22,9 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Changes
 
+- Subtract overhead of [`AllocProfiler`] from timings. Now that Divan also
+  tracks the maximum bytes allocated, the overhead was apparent in timings.
+
 - Simplify `ThreadAllocInfo::clear`.
 
 - Move measured loop overhead from `SharedContext` to global `OnceLock`.

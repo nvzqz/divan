@@ -306,7 +306,7 @@ impl ThreadAllocInfo {
 
     /// Tallies the total count and size of the allocation operation.
     #[inline]
-    fn tally_alloc(&mut self, size: usize) {
+    pub fn tally_alloc(&mut self, size: usize) {
         self.tally_op(AllocOp::Alloc, size);
 
         self.current_size += size as ThreadAllocCountSigned;
@@ -315,7 +315,7 @@ impl ThreadAllocInfo {
 
     /// Tallies the total count and size of the allocation operation.
     #[inline]
-    fn tally_dealloc(&mut self, size: usize) {
+    pub fn tally_dealloc(&mut self, size: usize) {
         self.tally_op(AllocOp::Dealloc, size);
 
         self.current_size -= size as ThreadAllocCountSigned;
@@ -323,7 +323,7 @@ impl ThreadAllocInfo {
 
     /// Tallies the total count and size of the allocation operation.
     #[inline]
-    fn tally_realloc(&mut self, old_size: usize, new_size: usize) {
+    pub fn tally_realloc(&mut self, old_size: usize, new_size: usize) {
         let (diff, is_shrink) = new_size.overflowing_sub(old_size);
         let diff = diff as isize;
         let abs_diff = diff.wrapping_abs() as usize;
