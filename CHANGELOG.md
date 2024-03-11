@@ -8,6 +8,11 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Improve precision by using `f64` when calculating allocation count and sizes
+  for the median samples.
+
 ### Changes
 
 - Simplify `ThreadAllocInfo::clear`.

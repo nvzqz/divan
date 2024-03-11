@@ -9,8 +9,8 @@ use std::{
 
 use crate::{
     alloc::{
-        AllocOp, AllocOpMap, AllocTally, ThreadAllocCount, ThreadAllocInfo, ThreadAllocTally,
-        ThreadAllocTallyMap, TotalAllocTallyMap,
+        AllocOp, AllocOpMap, AllocTally, ThreadAllocInfo, ThreadAllocTally, ThreadAllocTallyMap,
+        TotalAllocTallyMap,
     },
     black_box, black_box_drop,
     counter::{
@@ -1193,6 +1193,7 @@ impl<'a> BenchContext<'a> {
             alloc_info.add_to_total(&mut alloc_total_tallies);
         }
 
+        let sample_size = f64::from(sample_size);
         Stats {
             sample_count: sample_count as u32,
             iter_count: total_count,
@@ -1209,16 +1210,16 @@ impl<'a> BenchContext<'a> {
                             let fastest = sample_alloc_tally(sorted_samples.first().copied(), op);
 
                             AllocTally {
-                                count: fastest.count as f64 / f64::from(sample_size),
-                                size: fastest.size as f64 / f64::from(sample_size),
+                                count: fastest.count as f64 / sample_size,
+                                size: fastest.size as f64 / sample_size,
                             }
                         },
                         slowest: {
                             let slowest = sample_alloc_tally(sorted_samples.last().copied(), op);
 
                             AllocTally {
-                                count: slowest.count as f64 / f64::from(sample_size),
-                                size: slowest.size as f64 / f64::from(sample_size),
+                                count: slowest.count as f64 / sample_size,
+                                size: slowest.size as f64 / sample_size,
                             }
                         },
                         median: {
@@ -1229,14 +1230,14 @@ impl<'a> BenchContext<'a> {
                             let a = tally_for_median(0);
                             let b = tally_for_median(1);
 
-                            let median_count = median_samples.len().max(1) as ThreadAllocCount;
+                            let median_count = median_samples.len().max(1) as f64;
 
-                            let total_count = (a.count + b.count) / median_count;
-                            let total_size = (a.size + b.size) / median_count;
+                            let avg_count = (a.count as f64 + b.count as f64) / median_count;
+                            let avg_size = (a.size as f64 + b.size as f64) / median_count;
 
                             AllocTally {
-                                count: total_count as f64 / f64::from(sample_size),
-                                size: total_size as f64 / f64::from(sample_size),
+                                count: avg_count / sample_size,
+                                size: avg_size / sample_size,
                             }
                         },
                         mean: {
