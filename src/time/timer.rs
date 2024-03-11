@@ -128,8 +128,24 @@ impl Timer {
         }
     }
 
+    /// Returns the per-timing-sample benchmarking loop overhead.
+    ///
+    /// `min_time` and `max_time` do not consider this as benchmarking time.
+    pub fn sample_loop_overhead(self) -> FineDuration {
+        // Miri is slow, so don't waste time on this.
+        if cfg!(miri) {
+            return Default::default();
+        }
+
+        static CACHED: [OnceLock<FineDuration>; Timer::COUNT] = [OnceLock::new(), OnceLock::new()];
+
+        let cached = &CACHED[self.kind() as usize];
+
+        *cached.get_or_init(|| self.measure_sample_loop_overhead())
+    }
+
     /// Calculates the per-timing-sample benchmarking loop overhead.
-    pub fn measure_sample_loop_overhead(self) -> FineDuration {
+    fn measure_sample_loop_overhead(self) -> FineDuration {
         let timer_kind = self.kind();
 
         let sample_count: usize = 100;

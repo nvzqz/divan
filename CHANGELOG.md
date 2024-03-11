@@ -20,6 +20,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 - Simplify `ThreadAllocInfo::clear`.
 
+- Move measured loop overhead from `SharedContext` to global `OnceLock`.
+
 ## [0.1.14] - 2024-02-17
 
 ### Fixed

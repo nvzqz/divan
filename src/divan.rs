@@ -12,7 +12,7 @@ use crate::{
         BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
-    time::{FineDuration, Timer, TimerKind},
+    time::{Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
     util, Bencher,
 };
@@ -39,11 +39,6 @@ pub(crate) struct SharedContext {
 
     /// The timer used to measure samples.
     pub timer: Timer,
-
-    /// Per-iteration overhead.
-    ///
-    /// `min_time` and `max_time` do not consider this as benchmarking time.
-    pub bench_overhead: FineDuration,
 }
 
 impl fmt::Debug for Divan {
@@ -152,15 +147,7 @@ impl Divan {
             eprintln!("Timer precision: {}", timer.precision());
         }
 
-        let shared_context = SharedContext {
-            action,
-            timer,
-            bench_overhead: if action.is_bench() {
-                timer.measure_sample_loop_overhead()
-            } else {
-                FineDuration::default()
-            },
-        };
+        let shared_context = SharedContext { action, timer };
 
         let column_widths = if action.is_bench() {
             TreeColumn::ALL.map(|column| {

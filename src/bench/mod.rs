@@ -657,6 +657,8 @@ impl<'a> BenchContext<'a> {
         let skip_ext_time = self.options.skip_ext_time.unwrap_or_default();
         let initial_start = if skip_ext_time { None } else { Some(Timestamp::start(timer_kind)) };
 
+        let bench_overhead = timer.sample_loop_overhead();
+
         while {
             // Conditions for when sampling is over:
             if elapsed_picos >= max_picos {
@@ -782,8 +784,7 @@ impl<'a> BenchContext<'a> {
             // Account the sample duration for the per-sample benchmarking
             // overhead.
             let sub_sample_overhead = {
-                let overhead =
-                    self.shared_context.bench_overhead.picos.saturating_mul(sample_size as u128);
+                let overhead = bench_overhead.picos.saturating_mul(sample_size as u128);
 
                 move |d: FineDuration| {
                     FineDuration {
