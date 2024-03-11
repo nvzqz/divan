@@ -166,6 +166,17 @@ impl TreePainter {
 
     /// Exit the current leaf node, emitting statistics.
     pub fn finish_leaf(&mut self, is_last: bool, stats: &Stats, bytes_format: BytesFormat) {
+        let prep_buffer = |buf: &mut String, max_span: &mut usize| {
+            buf.clear();
+            buf.push_str(&self.current_prefix);
+
+            if !is_last {
+                buf.push('│');
+            }
+
+            right_pad_buffer(buf, max_span);
+        };
+
         let buf = &mut self.write_buf;
         buf.clear();
 
@@ -269,14 +280,7 @@ impl TreePainter {
                 continue;
             }
 
-            buf.clear();
-            buf.push_str(&self.current_prefix);
-
-            if !is_last {
-                buf.push('│');
-            }
-
-            right_pad_buffer(buf, &mut self.max_name_span);
+            prep_buffer(buf, &mut self.max_name_span);
 
             counter_stats.write(buf, &mut self.column_widths);
             println!("{buf}");
@@ -288,27 +292,13 @@ impl TreePainter {
                 continue;
             };
 
-            buf.clear();
-            buf.push_str(&self.current_prefix);
-
-            if !is_last {
-                buf.push('│');
-            }
-
-            right_pad_buffer(buf, &mut self.max_name_span);
+            prep_buffer(buf, &mut self.max_name_span);
 
             TreeColumnData::from_first(op.prefix()).write(buf, &mut self.column_widths);
             println!("{buf}");
 
             for value in tallies.as_array() {
-                buf.clear();
-                buf.push_str(&self.current_prefix);
-
-                if !is_last {
-                    buf.push('│');
-                }
-
-                right_pad_buffer(buf, &mut self.max_name_span);
+                prep_buffer(buf, &mut self.max_name_span);
 
                 TreeColumnData::from_fn(|column| value[column as usize].as_str())
                     .write(buf, &mut self.column_widths);
