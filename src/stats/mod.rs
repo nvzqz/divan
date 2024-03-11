@@ -21,6 +21,10 @@ pub(crate) struct Stats {
     /// Timing statistics.
     pub time: StatsSet<FineDuration>,
 
+    /// The maximum allocated bytes associated with the corresponding samples
+    /// for `time`.
+    pub max_alloc: StatsSet<f64>,
+
     /// Allocation statistics associated with the corresponding samples for
     /// `time`.
     pub alloc_tallies: AllocOpMap<AllocTally<StatsSet<f64>>>,

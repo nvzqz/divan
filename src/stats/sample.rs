@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    alloc::ThreadAllocTallyMap,
+    alloc::ThreadAllocInfo,
     counter::KnownCounterKind,
     time::{FineDuration, Timer, Timestamp},
 };
@@ -23,7 +23,7 @@ pub(crate) struct RawSample {
     pub start: Timestamp,
     pub end: Timestamp,
     pub timer: Timer,
-    pub alloc_tallies: ThreadAllocTallyMap,
+    pub alloc_info: ThreadAllocInfo,
     pub counter_totals: [u128; KnownCounterKind::COUNT],
 }
 
@@ -45,7 +45,7 @@ pub(crate) struct SampleCollection {
     pub time_samples: Vec<TimeSample>,
 
     /// Allocation information associated with `time_samples` by index.
-    pub alloc_tallies: HashMap<u32, ThreadAllocTallyMap>,
+    pub alloc_info_by_sample: HashMap<u32, ThreadAllocInfo>,
 }
 
 impl SampleCollection {
@@ -53,7 +53,7 @@ impl SampleCollection {
     #[inline]
     pub fn clear(&mut self) {
         self.time_samples.clear();
-        self.alloc_tallies.clear();
+        self.alloc_info_by_sample.clear();
     }
 
     /// Computes the total number of iterations across all samples.

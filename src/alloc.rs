@@ -1,4 +1,4 @@
-use std::{alloc::*, fmt, ptr::NonNull};
+use std::{alloc::*, fmt, ptr::NonNull, sync::atomic::AtomicBool};
 
 use cfg_if::cfg_if;
 
@@ -18,6 +18,9 @@ use std::cell::UnsafeCell;
 #[cfg(test)]
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
+
+/// Whether to ignore allocation info set during the benchmark.
+pub(crate) static IGNORE_ALLOC: AtomicBool = AtomicBool::new(false);
 
 /// Measures [`GlobalAlloc`] memory usage.
 ///
@@ -129,7 +132,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
             // SAFETY: We have exclusive access.
             let info = unsafe { info.as_mut() };
 
-            info.tally(AllocOp::Alloc, layout.size());
+            info.tally_alloc(layout.size());
         };
 
         self.alloc.alloc(layout)
@@ -141,7 +144,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
             // SAFETY: We have exclusive access.
             let info = unsafe { info.as_mut() };
 
-            info.tally(AllocOp::Alloc, layout.size());
+            info.tally_alloc(layout.size());
         };
 
         self.alloc.alloc_zeroed(layout)
@@ -153,11 +156,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
             // SAFETY: We have exclusive access.
             let info = unsafe { info.as_mut() };
 
-            let shrink = new_size < layout.size();
-            info.tally(
-                AllocOp::realloc(shrink),
-                if shrink { layout.size() - new_size } else { new_size - layout.size() },
-            );
+            info.tally_realloc(layout.size(), new_size);
         };
 
         self.alloc.realloc(ptr, layout, new_size)
@@ -169,7 +168,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
             // SAFETY: We have exclusive access.
             let info = unsafe { info.as_mut() };
 
-            info.tally(AllocOp::Dealloc, layout.size());
+            info.tally_dealloc(layout.size());
         };
 
         self.alloc.dealloc(ptr, layout)
@@ -193,9 +192,16 @@ impl<A> AllocProfiler<A> {
 }
 
 /// Thread-local allocation information.
-#[derive(Default)]
+#[derive(Clone, Default)]
+#[repr(C)]
 pub(crate) struct ThreadAllocInfo {
+    // NOTE: `tallies` should be ordered first so that `tally_realloc` can
+    // directly index `&self` without an offset.
     pub tallies: ThreadAllocTallyMap,
+    // NOTE: `max_size` is signed for convenience but can never be negative due
+    // to it being initialized to 0.
+    pub max_size: ThreadAllocCountSigned,
+    pub current_size: ThreadAllocCountSigned,
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -214,7 +220,7 @@ static ALLOC_PTHREAD_KEY: CachePadded<PThreadKey<ThreadAllocInfo>> = CachePadded
 impl ThreadAllocInfo {
     #[inline]
     pub const fn new() -> Self {
-        Self { tallies: ThreadAllocTallyMap::new() }
+        Self { tallies: ThreadAllocTallyMap::new(), max_size: 0, current_size: 0 }
     }
 
     /// Returns the current thread's allocation information, initializing it on
@@ -300,15 +306,39 @@ impl ThreadAllocInfo {
 
     /// Tallies the total count and size of the allocation operation.
     #[inline]
-    fn tally(&mut self, op: AllocOp, size: usize) {
-        self.tally_n(op, 1, size);
+    fn tally_alloc(&mut self, size: usize) {
+        self.tally_op(AllocOp::Alloc, size);
+
+        self.current_size += size as ThreadAllocCountSigned;
+        self.max_size = self.max_size.max(self.current_size);
     }
 
     /// Tallies the total count and size of the allocation operation.
     #[inline]
-    fn tally_n(&mut self, op: AllocOp, count: usize, size: usize) {
+    fn tally_dealloc(&mut self, size: usize) {
+        self.tally_op(AllocOp::Dealloc, size);
+
+        self.current_size -= size as ThreadAllocCountSigned;
+    }
+
+    /// Tallies the total count and size of the allocation operation.
+    #[inline]
+    fn tally_realloc(&mut self, old_size: usize, new_size: usize) {
+        let (diff, is_shrink) = new_size.overflowing_sub(old_size);
+        let diff = diff as isize;
+        let abs_diff = diff.wrapping_abs() as usize;
+
+        self.tally_op(AllocOp::realloc(is_shrink), abs_diff);
+
+        self.current_size += diff as ThreadAllocCountSigned;
+        self.max_size = self.max_size.max(self.current_size);
+    }
+
+    /// Tallies the total count and size of the allocation operation.
+    #[inline]
+    fn tally_op(&mut self, op: AllocOp, size: usize) {
         let tally = self.tallies.get_mut(op);
-        tally.count += count as ThreadAllocCount;
+        tally.count += 1;
         tally.size += size as ThreadAllocCount;
     }
 }
@@ -331,6 +361,7 @@ pub(crate) struct AllocTally<Count> {
 }
 
 pub(crate) type ThreadAllocCount = condtype::num::Usize64;
+pub(crate) type ThreadAllocCountSigned = condtype::num::Isize64;
 
 pub(crate) type ThreadAllocTally = AllocTally<ThreadAllocCount>;
 
@@ -459,6 +490,8 @@ impl<T> AllocOpMap<T> {
 
 #[cfg(feature = "internal_benches")]
 mod benches {
+    use std::sync::atomic::Ordering;
+
     use super::*;
 
     // We want the approach to scale well with thread count.
@@ -466,8 +499,9 @@ mod benches {
 
     #[crate::bench(crate = crate, threads = THREADS)]
     fn tally_alloc(bencher: crate::Bencher) {
+        IGNORE_ALLOC.store(true, Ordering::Relaxed);
+
         // Using 0 simulates tallying without affecting benchmark reporting.
-        let count = crate::black_box(0);
         let size = crate::black_box(0);
 
         bencher.bench(|| {
@@ -475,7 +509,42 @@ mod benches {
                 // SAFETY: We have exclusive access.
                 let info = unsafe { info.as_mut() };
 
-                info.tally_n(AllocOp::Alloc, count, size)
+                info.tally_alloc(size);
+            }
+        })
+    }
+
+    #[crate::bench(crate = crate, threads = THREADS)]
+    fn tally_dealloc(bencher: crate::Bencher) {
+        IGNORE_ALLOC.store(true, Ordering::Relaxed);
+
+        // Using 0 simulates tallying without affecting benchmark reporting.
+        let size = crate::black_box(0);
+
+        bencher.bench(|| {
+            if let Some(mut info) = ThreadAllocInfo::try_current() {
+                // SAFETY: We have exclusive access.
+                let info = unsafe { info.as_mut() };
+
+                info.tally_dealloc(size);
+            }
+        })
+    }
+
+    #[crate::bench(crate = crate, threads = THREADS)]
+    fn tally_realloc(bencher: crate::Bencher) {
+        IGNORE_ALLOC.store(true, Ordering::Relaxed);
+
+        // Using 0 simulates tallying without affecting benchmark reporting.
+        let new_size = crate::black_box(0);
+        let old_size = crate::black_box(0);
+
+        bencher.bench(|| {
+            if let Some(mut info) = ThreadAllocInfo::try_current() {
+                // SAFETY: We have exclusive access.
+                let info = unsafe { info.as_mut() };
+
+                info.tally_realloc(old_size, new_size);
             }
         })
     }

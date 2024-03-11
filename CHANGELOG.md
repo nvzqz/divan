@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Track the maximum number of bytes allocated during a benchmark.
+
 ### Fixed
 
 - Improve precision by using `f64` when calculating allocation count and sizes

@@ -3,14 +3,13 @@ use std::{
     fmt,
     mem::{self, MaybeUninit},
     num::NonZeroUsize,
-    sync::Barrier,
+    sync::{atomic::Ordering, Barrier},
     thread,
 };
 
 use crate::{
     alloc::{
-        AllocOp, AllocOpMap, AllocTally, ThreadAllocInfo, ThreadAllocTally, ThreadAllocTallyMap,
-        TotalAllocTallyMap,
+        AllocOp, AllocOpMap, AllocTally, ThreadAllocInfo, ThreadAllocTally, TotalAllocTallyMap,
     },
     black_box, black_box_drop,
     counter::{
@@ -697,14 +696,14 @@ impl<'a> BenchContext<'a> {
                 };
 
                 // Sample loop:
-                let ([start, end], alloc_tallies) = record_sample(
+                let ([start, end], alloc_info) = record_sample(
                     sample_size as usize,
                     barrier.as_ref(),
                     defer_store,
                     &mut count_input,
                 );
 
-                RawSample { start, end, timer, alloc_tallies, counter_totals }
+                RawSample { start, end, timer, alloc_info, counter_totals }
             };
 
             // Sample loop:
@@ -800,10 +799,10 @@ impl<'a> BenchContext<'a> {
                     .time_samples
                     .push(TimeSample { duration: sub_sample_overhead(raw_sample.duration()) });
 
-                if !raw_sample.alloc_tallies.is_empty() {
+                if !raw_sample.alloc_info.tallies.is_empty() {
                     self.samples
-                        .alloc_tallies
-                        .insert(sample_index as u32, raw_sample.alloc_tallies);
+                        .alloc_info_by_sample
+                        .insert(sample_index as u32, raw_sample.alloc_info.clone());
                 }
 
                 // Insert per-input counter information.
@@ -836,6 +835,9 @@ impl<'a> BenchContext<'a> {
                 elapsed_picos = elapsed_picos.saturating_add(progress_picos);
             }
         }
+
+        // Reset flag for ignoring allocations.
+        crate::alloc::IGNORE_ALLOC.store(false, Ordering::Relaxed);
     }
 
     /// Returns a closure that takes the sample size and input counter, and then
@@ -850,7 +852,7 @@ impl<'a> BenchContext<'a> {
         Option<&Barrier>,
         &mut DeferStore<I, O>,
         &mut dyn FnMut(&I),
-    ) -> ([Timestamp; 2], ThreadAllocTallyMap) {
+    ) -> ([Timestamp; 2], ThreadAllocInfo) {
         // We defer:
         // - Usage of `gen_input` values.
         // - Drop destructor for `O`, preventing it from affecting sample
@@ -864,14 +866,16 @@ impl<'a> BenchContext<'a> {
               barrier: Option<&Barrier>,
               defer_store: &mut DeferStore<I, O>,
               count_input: &mut dyn FnMut(&I)| {
-            let mut alloc_tallies = ThreadAllocTallyMap::new();
+            let mut saved_alloc_info = ThreadAllocInfo::new();
 
-            let mut sum_alloc_tallies = || {
+            let mut save_alloc_info = || {
+                if crate::alloc::IGNORE_ALLOC.load(Ordering::Relaxed) {
+                    return;
+                }
+
                 if let Some(alloc_info) = ThreadAllocInfo::try_current() {
                     // SAFETY: We have exclusive access.
-                    let alloc_info = unsafe { alloc_info.as_ref() };
-
-                    alloc_tallies = alloc_info.tallies;
+                    saved_alloc_info = unsafe { alloc_info.as_ptr().read() };
                 }
             };
 
@@ -950,7 +954,7 @@ impl<'a> BenchContext<'a> {
 
                 sample_end = UntaggedTimestamp::end(timer_kind);
                 sync_threads(false);
-                sum_alloc_tallies();
+                save_alloc_info();
 
                 // Drop outputs and inputs.
                 for _ in 0..sample_size {
@@ -1005,7 +1009,7 @@ impl<'a> BenchContext<'a> {
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
                         sync_threads(false);
-                        sum_alloc_tallies();
+                        save_alloc_info();
 
                         // Prevent the optimizer from removing writes to inputs
                         // and outputs in the sample loop.
@@ -1054,7 +1058,7 @@ impl<'a> BenchContext<'a> {
 
                         sample_end = UntaggedTimestamp::end(timer_kind);
                         sync_threads(false);
-                        sum_alloc_tallies();
+                        save_alloc_info();
 
                         // Prevent the optimizer from removing writes to inputs
                         // in the sample loop.
@@ -1077,7 +1081,7 @@ impl<'a> BenchContext<'a> {
                 [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
             };
 
-            (interval, alloc_tallies)
+            (interval, saved_alloc_info)
         }
     }
 
@@ -1094,7 +1098,7 @@ impl<'a> BenchContext<'a> {
 
     pub fn compute_stats(&self) -> Stats {
         let time_samples = &self.samples.time_samples;
-        let alloc_samples = &self.samples.alloc_tallies;
+        let alloc_info_by_sample = &self.samples.alloc_info_by_sample;
 
         let sample_count = time_samples.len();
         let sample_size = self.samples.sample_size;
@@ -1165,18 +1169,24 @@ impl<'a> BenchContext<'a> {
             })
         });
 
-        let sample_alloc_tally = |sample: Option<&TimeSample>, op: AllocOp| -> ThreadAllocTally {
+        let sample_alloc_info = |sample: Option<&TimeSample>| -> Option<&ThreadAllocInfo> {
             sample
                 .and_then(|sample| u32::try_from(index_of_sample(sample)).ok())
-                .and_then(|index| self.samples.alloc_tallies.get(&index))
-                .map(|alloc_info| alloc_info.get(op))
+                .and_then(|index| self.samples.alloc_info_by_sample.get(&index))
+        };
+
+        let sample_alloc_tally = |sample: Option<&TimeSample>, op: AllocOp| -> ThreadAllocTally {
+            sample_alloc_info(sample)
+                .map(|alloc_info| alloc_info.tallies.get(op))
                 .copied()
                 .unwrap_or_default()
         };
 
+        let mut alloc_total_max = 0u128;
         let mut alloc_total_tallies = TotalAllocTallyMap::default();
-        for alloc_info in alloc_samples.values() {
-            alloc_info.add_to_total(&mut alloc_total_tallies);
+        for alloc_info in alloc_info_by_sample.values() {
+            alloc_total_max += alloc_info.max_size as u128;
+            alloc_info.tallies.add_to_total(&mut alloc_total_tallies);
         }
 
         let sample_size = f64::from(sample_size);
@@ -1188,6 +1198,35 @@ impl<'a> BenchContext<'a> {
                 slowest: max_duration,
                 median: median_duration,
                 mean: mean_duration,
+            },
+            max_alloc: StatsSet {
+                fastest: {
+                    sample_alloc_info(sorted_samples.first().copied())
+                        .map(|info| info.max_size as f64)
+                        .unwrap_or_default()
+                        / sample_size
+                },
+                slowest: {
+                    sample_alloc_info(sorted_samples.last().copied())
+                        .map(|info| info.max_size as f64)
+                        .unwrap_or_default()
+                        / sample_size
+                },
+                median: {
+                    let max_for_median = |index: usize| -> f64 {
+                        sample_alloc_info(median_samples.get(index).copied())
+                            .map(|info| info.max_size as f64)
+                            .unwrap_or_default()
+                    };
+
+                    let a = max_for_median(0);
+                    let b = max_for_median(1);
+
+                    let median_count = median_samples.len().max(1) as f64;
+
+                    (a + b) / median_count / sample_size
+                },
+                mean: { alloc_total_max as f64 / total_count as f64 },
             },
             alloc_tallies: AllocOpMap {
                 values: AllocOp::ALL
