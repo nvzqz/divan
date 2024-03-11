@@ -122,17 +122,7 @@ impl TreePainter {
         let branch = if !is_last { "├─ " } else { "╰─ " };
         buf.extend([self.current_prefix.as_str(), branch, name]);
 
-        // Right-pad buffer.
-        {
-            let max_span = self.max_name_span;
-            let buf_len = buf.chars().count();
-            let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
-            buf.extend(repeat(' ').take(pad_len));
-
-            if buf_len > max_span {
-                self.max_name_span = buf_len;
-            }
-        }
+        right_pad_buffer(buf, &mut self.max_name_span);
 
         if has_columns {
             TreeColumnData::from_first("(ignored)").write(buf, &mut self.column_widths);
@@ -286,17 +276,7 @@ impl TreePainter {
                 buf.push('│');
             }
 
-            // Right-pad buffer.
-            {
-                let buf_len = buf.chars().count();
-                let max_span = self.max_name_span;
-                let pad_len = TREE_COL_BUF + self.max_name_span.saturating_sub(buf_len);
-                buf.extend(repeat(' ').take(pad_len));
-
-                if buf_len > max_span {
-                    self.max_name_span = buf_len;
-                }
-            };
+            right_pad_buffer(buf, &mut self.max_name_span);
 
             counter_stats.write(buf, &mut self.column_widths);
             println!("{buf}");
@@ -315,17 +295,7 @@ impl TreePainter {
                 buf.push('│');
             }
 
-            // Right-pad buffer.
-            {
-                let buf_len = buf.chars().count();
-                let max_span = self.max_name_span;
-                let pad_len = TREE_COL_BUF + self.max_name_span.saturating_sub(buf_len);
-                buf.extend(repeat(' ').take(pad_len));
-
-                if buf_len > max_span {
-                    self.max_name_span = buf_len;
-                }
-            };
+            right_pad_buffer(buf, &mut self.max_name_span);
 
             TreeColumnData::from_first(op.prefix()).write(buf, &mut self.column_widths);
             println!("{buf}");
@@ -338,17 +308,7 @@ impl TreePainter {
                     buf.push('│');
                 }
 
-                // Right-pad buffer.
-                {
-                    let buf_len = buf.chars().count();
-                    let max_span = self.max_name_span;
-                    let pad_len = TREE_COL_BUF + self.max_name_span.saturating_sub(buf_len);
-                    buf.extend(repeat(' ').take(pad_len));
-
-                    if buf_len > max_span {
-                        self.max_name_span = buf_len;
-                    }
-                };
+                right_pad_buffer(buf, &mut self.max_name_span);
 
                 TreeColumnData::from_fn(|column| value[column as usize].as_str())
                     .write(buf, &mut self.column_widths);
@@ -494,5 +454,15 @@ impl<T> TreeColumnData<T> {
         T: AsRef<U>,
     {
         TreeColumnData::from_fn(|column| self.0[column as usize].as_ref())
+    }
+}
+
+fn right_pad_buffer(buf: &mut String, max_span: &mut usize) {
+    let buf_len = buf.chars().count();
+    let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
+    buf.extend(repeat(' ').take(pad_len));
+
+    if buf_len > *max_span {
+        *max_span = buf_len;
     }
 }
