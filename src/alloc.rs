@@ -123,16 +123,6 @@ pub struct AllocProfiler<Alloc = System> {
 }
 
 unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
-    // NOTE: Within `alloc` we can't access `REUSE_THREAD_INFO` because
-    // thread-locals with `Drop` crash:
-    // https://github.com/rust-lang/rust/issues/116390.
-    //
-    // To get around this, we initialize the drop handle at two locations:
-    // 1. Within `sync_threads` immediately before the sample loop. This covers
-    //    all benchmarks that don't spawn their own threads, so most of them.
-    // 2. Within `dealloc` since it will likely be called before thread
-    //    termination.
-
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // Tally allocation count.
         if let Some(mut info) = ThreadAllocInfo::try_current() {
