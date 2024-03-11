@@ -13,6 +13,9 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 - Improve precision by using `f64` when calculating allocation count and sizes
   for the median samples.
 
+- Multi-thread allocation counting in `sum_alloc_tallies` on macOS was loading a
+  null pointer instead of the pointer initialized by `sync_threads`.
+
 ### Changes
 
 - Simplify `ThreadAllocInfo::clear`.

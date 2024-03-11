@@ -878,10 +878,8 @@ impl<'a> BenchContext<'a> {
               count_input: &mut dyn FnMut(&I)| {
             let mut alloc_tallies = ThreadAllocTallyMap::new();
 
-            let alloc_info = ThreadAllocInfo::try_current();
-
             let mut sum_alloc_tallies = || {
-                if let Some(alloc_info) = alloc_info {
+                if let Some(alloc_info) = ThreadAllocInfo::try_current() {
                     // SAFETY: We have exclusive access.
                     let alloc_info = unsafe { alloc_info.as_ref() };
 
