@@ -18,7 +18,7 @@ use crate::{
         ItemsCount, KnownCounterKind, MaxCountUInt,
     },
     divan::SharedContext,
-    stats::{RawSample, SampleCollection, Stats, StatsSet, ThreadSample, TimeSample},
+    stats::{RawSample, SampleCollection, Stats, StatsSet, TimeSample},
     time::{FineDuration, Timestamp, UntaggedTimestamp},
     util::{self, SyncWrap, Unit},
 };
@@ -613,7 +613,6 @@ impl<'a> BenchContext<'a> {
         let aux_thread_count = thread_count - 1;
 
         let is_single_thread = aux_thread_count == 0;
-        let is_multi_thread = !is_single_thread;
 
         // Per-thread sample info returned by `record_sample`. These are
         // processed locally to emit user-facing sample info. As a result, this
@@ -793,18 +792,6 @@ impl<'a> BenchContext<'a> {
                     .clamp_to(timer_precision)
                 }
             };
-
-            if is_multi_thread {
-                // The total wall clock time spent over the current
-                // multi-threaded sample set.
-                let total_wall_time = {
-                    let first_start = raw_samples.iter().map(|s| s.start).min().unwrap();
-                    let last_end = raw_samples.iter().map(|s| s.end).max().unwrap();
-                    sub_sample_overhead(last_end.duration_since(first_start, timer))
-                };
-
-                self.samples.threads.push(ThreadSample { total_wall_time });
-            }
 
             for raw_sample in &raw_samples {
                 let sample_index = self.samples.time_samples.len();

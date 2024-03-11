@@ -27,19 +27,6 @@ pub(crate) struct RawSample {
     pub counter_totals: [u128; KnownCounterKind::COUNT],
 }
 
-/// Multi-thread measurement.
-pub(crate) struct ThreadSample {
-    /// The total wall clock time spent over the collected samples.
-    ///
-    /// This is the earliest [`RawSample::start`] subtracted from the latest
-    /// [`RawSample::end`] across all threads for the multi-thread sample set.
-    /// In other words, it is the time spent between the timing section
-    /// barriers.
-    // TODO: Report counter throughput.
-    #[allow(dead_code)]
-    pub total_wall_time: FineDuration,
-}
-
 impl RawSample {
     /// Simply computes `end - start` without clamping to precision.
     #[inline]
@@ -59,12 +46,6 @@ pub(crate) struct SampleCollection {
 
     /// Allocation information associated with `time_samples` by index.
     pub alloc_tallies: HashMap<u32, ThreadAllocTallyMap>,
-
-    /// Collected multi-thread data.
-    ///
-    /// To associate this with samples in `all`, stride over `all` with the
-    /// thread count.
-    pub threads: Vec<ThreadSample>,
 }
 
 impl SampleCollection {
@@ -73,7 +54,6 @@ impl SampleCollection {
     pub fn clear(&mut self) {
         self.time_samples.clear();
         self.alloc_tallies.clear();
-        self.threads.clear();
     }
 
     /// Computes the total number of iterations across all samples.

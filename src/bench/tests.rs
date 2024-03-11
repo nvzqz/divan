@@ -61,18 +61,6 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
                 if action.is_test() {
                     assert_eq!(samples.time_samples.capacity(), 0);
                 }
-
-                if action.is_test() || thread_count == 1 {
-                    assert_eq!(samples.threads.capacity(), 0);
-                }
-
-                if thread_count > 1 {
-                    assert_eq!(
-                        samples.threads.len() * thread_count,
-                        samples.time_samples.len(),
-                        "Thread sample count must be a multiple of total sample count"
-                    );
-                }
             }
         }
     }
