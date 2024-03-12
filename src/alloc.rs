@@ -5,7 +5,7 @@ use cfg_if::cfg_if;
 use crate::stats::StatsSet;
 
 #[cfg(target_os = "macos")]
-use crate::util::sync::{CachePadded, PThreadKey};
+use crate::util::{sync::CachePadded, thread::PThreadKey};
 
 #[cfg(not(target_os = "macos"))]
 use std::cell::UnsafeCell;
@@ -263,7 +263,7 @@ impl ThreadAllocInfo {
                 // key that didn't originate from `pthread_key_create`.
                 #[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
                 unsafe {
-                    crate::util::sync::fast::set_static_thread_local(info_alloc.as_ptr());
+                    crate::util::thread::fast::set_static_thread_local(info_alloc.as_ptr());
                 };
 
                 Some(info_alloc.cast())
@@ -286,7 +286,7 @@ impl ThreadAllocInfo {
                     target_arch = "x86_64",
                 ))]
                 return NonNull::new(unsafe {
-                    crate::util::sync::fast::get_static_thread_local::<Self>().cast_mut()
+                    crate::util::thread::fast::get_static_thread_local::<Self>().cast_mut()
                 });
 
                 #[allow(unreachable_code)]

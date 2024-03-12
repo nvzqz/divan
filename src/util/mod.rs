@@ -7,6 +7,7 @@ use std::{
 
 pub mod fmt;
 pub mod sync;
+pub mod thread;
 
 /// Public-in-private type like `()` but meant to be externally-unreachable.
 ///
