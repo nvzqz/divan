@@ -3,7 +3,7 @@ use std::{
     fmt,
     mem::{self, MaybeUninit},
     num::NonZeroUsize,
-    sync::{atomic::Ordering, Barrier},
+    sync::Barrier,
     thread,
 };
 
@@ -838,7 +838,7 @@ impl<'a> BenchContext<'a> {
         }
 
         // Reset flag for ignoring allocations.
-        crate::alloc::IGNORE_ALLOC.store(false, Ordering::Relaxed);
+        crate::alloc::IGNORE_ALLOC.set(false);
     }
 
     /// Returns a closure that takes the sample size and input counter, and then
@@ -870,7 +870,7 @@ impl<'a> BenchContext<'a> {
             let mut saved_alloc_info = ThreadAllocInfo::new();
 
             let mut save_alloc_info = || {
-                if crate::alloc::IGNORE_ALLOC.load(Ordering::Relaxed) {
+                if crate::alloc::IGNORE_ALLOC.get() {
                     return;
                 }
 

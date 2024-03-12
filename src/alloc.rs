@@ -1,8 +1,8 @@
-use std::{alloc::*, fmt, ptr::NonNull, sync::atomic::AtomicBool};
+use std::{alloc::*, fmt, ptr::NonNull};
 
 use cfg_if::cfg_if;
 
-use crate::stats::StatsSet;
+use crate::{stats::StatsSet, util::sync::AtomicFlag};
 
 #[cfg(target_os = "macos")]
 use crate::util::{sync::CachePadded, thread::PThreadKey};
@@ -20,7 +20,7 @@ use std::cell::UnsafeCell;
 static ALLOC: AllocProfiler = AllocProfiler::system();
 
 /// Whether to ignore allocation info set during the benchmark.
-pub(crate) static IGNORE_ALLOC: AtomicBool = AtomicBool::new(false);
+pub(crate) static IGNORE_ALLOC: AtomicFlag = AtomicFlag::new(false);
 
 /// Measures [`GlobalAlloc`] memory usage.
 ///
@@ -490,8 +490,6 @@ impl<T> AllocOpMap<T> {
 
 #[cfg(feature = "internal_benches")]
 mod benches {
-    use std::sync::atomic::Ordering;
-
     use super::*;
 
     // We want the approach to scale well with thread count.
@@ -499,7 +497,7 @@ mod benches {
 
     #[crate::bench(crate = crate, threads = THREADS)]
     fn tally_alloc(bencher: crate::Bencher) {
-        IGNORE_ALLOC.store(true, Ordering::Relaxed);
+        IGNORE_ALLOC.set(true);
 
         // Using 0 simulates tallying without affecting benchmark reporting.
         let size = crate::black_box(0);
@@ -516,7 +514,7 @@ mod benches {
 
     #[crate::bench(crate = crate, threads = THREADS)]
     fn tally_dealloc(bencher: crate::Bencher) {
-        IGNORE_ALLOC.store(true, Ordering::Relaxed);
+        IGNORE_ALLOC.set(true);
 
         // Using 0 simulates tallying without affecting benchmark reporting.
         let size = crate::black_box(0);
@@ -533,7 +531,7 @@ mod benches {
 
     #[crate::bench(crate = crate, threads = THREADS)]
     fn tally_realloc(bencher: crate::Bencher) {
-        IGNORE_ALLOC.store(true, Ordering::Relaxed);
+        IGNORE_ALLOC.set(true);
 
         // Using 0 simulates tallying without affecting benchmark reporting.
         let new_size = crate::black_box(0);

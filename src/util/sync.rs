@@ -1,8 +1,28 @@
 //! Synchronization utilities.
 
-#![cfg(target_os = "macos")]
+#![cfg_attr(not(target_os = "macos"), allow(unused))]
 
 use std::sync::atomic::*;
+
+/// A convenience wrapper around `AtomicBool`.
+pub(crate) struct AtomicFlag(AtomicBool);
+
+impl AtomicFlag {
+    #[inline]
+    pub const fn new(value: bool) -> Self {
+        Self(AtomicBool::new(value))
+    }
+
+    #[inline]
+    pub fn get(&self) -> bool {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    #[inline]
+    pub fn set(&self, value: bool) {
+        self.0.store(value, Ordering::Relaxed);
+    }
+}
 
 /// Prevents false sharing by aligning to the cache line.
 #[derive(Clone, Copy)]
