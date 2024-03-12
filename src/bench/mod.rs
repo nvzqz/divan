@@ -19,7 +19,7 @@ use crate::{
     divan::SharedContext,
     stats::{RawSample, SampleCollection, Stats, StatsSet, TimeSample},
     time::{FineDuration, Timestamp, UntaggedTimestamp},
-    util::{self, SyncWrap, Unit},
+    util::{self, sync::SyncWrap, Unit},
 };
 
 #[cfg(test)]

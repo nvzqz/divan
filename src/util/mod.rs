@@ -1,7 +1,6 @@
 use std::{
     any::{Any, TypeId},
     num::NonZeroUsize,
-    ops::{Deref, DerefMut},
     sync::atomic::{AtomicUsize, Ordering::Relaxed},
 };
 
@@ -15,36 +14,6 @@ pub mod thread;
 /// working with `()` unintentionally.
 #[non_exhaustive]
 pub struct Unit;
-
-/// Makes the wrapped value [`Send`] + [`Sync`] even though it isn't.
-pub struct SyncWrap<T> {
-    value: T,
-}
-
-unsafe impl<T> Sync for SyncWrap<T> {}
-
-impl<T> Deref for SyncWrap<T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<T> DerefMut for SyncWrap<T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.value
-    }
-}
-
-impl<T> SyncWrap<T> {
-    #[inline]
-    pub const unsafe fn new(value: T) -> Self {
-        Self { value }
-    }
-}
 
 #[inline]
 pub(crate) fn cast_ref<T: Any>(r: &impl Any) -> Option<&T> {

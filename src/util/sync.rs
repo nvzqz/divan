@@ -2,7 +2,40 @@
 
 #![cfg_attr(not(target_os = "macos"), allow(unused))]
 
-use std::sync::atomic::*;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::atomic::*,
+};
+
+/// Makes the wrapped value [`Send`] + [`Sync`] even though it isn't.
+pub struct SyncWrap<T> {
+    value: T,
+}
+
+unsafe impl<T> Sync for SyncWrap<T> {}
+
+impl<T> Deref for SyncWrap<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<T> DerefMut for SyncWrap<T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
+
+impl<T> SyncWrap<T> {
+    #[inline]
+    pub const unsafe fn new(value: T) -> Self {
+        Self { value }
+    }
+}
 
 /// A convenience wrapper around `AtomicBool`.
 pub(crate) struct AtomicFlag(AtomicBool);
