@@ -187,7 +187,7 @@ mod thread_id {
             #[divan::bench]
             fn ptr() -> *mut u8 {
                 thread_local! {
-                    static LOCAL: UnsafeCell<u8> = UnsafeCell::new(0);
+                    static LOCAL: UnsafeCell<u8> = const { UnsafeCell::new(0) };
                 }
 
                 LOCAL.with(|addr| addr.get())
