@@ -363,6 +363,26 @@ pub trait SkipRegex {
     fn skip_regex(self, divan: &mut Divan);
 }
 
+impl SkipRegex for Regex {
+    fn skip_regex(self, divan: &mut Divan) {
+        divan.skip_filters.push(Filter::Regex(self));
+    }
+}
+
+impl SkipRegex for &str {
+    #[track_caller]
+    fn skip_regex(self, divan: &mut Divan) {
+        Regex::new(self).unwrap().skip_regex(divan);
+    }
+}
+
+impl SkipRegex for String {
+    #[track_caller]
+    fn skip_regex(self, divan: &mut Divan) {
+        self.as_str().skip_regex(divan)
+    }
+}
+
 /// Configuration options.
 impl Divan {
     /// Creates an instance with options set by parsing CLI arguments.
@@ -552,26 +572,6 @@ impl Divan {
     /// Panics if `filter` is a string and [`Regex::new`] fails.
     #[must_use]
     pub fn skip_regex(mut self, filter: impl SkipRegex) -> Self {
-        impl SkipRegex for Regex {
-            fn skip_regex(self, divan: &mut Divan) {
-                divan.skip_filters.push(Filter::Regex(self));
-            }
-        }
-
-        impl SkipRegex for &str {
-            #[track_caller]
-            fn skip_regex(self, divan: &mut Divan) {
-                Regex::new(self).unwrap().skip_regex(divan);
-            }
-        }
-
-        impl SkipRegex for String {
-            #[track_caller]
-            fn skip_regex(self, divan: &mut Divan) {
-                self.as_str().skip_regex(divan)
-            }
-        }
-
         filter.skip_regex(&mut self);
         self
     }
