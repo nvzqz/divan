@@ -3,6 +3,7 @@
 
 use std::{
     collections::HashSet,
+    marker::PhantomData,
     sync::atomic::{AtomicUsize, Ordering::SeqCst},
 };
 
@@ -354,6 +355,12 @@ mod run_count {
             test_with_drop_counter(&ZST_DROP_COUNT, run_bench);
         };
 
+        struct Capturing<'a>(PhantomData<&'a mut ()>);
+
+        fn capture_input<T>(_input: &mut T) -> Capturing {
+            Capturing(PhantomData)
+        }
+
         // `&mut ()` in, `()` out.
         test(|b, f| {
             b.with_inputs(|| ()).bench_refs(|_: &mut ()| -> () { f() })
@@ -383,6 +390,14 @@ mod run_count {
             })
         });
 
+        // `&mut ()` in, `Capturing` out.
+        test(|b, f| {
+            b.with_inputs(|| ()).bench_refs(|input: &mut ()| -> Capturing {
+                f();
+                capture_input(input)
+            })
+        });
+
         // `&mut i32` in, `()` out.
         test(|b, f| {
             b.with_inputs(|| 100i32).bench_refs(|_: &mut i32| -> () { f() })
@@ -409,6 +424,14 @@ mod run_count {
             b.with_inputs(|| 100i32).bench_refs(|_: &mut i32| -> DroppedZst {
                 f();
                 DroppedZst
+            })
+        });
+
+        // `&mut i32` in, `Capturing` out.
+        test(|b, f| {
+            b.with_inputs(|| 100i32).bench_refs(|input: &mut i32| -> Capturing {
+                f();
+                capture_input(input)
             })
         });
 
@@ -446,6 +469,14 @@ mod run_count {
             )
         });
 
+        // `&mut String` in, `Capturing` out.
+        test(|b, f| {
+            b.with_inputs(make_string).bench_refs(|input: &mut String| -> Capturing {
+                f();
+                capture_input(input)
+            })
+        });
+
         // `&mut DroppedZst` in, `()` out.
         test_zst_drop(|b, f| {
             b.with_inputs(|| DroppedZst)
@@ -470,6 +501,14 @@ mod run_count {
                     make_string()
                 },
             )
+        });
+
+        // `&mut DroppedZst` in, `Capturing` out.
+        test_zst_drop(|b, f| {
+            b.with_inputs(|| DroppedZst).bench_refs(|input: &mut DroppedZst| -> Capturing {
+                f();
+                capture_input(input)
+            })
         });
 
         // `&mut DroppedZst` in, `DroppedZst` out.
