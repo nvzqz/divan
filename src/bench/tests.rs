@@ -41,8 +41,12 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
 
     for timer in Timer::available() {
         for action in [Action::Bench, Action::Test] {
-            let shared_context =
-                SharedContext { action, timer, bench_overhead: FineDuration::default() };
+            let shared_context = SharedContext {
+                action,
+                timer,
+                auxiliary_threads: Default::default(),
+                bench_overhead: FineDuration::default(),
+            };
 
             for &thread_count in THREAD_COUNTS {
                 let mut bench_context = BenchContext::new(

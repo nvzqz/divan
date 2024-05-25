@@ -12,6 +12,7 @@ use crate::{
         BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
+    threads::AuxiliaryThreads,
     time::{FineDuration, Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
     util, Bencher,
@@ -39,6 +40,9 @@ pub(crate) struct SharedContext {
 
     /// The timer used to measure samples.
     pub timer: Timer,
+
+    /// Auxiliary benchmark threads that will be reused across runs.
+    pub auxiliary_threads: AuxiliaryThreads,
 
     /// Per-iteration overhead.
     ///
@@ -155,6 +159,7 @@ impl Divan {
         let shared_context = SharedContext {
             action,
             timer,
+            auxiliary_threads: Default::default(),
             bench_overhead: if action.is_bench() {
                 timer.measure_sample_loop_overhead()
             } else {
