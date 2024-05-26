@@ -144,6 +144,12 @@ impl BenchArgs {
     }
 }
 
+impl Default for BenchArgs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BenchArgsRunner {
     #[inline]
     pub(crate) fn bench(&self, bencher: Bencher, index: usize) {
