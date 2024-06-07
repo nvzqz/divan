@@ -13,8 +13,8 @@ use crate::{
     },
     black_box, black_box_drop,
     counter::{
-        AnyCounter, AsCountUInt, BytesCount, CharsCount, Counter, CounterCollection, IntoCounter,
-        ItemsCount, KnownCounterKind, MaxCountUInt,
+        AnyCounter, AsCountUInt, BytesCount, CharsCount, Counter, CounterCollection, CyclesCount,
+        IntoCounter, ItemsCount, KnownCounterKind, MaxCountUInt,
     },
     divan::SharedContext,
     stats::{RawSample, SampleCollection, Stats, StatsSet, TimeSample},
@@ -284,9 +284,10 @@ where
         I: AsCountUInt,
     {
         match KnownCounterKind::of::<C>() {
-            KnownCounterKind::Items => self.input_counter(|c| ItemsCount::from(c)),
             KnownCounterKind::Bytes => self.input_counter(|c| BytesCount::from(c)),
             KnownCounterKind::Chars => self.input_counter(|c| CharsCount::from(c)),
+            KnownCounterKind::Cycles => self.input_counter(|c| CyclesCount::from(c)),
+            KnownCounterKind::Items => self.input_counter(|c| ItemsCount::from(c)),
         }
     }
 

@@ -68,6 +68,7 @@ impl fmt::Display for DisplayThroughput<'_> {
         let format = match self.counter.kind {
             KnownCounterKind::Bytes => ScaleFormat::BytesThroughput(self.bytes_format),
             KnownCounterKind::Chars => ScaleFormat::CharsThroughput,
+            KnownCounterKind::Cycles => ScaleFormat::CyclesThroughput,
             KnownCounterKind::Items => ScaleFormat::ItemsThroughput,
         };
 
@@ -129,6 +130,7 @@ pub(crate) enum ScaleFormat {
     Bytes(BytesFormat),
     BytesThroughput(BytesFormat),
     CharsThroughput,
+    CyclesThroughput,
     ItemsThroughput,
 }
 
@@ -136,7 +138,9 @@ impl ScaleFormat {
     pub fn bytes_format(self) -> BytesFormat {
         match self {
             Self::Bytes(format) | Self::BytesThroughput(format) => format,
-            Self::CharsThroughput | Self::ItemsThroughput => BytesFormat::Decimal,
+            Self::CharsThroughput | Self::CyclesThroughput | Self::ItemsThroughput => {
+                BytesFormat::Decimal
+            }
         }
     }
 }
@@ -181,6 +185,11 @@ impl Scale {
             ScaleFormat::CharsThroughput => {
                 const SUFFIXES: &[&str; Scale::COUNT] =
                     &["char/s", "Kchar/s", "Mchar/s", "Gchar/s", "Tchar/s", "Pchar/s"];
+
+                SUFFIXES[self as usize]
+            }
+            ScaleFormat::CyclesThroughput => {
+                const SUFFIXES: &[&str; Scale::COUNT] = &["Hz", "KHz", "MHz", "GHz", "THz", "PHz"];
 
                 SUFFIXES[self as usize]
             }

@@ -1128,6 +1128,12 @@ pub use divan_macros::bench;
 /// Convenience shorthand for
 /// <code>[counter](#counters) = [CharsCount](counter::CharsCount)::from(n)</code>.
 ///
+/// ### `cycles_count`
+/// [`cycles_count`]: #cycles_count
+///
+/// Convenience shorthand for
+/// <code>[counter](#counters) = [CyclesCount](counter::CyclesCount)::from(n)</code>.
+///
 /// ### `items_count`
 /// [`items_count`]: #items_count
 ///

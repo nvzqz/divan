@@ -1,7 +1,9 @@
 use std::any::TypeId;
 
 use crate::{
-    counter::{BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt},
+    counter::{
+        BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter, ItemsCount, MaxCountUInt,
+    },
     time::FineDuration,
     util::{self, fmt::DisplayThroughput},
 };
@@ -25,6 +27,8 @@ impl AnyCounter {
             Self::bytes(bytes.count)
         } else if let Some(chars) = util::cast_ref::<CharsCount>(&counter) {
             Self::chars(chars.count)
+        } else if let Some(cycles) = util::cast_ref::<CyclesCount>(&counter) {
+            Self::cycles(cycles.count)
         } else if let Some(items) = util::cast_ref::<ItemsCount>(&counter) {
             Self::items(items.count)
         } else {
@@ -45,6 +49,11 @@ impl AnyCounter {
     #[inline]
     pub(crate) fn chars(count: MaxCountUInt) -> Self {
         Self::known(KnownCounterKind::Chars, count)
+    }
+
+    #[inline]
+    pub(crate) fn cycles(count: MaxCountUInt) -> Self {
+        Self::known(KnownCounterKind::Cycles, count)
     }
 
     #[inline]
@@ -72,17 +81,18 @@ impl AnyCounter {
 }
 
 /// Kind of `Counter` defined by this crate.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum KnownCounterKind {
     Bytes,
     Chars,
+    Cycles,
     Items,
 }
 
 impl KnownCounterKind {
-    pub const COUNT: usize = 3;
+    pub const COUNT: usize = 4;
 
-    pub const ALL: [Self; Self::COUNT] = [Self::Bytes, Self::Chars, Self::Items];
+    pub const ALL: [Self; Self::COUNT] = [Self::Bytes, Self::Chars, Self::Cycles, Self::Items];
 
     /// The maximum width for columns displaying counters.
     pub const MAX_COMMON_COLUMN_WIDTH: usize = "1.111 Kitem/s".len();
@@ -94,6 +104,8 @@ impl KnownCounterKind {
             Self::Bytes
         } else if id == TypeId::of::<CharsCount>() {
             Self::Chars
+        } else if id == TypeId::of::<CyclesCount>() {
+            Self::Cycles
         } else if id == TypeId::of::<ItemsCount>() {
             Self::Items
         } else {
@@ -105,6 +117,20 @@ impl KnownCounterKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn known_counter_kind() {
+        macro_rules! test {
+            ($t:ident, $k:ident) => {
+                assert_eq!(KnownCounterKind::of::<$t>(), KnownCounterKind::$k);
+            };
+        }
+
+        test!(BytesCount, Bytes);
+        test!(CharsCount, Chars);
+        test!(CyclesCount, Cycles);
+        test!(ItemsCount, Items);
+    }
 
     mod display_throughput {
         use super::*;
@@ -162,6 +188,26 @@ mod tests {
             test(0, 0, "0 char/s");
             test(0, 1, "0 char/s");
             test(0, u128::MAX, "0 char/s");
+        }
+
+        #[test]
+        fn cycles() {
+            #[track_caller]
+            fn test(cycles: MaxCountUInt, picos: u128, expected: &str) {
+                assert_eq!(
+                    AnyCounter::cycles(cycles)
+                        .display_throughput(FineDuration { picos }, BytesFormat::default())
+                        .to_string(),
+                    expected
+                );
+            }
+
+            test(1, 0, "inf Hz");
+            test(MaxCountUInt::MAX, 0, "inf Hz");
+
+            test(0, 0, "0 Hz");
+            test(0, 1, "0 Hz");
+            test(0, u128::MAX, "0 Hz");
         }
 
         #[test]

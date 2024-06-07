@@ -9,7 +9,8 @@ use crate::{
     bench::BenchOptions,
     config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
     counter::{
-        BytesCount, BytesFormat, CharsCount, IntoCounter, ItemsCount, MaxCountUInt, PrivBytesFormat,
+        BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter, ItemsCount, MaxCountUInt,
+        PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
     time::{Timer, TimerKind},
@@ -487,6 +488,10 @@ impl Divan {
             self.counter_mut(CharsCount::new(count));
         }
 
+        if let Some(&count) = matches.get_one::<MaxCountUInt>("cycles-count") {
+            self.counter_mut(CyclesCount::new(count));
+        }
+
         self
     }
 
@@ -715,6 +720,15 @@ impl Divan {
     /// `DIVAN_CHARS_COUNT` environment variable.
     #[inline]
     pub fn chars_count<C: Into<CharsCount>>(self, count: C) -> Self {
+        self.counter(count.into())
+    }
+
+    /// Sets the number of cycles processed, displayed as Hertz.
+    ///
+    /// This option is equivalent to the `--cycles-count` CLI argument or
+    /// `DIVAN_CYCLES_COUNT` environment variable.
+    #[inline]
+    pub fn cycles_count<C: Into<CyclesCount>>(self, count: C) -> Self {
         self.counter(count.into())
     }
 }

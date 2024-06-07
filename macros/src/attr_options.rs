@@ -57,6 +57,7 @@ impl AttrOptions {
 
         let mut seen_bytes_count = false;
         let mut seen_chars_count = false;
+        let mut seen_cycles_count = false;
         let mut seen_items_count = false;
 
         let mut generic = GenericOptions::default();
@@ -148,9 +149,10 @@ impl AttrOptions {
 
                 "bytes_count" if seen_bytes_count => return repeat_error(),
                 "chars_count" if seen_chars_count => return repeat_error(),
+                "cycles_count" if seen_cycles_count => return repeat_error(),
                 "items_count" if seen_items_count => return repeat_error(),
 
-                "bytes_count" | "chars_count" | "items_count" => {
+                "bytes_count" | "chars_count" | "cycles_count" | "items_count" => {
                     let name = match ident_name {
                         "bytes_count" => {
                             seen_bytes_count = true;
@@ -159,6 +161,10 @@ impl AttrOptions {
                         "chars_count" => {
                             seen_chars_count = true;
                             "CharsCount"
+                        }
+                        "cycles_count" => {
+                            seen_cycles_count = true;
+                            "CyclesCount"
                         }
                         "items_count" => {
                             seen_items_count = true;

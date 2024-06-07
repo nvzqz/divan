@@ -68,6 +68,16 @@ pub struct CharsCount {
     count: MaxCountUInt,
 }
 
+/// Process N cycles, displayed as Hertz.
+///
+/// This value is user-provided and does not necessarily correspond to the CPU's
+/// cycle frequency, so it may represent cycles of anything appropriate for the
+/// benchmarking context.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CyclesCount {
+    count: MaxCountUInt,
+}
+
 /// Process N items.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ItemsCount {
@@ -76,10 +86,12 @@ pub struct ItemsCount {
 
 impl Sealed for BytesCount {}
 impl Sealed for CharsCount {}
+impl Sealed for CyclesCount {}
 impl Sealed for ItemsCount {}
 
 impl Counter for BytesCount {}
 impl Counter for CharsCount {}
+impl Counter for CyclesCount {}
 impl Counter for ItemsCount {}
 
 impl<C: AsCountUInt> From<C> for BytesCount {
@@ -90,6 +102,13 @@ impl<C: AsCountUInt> From<C> for BytesCount {
 }
 
 impl<C: AsCountUInt> From<C> for CharsCount {
+    #[inline]
+    fn from(count: C) -> Self {
+        Self::new(count.as_max_uint())
+    }
+}
+
+impl<C: AsCountUInt> From<C> for CyclesCount {
     #[inline]
     fn from(count: C) -> Self {
         Self::new(count.as_max_uint())
@@ -209,6 +228,14 @@ impl CharsCount {
     #[inline]
     pub fn of_str<S: ?Sized + AsRef<str>>(s: &S) -> Self {
         Self::new(s.as_ref().chars().count())
+    }
+}
+
+impl CyclesCount {
+    /// Count N cycles.
+    #[inline]
+    pub fn new<N: CountUInt>(count: N) -> Self {
+        Self { count: count.into_max_uint() }
     }
 }
 

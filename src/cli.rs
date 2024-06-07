@@ -156,6 +156,13 @@ pub(crate) fn command() -> Command {
                 .help("Set every benchmark to have a throughput of N string scalars")
                 .value_parser(value_parser!(MaxCountUInt)),
         )
+        .arg(
+            option("cycles-count")
+                .env("DIVAN_CYCLES_COUNT")
+                .value_name("N")
+                .help("Set every benchmark to have a throughput of N cycles, displayed as Hertz")
+                .value_parser(value_parser!(MaxCountUInt)),
+        )
         // ignored:
         .args([ignored_flag("bench"), ignored_flag("nocapture"), ignored_flag("show-output")])
 }
