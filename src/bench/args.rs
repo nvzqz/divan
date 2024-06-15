@@ -7,7 +7,7 @@ use std::{
     sync::OnceLock,
 };
 
-use crate::Bencher;
+use crate::{util, Bencher};
 
 /// Holds lazily-initialized runtime arguments to be passed into a benchmark.
 ///
@@ -73,7 +73,7 @@ impl BenchArgs {
             // Collect printable representations of arguments.
             let names: &'static [&str] = 'names: {
                 // PERF: Reuse items allocation as-is.
-                if let Some(args) = (&args as &dyn Any).downcast_ref::<&[&str]>() {
+                if let Some(args) = util::cast_ref::<&[&str]>(&args) {
                     break 'names args;
                 }
 
@@ -81,13 +81,13 @@ impl BenchArgs {
                     args.iter()
                         .map(|arg| -> &str {
                             // PERF: Use strings as-is.
-                            if let Some(arg) = (arg as &dyn Any).downcast_ref::<String>() {
+                            if let Some(arg) = util::cast_ref::<String>(arg) {
                                 return arg;
                             }
-                            if let Some(arg) = (arg as &dyn Any).downcast_ref::<Box<str>>() {
+                            if let Some(arg) = util::cast_ref::<Box<str>>(arg) {
                                 return arg;
                             }
-                            if let Some(arg) = (arg as &dyn Any).downcast_ref::<Cow<str>>() {
+                            if let Some(arg) = util::cast_ref::<Cow<str>>(arg) {
                                 return arg;
                             }
 
