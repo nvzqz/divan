@@ -51,11 +51,18 @@ impl<'a> EntryTree<'a> {
     }
 
     /// Returns the maximum span for a name in `tree`.
+    ///
+    /// This is the number of terminal columns used for labeling benchmark names
+    /// prior to emitting stats columns.
     pub fn max_name_span(tree: &[Self], depth: usize) -> usize {
+        // The number of terminal columns used per-depth for box drawing
+        // characters. For example, "│  ╰─ " is 6 for depth 2.
+        const DEPTH_COLS: usize = 3;
+
         tree.iter()
             .map(|node| {
                 let node_name_span = {
-                    let prefix_len = depth * 3;
+                    let prefix_len = depth * DEPTH_COLS;
                     let name_len = node.display_name().chars().count();
                     prefix_len + name_len
                 };
@@ -69,7 +76,7 @@ impl<'a> EntryTree<'a> {
                     .unwrap_or_default()
                     .iter()
                     .map(|arg| {
-                        let prefix_len = (depth + 1) * 3;
+                        let prefix_len = (depth + 1) * DEPTH_COLS;
                         let name_len = arg.chars().count();
                         prefix_len + name_len
                     })
