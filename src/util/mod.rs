@@ -1,5 +1,4 @@
 use std::{
-    any::{Any, TypeId},
     num::NonZeroUsize,
     sync::atomic::{AtomicUsize, Ordering::Relaxed},
 };
@@ -7,6 +6,7 @@ use std::{
 pub mod fmt;
 pub mod sync;
 pub mod thread;
+pub mod ty;
 
 /// Public-in-private type like `()` but meant to be externally-unreachable.
 ///
@@ -14,16 +14,6 @@ pub mod thread;
 /// working with `()` unintentionally.
 #[non_exhaustive]
 pub struct Unit;
-
-#[inline]
-pub(crate) fn cast_ref<T: Any>(r: &impl Any) -> Option<&T> {
-    if r.type_id() == TypeId::of::<T>() {
-        // SAFETY: `r` is `&T`.
-        Some(unsafe { &*(r as *const _ as *const T) })
-    } else {
-        None
-    }
-}
 
 /// Returns the index of `ptr` in the slice, assuming it is in the slice.
 #[inline]

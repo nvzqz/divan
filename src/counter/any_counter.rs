@@ -5,7 +5,7 @@ use crate::{
         BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter, ItemsCount, MaxCountUInt,
     },
     time::FineDuration,
-    util::{self, fmt::DisplayThroughput},
+    util::{fmt::DisplayThroughput, ty::TypeCast},
 };
 
 /// Type-erased `Counter`.
@@ -23,13 +23,13 @@ impl AnyCounter {
     pub(crate) fn new<C: IntoCounter>(counter: C) -> Self {
         let counter = counter.into_counter();
 
-        if let Some(bytes) = util::cast_ref::<BytesCount>(&counter) {
+        if let Some(bytes) = counter.cast_ref::<BytesCount>() {
             Self::bytes(bytes.count)
-        } else if let Some(chars) = util::cast_ref::<CharsCount>(&counter) {
+        } else if let Some(chars) = counter.cast_ref::<CharsCount>() {
             Self::chars(chars.count)
-        } else if let Some(cycles) = util::cast_ref::<CyclesCount>(&counter) {
+        } else if let Some(cycles) = counter.cast_ref::<CyclesCount>() {
             Self::cycles(cycles.count)
-        } else if let Some(items) = util::cast_ref::<ItemsCount>(&counter) {
+        } else if let Some(items) = counter.cast_ref::<ItemsCount>() {
             Self::items(items.count)
         } else {
             unreachable!()
