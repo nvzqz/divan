@@ -23,6 +23,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Changes
 
+- Internally reuse [`&[&str]` slice][slice] for [`args`] names.
+
 - Subtract overhead of [`AllocProfiler`] from timings. Now that Divan also
   tracks the maximum bytes allocated, the overhead was apparent in timings.
 
@@ -327,6 +329,7 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [`ToString`]: https://doc.rust-lang.org/std/string/trait.ToString.html
 [available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
 [drop_fn]: https://doc.rust-lang.org/std/mem/fn.drop.html
+[slice]: https://doc.rust-lang.org/std/primitive.slice.html
 [`thread_local!`]: https://doc.rust-lang.org/std/macro.thread_local.html
 
 [`pthread_key_create`]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_key_create.html

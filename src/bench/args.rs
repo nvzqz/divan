@@ -67,12 +67,43 @@ impl BenchArgs {
         B: FnOnce(Bencher, &I::Item) + Copy,
     {
         let args = self.args.get_or_init(|| {
-            // Collect arguments into a deduplicated leaked slice.
-            let args: &'static [I::Item] = Box::leak(make_args().into_iter().collect());
+            let args_iter = make_args().into_iter();
+
+            // Reuse arguments for names if already a slice of strings.
+            //
+            // NOTE: We do this over `I::IntoIter` instead of `I` since it works
+            // for both slices and `slice::Iter`.
+            let args_strings: Option<&'static [&str]> =
+                args_iter.cast_ref::<slice::Iter<&str>>().map(|iter| iter.as_slice());
+
+            // Collect arguments into leaked slice.
+            //
+            // Leaking the collected `args` simplifies memory management, such
+            // as when reusing for `names`. We're leaking anyways since this is
+            // accessed via a global `OnceLock`.
+            //
+            // PERF: We could optimize this to reuse arguments when users
+            // provide slices. However, for slices its `Item` is a reference, so
+            // `slice::Iter<I::Item>` would never match here. To make this
+            // optimization, we would need to be able to get the referee type.
+            let args: &'static [I::Item] = Box::leak(args_iter.collect());
 
             // Collect printable representations of arguments.
+            //
+            // PERF: We take multiple opportunities to reuse the provided
+            // arguments buffer or individual strings' buffers:
+            // - `&[&str]`
+            // - `IntoIterator<Item = &str>`
+            // - `IntoIterator<Item = String>`
+            // - `IntoIterator<Item = Box<str>>`
+            // - `IntoIterator<Item = Cow<str>>`
             let names: &'static [&str] = 'names: {
-                // PERF: Reuse items allocation as-is.
+                // PERF: Reuse arguments strings slice.
+                if let Some(args) = args_strings {
+                    break 'names args;
+                }
+
+                // PERF: Reuse our args slice allocation.
                 if let Some(args) = args.cast_ref::<&[&str]>() {
                     break 'names args;
                 }
@@ -80,7 +111,7 @@ impl BenchArgs {
                 Box::leak(
                     args.iter()
                         .map(|arg| -> &str {
-                            // PERF: Use strings as-is.
+                            // PERF: Reuse strings as-is.
                             if let Some(arg) = arg.cast_ref::<String>() {
                                 return arg;
                             }
@@ -91,6 +122,8 @@ impl BenchArgs {
                                 return arg;
                             }
 
+                            // Default to `arg_to_string`, which will format via
+                            // either `ToString` or `Debug`.
                             Box::leak(arg_to_string(arg).into_boxed_str())
                         })
                         .collect(),
@@ -202,8 +235,31 @@ mod tests {
             }
         }
 
+        /// Tests that `&[&str]` reuses the original slice for names.
         #[test]
-        fn str() {
+        fn str_slice() {
+            static ARGS: BenchArgs = BenchArgs::new();
+            static ORIG_ARGS: &[&str] = &["a", "b"];
+
+            let runner = ARGS.runner(|| ORIG_ARGS, ToString::to_string, |_, _| {});
+
+            let typed_args: Vec<&str> =
+                runner.args.typed_args::<&&str>().unwrap().iter().copied().copied().collect();
+            let names = runner.arg_names();
+
+            // Test values.
+            assert_eq!(names, ORIG_ARGS);
+            assert_eq!(names, typed_args);
+
+            // Test addresses.
+            assert_eq!(names.as_ptr(), ORIG_ARGS.as_ptr());
+            assert_ne!(names.as_ptr(), typed_args.as_ptr());
+        }
+
+        /// Tests optimizing `IntoIterator<Item = &str>` to reuse the same
+        /// allocation for also storing argument names.
+        #[test]
+        fn str_array() {
             static ARGS: BenchArgs = BenchArgs::new();
 
             let runner = ARGS.runner(|| ["a", "b"], ToString::to_string, |_, _| {});
@@ -211,13 +267,18 @@ mod tests {
             let typed_args = runner.args.typed_args::<&str>().unwrap();
             let names = runner.arg_names();
 
+            // Test values.
             assert_eq!(names, ["a", "b"]);
             assert_eq!(names, typed_args);
+
+            // Test addresses.
             assert_eq!(names.as_ptr(), typed_args.as_ptr());
         }
 
+        /// Tests optimizing `IntoIterator<Item = String>` to reuse the same
+        /// allocation for also storing argument names.
         #[test]
-        fn string() {
+        fn string_array() {
             static ARGS: BenchArgs = BenchArgs::new();
 
             let runner =
@@ -230,8 +291,10 @@ mod tests {
             test_eq_ptr(names, typed_args);
         }
 
+        /// Tests optimizing `IntoIterator<Item = Box<str>>` to reuse the same
+        /// allocation for also storing argument names.
         #[test]
-        fn box_str() {
+        fn box_str_array() {
             static ARGS: BenchArgs = BenchArgs::new();
 
             let runner = ARGS.runner(
@@ -247,8 +310,10 @@ mod tests {
             test_eq_ptr(names, typed_args);
         }
 
+        /// Tests optimizing `IntoIterator<Item = Cow<str>>` to reuse the same
+        /// allocation for also storing argument names.
         #[test]
-        fn cow_str() {
+        fn cow_str_array() {
             static ARGS: BenchArgs = BenchArgs::new();
 
             let runner = ARGS.runner(
