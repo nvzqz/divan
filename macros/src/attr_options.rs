@@ -262,9 +262,6 @@ impl AttrOptions {
 
                 let wrapped_value: proc_macro2::TokenStream;
                 let value: &dyn ToTokens = match option_name {
-                    // If the option is a collection, be polymorphic over
-                    // `FromIterator` and leak the result as `&'static [T]`
-                    // since it's cached on first retrieval anyways.
                     "threads" => {
                         wrapped_value = if is_lit_array(value) {
                             // If array of literals, just use `&[...]`.
