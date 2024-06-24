@@ -6,7 +6,7 @@ use syn::{
     Expr, ExprArray, Ident, Token, Type,
 };
 
-use crate::Macro;
+use crate::{tokens, Macro};
 
 /// Values from parsed options shared between `#[divan::bench]` and
 /// `#[divan::bench_group]`.
@@ -16,13 +16,6 @@ use crate::Macro;
 pub(crate) struct AttrOptions {
     /// `divan::__private`.
     pub private_mod: proc_macro2::TokenStream,
-
-    /// `divan::__private::std`.
-    ///
-    /// Access to libstd is through a re-export because it's possible (although
-    /// unlikely) to do `extern crate x as std`, which would cause `::std` to
-    /// reference crate `x` instead.
-    pub std_crate: proc_macro2::TokenStream,
 
     /// Custom name for the benchmark or group.
     pub name_expr: Option<Expr>,
@@ -203,7 +196,6 @@ impl AttrOptions {
 
         let divan_crate = divan_crate.unwrap_or_else(|| syn::parse_quote!(::divan));
         let private_mod = quote! { #divan_crate::__private };
-        let std_crate = quote! { #private_mod::std };
 
         let counters = counters.iter().map(|(expr, type_name)| match type_name {
             Some(type_name) => {
@@ -212,7 +204,7 @@ impl AttrOptions {
                     // We do a scoped import for the expression to override any
                     // local `From` trait.
                     {
-                        use #std_crate::convert::From as _;
+                        use ::std::convert::From as _;
 
                         #divan_crate::counter::#type_name::from(#expr)
                     }
@@ -229,7 +221,7 @@ impl AttrOptions {
             })
             .unwrap_or_default();
 
-        Ok(Self { std_crate, private_mod, name_expr, args_expr, generic, counters, bench_options })
+        Ok(Self { private_mod, name_expr, args_expr, generic, counters, bench_options })
     }
 
     /// Produces a function expression for creating `BenchOptions`.
@@ -250,6 +242,7 @@ impl AttrOptions {
         }
 
         let private_mod = &self.private_mod;
+        let option_some = tokens::option_some();
 
         // Directly set fields on `BenchOptions`. This simplifies things by:
         // - Having a single source of truth
@@ -261,7 +254,7 @@ impl AttrOptions {
         // with docs and type info.
         if self.bench_options.is_empty() && self.counters.is_empty() && ignore_attr_ident.is_none()
         {
-            quote! { #private_mod::None }
+            tokens::option_none()
         } else {
             let options_iter = self.bench_options.iter().map(|(option, value)| {
                 let option_name = option.to_string();
@@ -275,7 +268,7 @@ impl AttrOptions {
                     "threads" => {
                         wrapped_value = if is_lit_array(value) {
                             // If array of literals, just use `&[...]`.
-                            quote! { #private_mod::Cow::Borrowed(&#value) }
+                            quote! { ::std::borrow::Cow::Borrowed(&#value) }
                         } else {
                             quote! { #private_mod::IntoThreads::into_threads(#value) }
                         };
@@ -294,18 +287,18 @@ impl AttrOptions {
                     _ => value,
                 };
 
-                quote! { #option: #private_mod::Some(#value), }
+                quote! { #option: #option_some(#value), }
             });
 
             let ignore = match ignore_attr_ident {
-                Some(ignore_attr_ident) => quote! { #ignore_attr_ident: #private_mod::Some(true), },
+                Some(ignore_attr_ident) => quote! { #ignore_attr_ident: #option_some(true), },
                 None => Default::default(),
             };
 
             let counters = &self.counters;
 
             quote! {
-                #private_mod::Some(|| {
+                #option_some(|| {
                     #[allow(clippy::needless_update)]
                     #private_mod::BenchOptions {
                         #(#options_iter)*
@@ -316,7 +309,7 @@ impl AttrOptions {
 
                         #counters
 
-                        ..#private_mod::Default::default()
+                        ..::std::default::Default::default()
                     }
                 })
             }

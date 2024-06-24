@@ -1,7 +1,7 @@
-pub use std::{
-    self, any, borrow::Cow, default::Default, iter::FromIterator, option::Option::*, sync::OnceLock,
+use std::{
+    borrow::{Borrow, Cow},
+    fmt::Debug,
 };
-use std::{borrow::Borrow, fmt::Debug};
 
 pub use crate::{
     bench::{BenchArgs, BenchOptions},

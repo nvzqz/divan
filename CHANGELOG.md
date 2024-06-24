@@ -32,6 +32,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 - Move measured loop overhead from `SharedContext` to global `OnceLock`.
 
+- Macros no longer rely on `std` being re-exported by Divan. Instead they use
+  `::std` or `::core` to greatly simplify code. Although this is technically a
+  breaking change, it is extremely unlikely to do `extern crate std as x`.
+
 ## [0.1.14] - 2024-02-17
 
 ### Fixed

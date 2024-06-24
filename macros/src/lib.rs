@@ -7,6 +7,7 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 
 mod attr_options;
+mod tokens;
 
 use attr_options::*;
 use syn::{Expr, FnArg};
@@ -68,10 +69,7 @@ fn pre_main_attrs() -> proc_macro2::TokenStream {
     }
 }
 
-fn unsupported_error(
-    std_crate: &proc_macro2::TokenStream,
-    attr_name: &str,
-) -> proc_macro2::TokenStream {
+fn unsupported_error(attr_name: &str) -> proc_macro2::TokenStream {
     let elf = systems::elf();
     let mach_o = systems::mach_o();
 
@@ -79,12 +77,15 @@ fn unsupported_error(
 
     quote! {
         #[cfg(not(any(windows, #elf, #mach_o)))]
-        #std_crate::compile_error!(#error);
+        ::std::compile_error!(#error);
     }
 }
 
 #[proc_macro_attribute]
 pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
+    let option_none = tokens::option_none();
+    let option_some = tokens::option_some();
+
     let fn_item = item.clone();
     let fn_item = syn::parse_macro_input!(fn_item as syn::ItemFn);
     let fn_sig = &fn_item.sig;
@@ -98,7 +99,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Items needed by generated code.
-    let AttrOptions { private_mod, std_crate, .. } = &options;
+    let AttrOptions { private_mod, .. } = &options;
 
     let fn_ident = &fn_sig.ident;
     let fn_name = fn_ident.to_string();
@@ -271,9 +272,9 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
             // Ensure `args` is set if arguments are provided after `Bencher`.
             (_, None) => quote! {
-                #std_crate::compile_error!(#std_crate::concat!(
+                ::std::compile_error!(::std::concat!(
                     "expected 'args' option containing '",
-                    #std_crate::stringify!(#last_arg_type_tokens),
+                    ::std::stringify!(#last_arg_type_tokens),
                     "'",
                 ))
             },
@@ -284,11 +285,8 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let option_none = quote! { #private_mod::None };
-    let option_some = quote! { #private_mod::Some };
-
     let pre_main_attrs = pre_main_attrs();
-    let unsupported_error = unsupported_error(std_crate, attr_name);
+    let unsupported_error = unsupported_error(attr_name);
 
     // Creates a `GroupEntry` static for generic benchmarks.
     let make_generic_group = |generic_benches: proc_macro2::TokenStream| {
@@ -478,7 +476,7 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
                 quote! {
                     static __DIVAN_GENERIC_BENCHES: [#private_mod::GenericBenchEntry; __DIVAN_CONST_COUNT]
                         = match #private_mod::shrink_array([#(#generic_benches),*]) {
-                            #private_mod::Some(array) => array,
+                            Some(array) => array,
                             _ => panic!("external 'consts' cannot contain more than 20 values"),
                         };
 
@@ -512,7 +510,9 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Items needed by generated code.
-    let AttrOptions { private_mod, std_crate, .. } = &options;
+    let AttrOptions { private_mod, .. } = &options;
+
+    let option_none = tokens::option_none();
 
     // TODO: Make module parsing cheaper by parsing only the necessary parts.
     let mod_item = item.clone();
@@ -541,7 +541,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     let meta = entry_meta_expr(&mod_name, &options, ignore_attr_ident);
 
     let pre_main_attrs = pre_main_attrs();
-    let unsupported_error = unsupported_error(std_crate, attr_name);
+    let unsupported_error = unsupported_error(attr_name);
 
     let generated_items = quote! {
         #unsupported_error
@@ -561,7 +561,7 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
             #private_mod::EntryList::new({
                 static #static_ident: #private_mod::GroupEntry = #private_mod::GroupEntry {
                     meta: #meta,
-                    generic_benches: #private_mod::None,
+                    generic_benches: #option_none,
                 };
 
                 &#static_ident
@@ -581,7 +581,7 @@ fn entry_meta_expr(
     options: &AttrOptions,
     ignore_attr_ident: Option<&syn::Path>,
 ) -> proc_macro2::TokenStream {
-    let AttrOptions { private_mod, std_crate, .. } = &options;
+    let AttrOptions { private_mod, .. } = &options;
 
     let raw_name_pretty = raw_name.strip_prefix("r#").unwrap_or(raw_name);
 
@@ -596,17 +596,17 @@ fn entry_meta_expr(
         #private_mod::EntryMeta {
             raw_name: #raw_name,
             display_name: #display_name,
-            module_path: #std_crate::module_path!(),
+            module_path: ::std::module_path!(),
 
             // `Span` location info is nightly-only, so use macros.
             location: #private_mod::EntryLocation {
-                file: #std_crate::file!(),
-                line: #std_crate::line!(),
-                col: #std_crate::column!(),
+                file: ::std::file!(),
+                line: ::std::line!(),
+                col: ::std::column!(),
             },
 
             get_bench_options: #bench_options_fn,
-            cached_bench_options: #private_mod::OnceLock::new(),
+            cached_bench_options: ::std::sync::OnceLock::new(),
         }
     }
 }
