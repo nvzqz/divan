@@ -8,7 +8,8 @@
     unused_unsafe,
     clippy::needless_doctest_main,
     clippy::new_without_default,
-    clippy::type_complexity
+    clippy::type_complexity,
+    clippy::missing_transmute_annotations
 )]
 
 // Used by generated code. Not public API and thus not subject to SemVer.
