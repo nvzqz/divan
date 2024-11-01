@@ -13,6 +13,11 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 - [`CyclesCount`] counter to display cycle throughput as Hertz.
 - Track the maximum number of bytes allocated during a benchmark.
 
+### Removed
+
+- Remove `has_cpuid` polyfill due to it no longer being planned for Rust, since
+  CPUID is assumed to be available on all old x86 Rust targets.
+
 ### Fixed
 
 - List generic benchmark type parameter `A<4>` before `A<32>` ([#64]).

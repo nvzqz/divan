@@ -34,21 +34,15 @@ pub(crate) fn end_timestamp() -> u64 {
 }
 
 pub(crate) fn frequency() -> Result<u64, TscUnavailable> {
-    let mut nominal = None;
-
-    // If we don't have CPUID, avoid it and assume invariant TSC.
-    if util::has_cpuid() {
-        if !util::tsc_is_available() {
-            return Err(TscUnavailable::MissingInstructions);
-        }
-
-        if !util::tsc_is_invariant() {
-            return Err(TscUnavailable::VariableFrequency);
-        }
-
-        nominal = nominal_frequency();
+    if !util::tsc_is_available() {
+        return Err(TscUnavailable::MissingInstructions);
     }
 
+    if !util::tsc_is_invariant() {
+        return Err(TscUnavailable::VariableFrequency);
+    }
+
+    let nominal = nominal_frequency();
     let measured = measure::measure_frequency();
 
     // Use the nominal frequency if within 0.1% of the measured frequency.
@@ -128,75 +122,6 @@ mod util {
     pub fn lfence() {
         // SAFETY: A load fence is memory safe.
         unsafe { x86::_mm_lfence() }
-    }
-
-    /// Does the host support the `cpuid` instruction?
-    ///
-    /// This is a stable polyfill of [`x86::has_cpuid`].
-    #[inline]
-    pub fn has_cpuid() -> bool {
-        // https://doc.rust-lang.org/1.72.0/src/core/stdarch/crates/core_arch/src/x86/cpuid.rs.html#101
-        #[cfg(target_env = "sgx")]
-        {
-            false
-        }
-        #[cfg(all(not(target_env = "sgx"), target_arch = "x86_64"))]
-        {
-            true
-        }
-        #[cfg(all(not(target_env = "sgx"), target_arch = "x86"))]
-        {
-            // Optimization for i586 and i686 Rust targets which SSE enabled
-            // and support cpuid:
-            #[cfg(target_feature = "sse")]
-            {
-                true
-            }
-
-            // If SSE is not enabled, detect whether cpuid is available:
-            #[cfg(not(target_feature = "sse"))]
-            unsafe {
-                // On `x86` the `cpuid` instruction is not always available.
-                // This follows the approach indicated in:
-                // http://wiki.osdev.org/CPUID#Checking_CPUID_availability
-                // https://software.intel.com/en-us/articles/using-cpuid-to-detect-the-presence-of-sse-41-and-sse-42-instruction-sets/
-                // which detects whether `cpuid` is available by checking whether
-                // the 21st bit of the EFLAGS register is modifiable or not.
-                // If it is, then `cpuid` is available.
-                let result: u32;
-                std::arch::asm!(
-                    // Read eflags and save a copy of it
-                    "pushfd",
-                    "pop {result}",
-                    "mov {result}, {saved_flags}",
-                    // Flip 21st bit of the flags
-                    "xor $0x200000, {result}",
-                    // Load the modified flags and read them back.
-                    // Bit 21 can only be modified if cpuid is available.
-                    "push {result}",
-                    "popfd",
-                    "pushfd",
-                    "pop {result}",
-                    // Use xor to find out whether bit 21 has changed
-                    "xor {saved_flags}, {result}",
-                    result = out(reg) result,
-                    saved_flags = out(reg) _,
-                    options(nomem, att_syntax),
-                );
-                // There is a race between popfd (A) and pushfd (B)
-                // where other bits beyond 21st may have been modified due to
-                // interrupts, a debugger stepping through the asm, etc.
-                //
-                // Therefore, explicitly check whether the 21st bit
-                // was modified or not.
-                //
-                // If the result is zero, the cpuid bit was not modified.
-                // If the result is `0x200000` (non-zero), then the cpuid
-                // was correctly modified and the CPU supports the cpuid
-                // instruction:
-                (result & 0x200000) != 0
-            }
-        }
     }
 
     #[inline]
