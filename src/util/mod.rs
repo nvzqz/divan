@@ -4,6 +4,7 @@ use std::{
 };
 
 pub mod fmt;
+pub mod sort;
 pub mod sync;
 pub mod thread;
 pub mod ty;

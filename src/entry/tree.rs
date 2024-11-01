@@ -6,6 +6,7 @@ use crate::{
     counter::KnownCounterKind,
     entry::{AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry},
     tree_painter::TreeColumn,
+    util::sort::natural_cmp,
 };
 
 /// `BenchEntry` tree organized by path components.
@@ -367,11 +368,11 @@ impl<'a> EntryTree<'a> {
         }
     }
 
-    /// Compares display name with special consideration for the `PartialOrd`
-    /// implementation of constants.
+    /// Compares display names naturally, taking into account integers.
     ///
-    /// When sorting by display name, the `PartialOrd` implementation is used by
-    /// `EntryConst` to sort integers by value instead of lexicographically.
+    /// There is special consideration for the `PartialOrd` implementation of
+    /// constants, so that `EntryConst` can sort integers and floats by value
+    /// instead of lexicographically.
     fn cmp_display_name(&self, other: &Self) -> Ordering {
         match (self, other) {
             (
@@ -391,7 +392,7 @@ impl<'a> EntryTree<'a> {
                 },
             ) => this.cmp_name(other),
 
-            _ => self.display_name().cmp(other.display_name()),
+            _ => natural_cmp(self.display_name(), other.display_name()),
         }
     }
 

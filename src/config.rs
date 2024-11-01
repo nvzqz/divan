@@ -2,6 +2,8 @@ use std::{cmp::Ordering, error::Error, str::FromStr, time::Duration};
 
 use regex::Regex;
 
+use crate::util::sort::natural_cmp;
+
 /// `Duration` wrapper for parsing seconds from the CLI.
 #[derive(Clone, Copy)]
 pub(crate) struct ParsedSeconds(pub Duration);
@@ -164,7 +166,7 @@ impl SortingAttr {
                         }
                     }
 
-                    a.cmp(b)
+                    natural_cmp(a, b)
                 }
 
                 SortingAttr::Location => {

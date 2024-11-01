@@ -15,6 +15,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- List generic benchmark type parameter `A<4>` before `A<32>` ([#64]).
+
 - Improve precision by using `f64` when calculating allocation count and sizes
   for the median samples.
 
@@ -22,6 +24,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
   null pointer instead of the pointer initialized by `sync_threads`.
 
 ### Changes
+
+- Sort all output benchmark names
+  [naturally](https://en.wikipedia.org/wiki/Natural_sort_order) instead of
+  [lexicographically](https://en.wikipedia.org/wiki/Lexicographic_order).
 
 - Internally reuse [`&[&str]` slice][slice] for [`args`] names.
 
@@ -312,6 +318,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [0.1.3]: https://github.com/nvzqz/divan/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nvzqz/divan/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
+
+[#64]: https://github.com/nvzqz/divan/issues/64
 
 [`AllocProfiler`]: https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html
 [`args`]: https://docs.rs/divan/latest/divan/attr.bench.html#args
