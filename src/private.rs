@@ -38,13 +38,13 @@ impl<T: ToString> ToStringHelper<'_, T> {
 
 /// Used by `#[divan::bench(args = ...)]` to enable polymorphism.
 pub trait Arg<T> {
-    fn get(self) -> T;
+    fn get(this: Self) -> T;
 }
 
 impl<T> Arg<T> for T {
     #[inline]
-    fn get(self) -> T {
-        self
+    fn get(this: Self) -> T {
+        this
     }
 }
 
@@ -53,36 +53,36 @@ where
     T: ToOwned,
 {
     #[inline]
-    fn get(self) -> &'a T {
-        self
+    fn get(this: Self) -> &'a T {
+        this
     }
 }
 
 impl<'a> Arg<&'a str> for &'a String {
     #[inline]
-    fn get(self) -> &'a str {
-        self
+    fn get(this: Self) -> &'a str {
+        this
     }
 }
 
 impl<T: Copy> Arg<T> for &T {
     #[inline]
-    fn get(self) -> T {
-        *self
+    fn get(this: Self) -> T {
+        *this
     }
 }
 
 impl<T: Copy> Arg<T> for &&T {
     #[inline]
-    fn get(self) -> T {
-        **self
+    fn get(this: Self) -> T {
+        **this
     }
 }
 
 impl<T: Copy> Arg<T> for &&&T {
     #[inline]
-    fn get(self) -> T {
-        ***self
+    fn get(this: Self) -> T {
+        ***this
     }
 }
 
