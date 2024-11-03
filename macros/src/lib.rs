@@ -590,12 +590,13 @@ fn entry_meta_expr(
         None => &raw_name_pretty,
     };
 
-    let bench_options_fn = options.bench_options_fn(ignore_attr_ident);
+    let bench_options = options.bench_options_fn(ignore_attr_ident);
 
     quote! {
         #private_mod::EntryMeta {
             raw_name: #raw_name,
             display_name: #display_name,
+            bench_options: #bench_options,
             module_path: ::std::module_path!(),
 
             // `Span` location info is nightly-only, so use macros.
@@ -604,9 +605,6 @@ fn entry_meta_expr(
                 line: ::std::line!(),
                 col: ::std::column!(),
             },
-
-            get_bench_options: #bench_options_fn,
-            cached_bench_options: ::std::sync::OnceLock::new(),
         }
     }
 }

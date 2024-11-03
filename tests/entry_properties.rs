@@ -102,7 +102,7 @@ fn column() {
 #[test]
 fn ignore() {
     fn get_ignore(meta: &EntryMeta) -> bool {
-        meta.get_bench_options.and_then(|get| get().ignore).unwrap_or_default()
+        meta.bench_options.as_ref().and_then(|options| options.ignore).unwrap_or_default()
     }
 
     assert!(get_ignore(find_meta!(BENCH_ENTRIES, "ignored_1")));

@@ -17,6 +17,9 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 - Make private `Arg::get` trait method not take `self`, so that text editors
   don't recommend using it ([#59]).
 
+- Cache `BenchOptions` using `LazyLock` instead of `OnceLock`, saving space and
+  simplifying the implementation.
+
 ## [0.1.15] - 2024-10-31
 
 ### Added

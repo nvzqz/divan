@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 use crate::bench::BenchOptions;
 
@@ -19,10 +19,7 @@ pub struct EntryMeta {
     pub location: EntryLocation,
 
     /// Configures the benchmarker via attribute options.
-    pub get_bench_options: Option<fn() -> BenchOptions<'static>>,
-
-    /// Cached `BenchOptions`.
-    pub cached_bench_options: OnceLock<BenchOptions<'static>>,
+    pub bench_options: Option<LazyLock<BenchOptions<'static>>>,
 }
 
 /// Where an entry is located.
@@ -37,7 +34,7 @@ pub struct EntryLocation {
 impl EntryMeta {
     #[inline]
     pub(crate) fn bench_options(&self) -> Option<&BenchOptions> {
-        Some(self.cached_bench_options.get_or_init(self.get_bench_options?))
+        self.bench_options.as_deref()
     }
 
     #[inline]

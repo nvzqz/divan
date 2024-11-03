@@ -224,7 +224,7 @@ impl AttrOptions {
         Ok(Self { private_mod, name_expr, args_expr, generic, counters, bench_options })
     }
 
-    /// Produces a function expression for creating `BenchOptions`.
+    /// Produces a function expression for creating `LazyLock<BenchOptions>`.
     ///
     /// If the `#[ignore]` attribute is specified, this be provided its
     /// identifier to set `BenchOptions` using its span. Doing this instead of
@@ -295,7 +295,7 @@ impl AttrOptions {
             let counters = &self.counters;
 
             quote! {
-                #option_some(|| {
+                #option_some(::std::sync::LazyLock::new(|| {
                     #[allow(clippy::needless_update)]
                     #private_mod::BenchOptions {
                         #(#options_iter)*
@@ -308,7 +308,7 @@ impl AttrOptions {
 
                         ..::std::default::Default::default()
                     }
-                })
+                }))
             }
         }
     }
