@@ -1184,10 +1184,13 @@ impl<'a> BenchContext<'a> {
                 .unwrap_or_default()
         };
 
-        let mut alloc_total_max = 0u128;
+        let mut alloc_total_max_count = 0u128;
+        let mut alloc_total_max_size = 0u128;
         let mut alloc_total_tallies = TotalAllocTallyMap::default();
+
         for alloc_info in alloc_info_by_sample.values() {
-            alloc_total_max += alloc_info.max_size as u128;
+            alloc_total_max_count += alloc_info.max_count as u128;
+            alloc_total_max_size += alloc_info.max_size as u128;
             alloc_info.tallies.add_to_total(&mut alloc_total_tallies);
         }
 
@@ -1203,33 +1206,59 @@ impl<'a> BenchContext<'a> {
             },
             max_alloc: StatsSet {
                 fastest: {
-                    sample_alloc_info(sorted_samples.first().copied())
-                        .map(|info| info.max_size as f64)
-                        .unwrap_or_default()
-                        / sample_size
+                    let alloc_info = sample_alloc_info(sorted_samples.first().copied());
+
+                    AllocTally {
+                        count: alloc_info.map(|info| info.max_count as f64).unwrap_or_default()
+                            / sample_size,
+                        size: alloc_info.map(|info| info.max_size as f64).unwrap_or_default()
+                            / sample_size,
+                    }
                 },
                 slowest: {
-                    sample_alloc_info(sorted_samples.last().copied())
-                        .map(|info| info.max_size as f64)
-                        .unwrap_or_default()
-                        / sample_size
+                    let alloc_info = sample_alloc_info(sorted_samples.last().copied());
+
+                    AllocTally {
+                        count: alloc_info.map(|info| info.max_count as f64).unwrap_or_default()
+                            / sample_size,
+                        size: alloc_info.map(|info| info.max_size as f64).unwrap_or_default()
+                            / sample_size,
+                    }
                 },
+                // TODO: Switch to median of alloc info itself, rather than
+                // basing off of median times.
                 median: {
-                    let max_for_median = |index: usize| -> f64 {
-                        sample_alloc_info(median_samples.get(index).copied())
+                    let alloc_info_for_median =
+                        |index| sample_alloc_info(median_samples.get(index).copied());
+
+                    let max_count_for_median = |index: usize| -> f64 {
+                        alloc_info_for_median(index)
+                            .map(|info| info.max_count as f64)
+                            .unwrap_or_default()
+                    };
+
+                    let max_size_for_median = |index: usize| -> f64 {
+                        alloc_info_for_median(index)
                             .map(|info| info.max_size as f64)
                             .unwrap_or_default()
                     };
 
-                    let a = max_for_median(0);
-                    let b = max_for_median(1);
-
                     let median_count = median_samples.len().max(1) as f64;
 
-                    (a + b) / median_count / sample_size
+                    let median_max_count = max_count_for_median(0) + max_count_for_median(1);
+                    let median_max_size = max_size_for_median(0) + max_size_for_median(1);
+
+                    AllocTally {
+                        count: median_max_count / median_count / sample_size,
+                        size: median_max_size / median_count / sample_size,
+                    }
                 },
-                mean: { alloc_total_max as f64 / total_count as f64 },
-            },
+                mean: AllocTally {
+                    count: alloc_total_max_count as f64 / total_count as f64,
+                    size: alloc_total_max_size as f64 / total_count as f64,
+                },
+            }
+            .transpose(),
             alloc_tallies: AllocOpMap {
                 values: AllocOp::ALL
                     .map(|op| StatsSet {

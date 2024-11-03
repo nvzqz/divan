@@ -8,11 +8,21 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Track the maximum number of allocations during a benchmark.
+
+### Changed
+
+- Make private `Arg::get` trait method not take `self`, so that text editors
+  don't recommend using it ([#59]).
+
 ## [0.1.15] - 2024-10-31
 
 ### Added
 
 - [`CyclesCount`] counter to display cycle throughput as Hertz.
+
 - Track the maximum number of bytes allocated during a benchmark.
 
 ### Removed
@@ -326,6 +336,7 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [0.1.2]: https://github.com/nvzqz/divan/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
 
+[#59]: https://github.com/nvzqz/divan/issues/59
 [#64]: https://github.com/nvzqz/divan/issues/64
 
 [`AllocProfiler`]: https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html

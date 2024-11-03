@@ -198,10 +198,16 @@ pub(crate) struct ThreadAllocInfo {
     // NOTE: `tallies` should be ordered first so that `tally_realloc` can
     // directly index `&self` without an offset.
     pub tallies: ThreadAllocTallyMap,
-    // NOTE: `max_size` is signed for convenience but can never be negative due
-    // to it being initialized to 0.
-    pub max_size: ThreadAllocCountSigned,
+
+    // NOTE: Max size and count are signed for convenience but can never be
+    // negative due to it being initialized to 0.
+    //
+    // PERF: Grouping current/max fields together by count and size makes
+    // `tally_alloc` take the least time on M1 Mac.
+    pub current_count: ThreadAllocCountSigned,
+    pub max_count: ThreadAllocCountSigned,
     pub current_size: ThreadAllocCountSigned,
+    pub max_size: ThreadAllocCountSigned,
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -220,7 +226,13 @@ static ALLOC_PTHREAD_KEY: CachePadded<PThreadKey<ThreadAllocInfo>> = CachePadded
 impl ThreadAllocInfo {
     #[inline]
     pub const fn new() -> Self {
-        Self { tallies: ThreadAllocTallyMap::new(), max_size: 0, current_size: 0 }
+        Self {
+            tallies: ThreadAllocTallyMap::new(),
+            max_count: 0,
+            current_count: 0,
+            max_size: 0,
+            current_size: 0,
+        }
     }
 
     /// Returns the current thread's allocation information, initializing it on
@@ -309,19 +321,23 @@ impl ThreadAllocInfo {
     pub fn tally_alloc(&mut self, size: usize) {
         self.tally_op(AllocOp::Alloc, size);
 
+        self.current_count += 1;
+        self.max_count = self.max_count.max(self.current_count);
+
         self.current_size += size as ThreadAllocCountSigned;
         self.max_size = self.max_size.max(self.current_size);
     }
 
-    /// Tallies the total count and size of the allocation operation.
+    /// Tallies the total count and size of the deallocation operation.
     #[inline]
     pub fn tally_dealloc(&mut self, size: usize) {
         self.tally_op(AllocOp::Dealloc, size);
 
+        self.current_count -= 1;
         self.current_size -= size as ThreadAllocCountSigned;
     }
 
-    /// Tallies the total count and size of the allocation operation.
+    /// Tallies the total count and size of the reallocation operation.
     #[inline]
     pub fn tally_realloc(&mut self, old_size: usize, new_size: usize) {
         let (diff, is_shrink) = new_size.overflowing_sub(old_size);
@@ -330,6 +346,7 @@ impl ThreadAllocInfo {
 
         self.tally_op(AllocOp::realloc(is_shrink), abs_diff);
 
+        // NOTE: Realloc does not change allocation count.
         self.current_size += diff as ThreadAllocCountSigned;
         self.max_size = self.max_size.max(self.current_size);
     }

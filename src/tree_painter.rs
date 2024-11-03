@@ -180,17 +180,31 @@ impl TreePainter {
         let buf = &mut self.write_buf;
         buf.clear();
 
-        // Serialize max alloc sizes early so we can resize columns early.
-        let serialized_max_alloc = if stats.max_alloc.is_zero() {
+        // Serialize max alloc counts and sizes early so we can resize columns
+        // early.
+        let serialized_max_alloc_counts = if stats.max_alloc.size.is_zero() {
             None
         } else {
             Some(TreeColumn::ALL.map(|column| {
-                let Some(&max_alloc) = column.get_stat(&stats.max_alloc) else {
+                let Some(&max_alloc_count) = column.get_stat(&stats.max_alloc.count) else {
                     return String::new();
                 };
 
                 let prefix = if column.is_first() { "  " } else { "" };
-                format!("{prefix}{}", util::fmt::format_bytes(max_alloc, 4, bytes_format))
+                format!("{prefix}{}", util::fmt::format_f64(max_alloc_count, 4))
+            }))
+        };
+
+        let serialized_max_alloc_sizes = if stats.max_alloc.size.is_zero() {
+            None
+        } else {
+            Some(TreeColumn::ALL.map(|column| {
+                let Some(&max_alloc_size) = column.get_stat(&stats.max_alloc.size) else {
+                    return String::new();
+                };
+
+                let prefix = if column.is_first() { "  " } else { "" };
+                format!("{prefix}{}", util::fmt::format_bytes(max_alloc_size, 4, bytes_format))
             }))
         };
 
@@ -261,7 +275,9 @@ impl TreePainter {
                 update_width(&counter[column as usize]);
             }
 
-            for s in serialized_max_alloc.iter().flatten() {
+            let serialized_max_alloc_counts = serialized_max_alloc_counts.iter().flatten();
+            let serialized_max_alloc_sizes = serialized_max_alloc_sizes.iter().flatten();
+            for s in serialized_max_alloc_counts.chain(serialized_max_alloc_sizes) {
                 update_width(s);
             }
 
@@ -309,18 +325,24 @@ impl TreePainter {
         }
 
         // Write max allocated bytes.
-        if let Some(serialized_max_alloc) = &serialized_max_alloc {
+        if serialized_max_alloc_counts.is_some() || serialized_max_alloc_sizes.is_some() {
             prep_buffer(buf, &mut self.max_name_span);
 
             TreeColumnData::from_first("max alloc:").write(buf, &mut self.column_widths);
             println!("{buf}");
 
-            prep_buffer(buf, &mut self.max_name_span);
+            for serialized in
+                [serialized_max_alloc_counts.as_ref(), serialized_max_alloc_sizes.as_ref()]
+                    .into_iter()
+                    .flatten()
+            {
+                prep_buffer(buf, &mut self.max_name_span);
 
-            TreeColumnData::from_fn(|column| serialized_max_alloc[column as usize].as_str())
-                .write(buf, &mut self.column_widths);
+                TreeColumnData::from_fn(|column| serialized[column as usize].as_str())
+                    .write(buf, &mut self.column_widths);
 
-            println!("{buf}");
+                println!("{buf}");
+            }
         }
 
         // Write allocation tallies.
