@@ -9,7 +9,7 @@ use std::{
 
 /// Makes the wrapped value [`Send`] + [`Sync`] even though it isn't.
 pub struct SyncWrap<T> {
-    value: T,
+    pub value: T,
 }
 
 unsafe impl<T> Sync for SyncWrap<T> {}

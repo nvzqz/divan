@@ -1,4 +1,5 @@
 use std::{
+    mem::ManuallyDrop,
     num::NonZeroUsize,
     sync::atomic::{AtomicUsize, Ordering::Relaxed},
 };
@@ -15,6 +16,22 @@ pub mod ty;
 /// working with `()` unintentionally.
 #[non_exhaustive]
 pub struct Unit;
+
+#[inline]
+pub(crate) fn defer<F: FnOnce()>(f: F) -> impl Drop {
+    struct Defer<F: FnOnce()>(ManuallyDrop<F>);
+
+    impl<F: FnOnce()> Drop for Defer<F> {
+        #[inline]
+        fn drop(&mut self) {
+            let f = unsafe { ManuallyDrop::take(&mut self.0) };
+
+            f();
+        }
+    }
+
+    Defer(ManuallyDrop::new(f))
+}
 
 /// Returns the index of `ptr` in the slice, assuming it is in the slice.
 #[inline]

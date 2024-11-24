@@ -10,6 +10,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Thread pool for reusing threads across multi-threaded benchmarks. The result
+  is that when running Divan benchmarks under a sampling profiler, the
+  profiler's output will be cleaner and easier to understand.
+
 - Track the maximum number of allocations during a benchmark.
 
 ### Changed

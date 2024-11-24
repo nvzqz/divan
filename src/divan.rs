@@ -13,9 +13,11 @@ use crate::{
         PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
+    thread_pool::BENCH_POOL,
     time::{Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
-    util, Bencher,
+    util::{self, defer},
+    Bencher,
 };
 
 /// The benchmark runner.
@@ -94,6 +96,8 @@ impl Divan {
     }
 
     pub(crate) fn run_action(&self, action: Action) {
+        let _drop_threads = defer(|| BENCH_POOL.drop_threads());
+
         let mut tree: Vec<EntryTree> = if cfg!(miri) {
             // Miri does not work with our linker tricks.
             Vec::new()
