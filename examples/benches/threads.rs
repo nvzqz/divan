@@ -268,22 +268,17 @@ mod thread_id {
     #[cfg(target_os = "macos")]
     #[divan::bench]
     fn mach_thread_self() -> impl Drop {
-        struct Thread(libc::thread_t);
+        struct Thread(mach2::mach_types::thread_port_t);
 
         impl Drop for Thread {
             fn drop(&mut self) {
-                extern "C" {
-                    fn mach_port_deallocate(
-                        task: libc::mach_port_t,
-                        name: libc::mach_port_t,
-                    ) -> libc::kern_return_t;
+                unsafe {
+                    mach2::mach_port::mach_port_deallocate(mach2::traps::mach_task_self(), self.0);
                 }
-
-                unsafe { mach_port_deallocate(libc::mach_task_self(), self.0) };
             }
         }
 
-        Thread(unsafe { libc::mach_thread_self() })
+        Thread(unsafe { mach2::mach_init::mach_thread_self() })
     }
 
     // https://man7.org/linux/man-pages/man2/gettid.2.html
