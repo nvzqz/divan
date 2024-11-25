@@ -8,18 +8,20 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.16] - 2024-11-25
+
 ### Added
 
 - Thread pool for reusing threads across multi-threaded benchmarks. The result
   is that when running Divan benchmarks under a sampling profiler, the
-  profiler's output will be cleaner and easier to understand.
+  profiler's output will be cleaner and easier to understand. ([#37])
 
 - Track the maximum number of allocations during a benchmark.
 
 ### Changed
 
 - Make private `Arg::get` trait method not take `self`, so that text editors
-  don't recommend using it ([#59]).
+  don't recommend using it. ([#59])
 
 - Cache `BenchOptions` using `LazyLock` instead of `OnceLock`, saving space and
   simplifying the implementation.
@@ -39,7 +41,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- List generic benchmark type parameter `A<4>` before `A<32>` ([#64]).
+- List generic benchmark type parameter `A<4>` before `A<32>`. ([#64])
 
 - Improve precision by using `f64` when calculating allocation count and sizes
   for the median samples.
@@ -327,8 +329,10 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.15...HEAD
-[0.1.15]: https://github.com/nvzqz/divan/compare/v0.1.13...v0.1.15
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.16...HEAD
+[0.1.16]: https://github.com/nvzqz/divan/compare/v0.1.15...v0.1.16
+[0.1.15]: https://github.com/nvzqz/divan/compare/v0.1.14...v0.1.15
+[0.1.14]: https://github.com/nvzqz/divan/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/nvzqz/divan/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/nvzqz/divan/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/nvzqz/divan/compare/v0.1.10...v0.1.11
@@ -343,6 +347,7 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [0.1.2]: https://github.com/nvzqz/divan/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nvzqz/divan/compare/v0.1.0...v0.1.1
 
+[#37]: https://github.com/nvzqz/divan/issues/37
 [#59]: https://github.com/nvzqz/divan/issues/59
 [#64]: https://github.com/nvzqz/divan/issues/64
 

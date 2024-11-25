@@ -37,7 +37,7 @@ A guide is being worked on. In the meantime, see:
 
     ```toml
     [dev-dependencies]
-    divan = "0.1.15"
+    divan = "0.1.16"
 
     [[bench]]
     name = "example"
