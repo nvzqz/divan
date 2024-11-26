@@ -217,7 +217,7 @@ impl<F> TaskShared<F> {
 
 /// Spawns N additional threads and appends their channels to the list.
 ///
-/// Threads are given names like `divan-3` to indicate that.
+/// Threads are given names in the form of `divan-$INDEX`.
 #[cold]
 fn spawn(additional: NonZeroUsize, threads: &mut Vec<mpsc::SyncSender<Task>>) {
     let next_thread_id = threads.len() + 1;
@@ -346,5 +346,37 @@ mod tests {
 
         // Silence Miri about leaking threads.
         TEST_POOL.drop_threads();
+    }
+}
+
+#[cfg(feature = "internal_benches")]
+mod benches {
+    use super::*;
+
+    fn aux_thread_counts() -> impl Iterator<Item = usize> {
+        let mut available_parallelism = std::thread::available_parallelism().ok().map(|n| n.get());
+
+        let range = 0..=16;
+
+        if let Some(n) = available_parallelism {
+            if range.contains(&n) {
+                available_parallelism = None;
+            }
+        }
+
+        range.chain(available_parallelism)
+    }
+
+    /// Benchmarks repeatedly using `ThreadPool` for the same number of threads
+    /// on every run.
+    #[crate::bench(crate = crate, args = aux_thread_counts())]
+    fn broadcast(bencher: crate::Bencher, aux_threads: usize) {
+        let pool = ThreadPool::new();
+        let benched = move || pool.broadcast(aux_threads, crate::black_box_drop);
+
+        // Warmup to spawn threads.
+        benched();
+
+        bencher.bench(benched);
     }
 }
