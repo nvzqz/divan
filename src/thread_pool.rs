@@ -82,7 +82,7 @@ impl ThreadPool {
     {
         // SAFETY: The `TaskShared` instance is guaranteed to be accessible to
         // all threads until this function returns, because this thread waits
-        // until `aux_threads` is 0 before continuing.
+        // until `TaskShared.ref_count` is 0 before continuing.
         unsafe {
             let task = TaskShared::new(aux_threads, task);
             let task = Task { shared: NonNull::from(&task).cast() };
@@ -172,7 +172,7 @@ impl Task {
 /// ordered by usage order. This type is also placed on its own cache line.
 #[repr(C)]
 struct TaskShared<F> {
-    /// Once an auxiliary thread sets `aux_threads` to 0, it should notify the
+    /// Once an auxiliary thread sets `ref_count` to 0, it should notify the
     /// main thread to wake up.
     main_thread: Thread,
 
@@ -240,11 +240,11 @@ fn spawn(additional: NonZeroUsize, threads: &mut Vec<mpsc::SyncSender<Task>>) {
             while let Ok(task) = receiver.recv() {
                 // Run the task on this auxiliary thread.
                 //
-                // SAFETY: The task is valid until `aux_threads == 0`.
+                // SAFETY: The task is valid until `ref_count == 0`.
                 let result =
                     std::panic::catch_unwind(AssertUnwindSafe(|| unsafe { task.run(thread_id) }));
 
-                // Decrement the `aux_threads` count to notify the main thread
+                // Decrement the `ref_count` count to notify the main thread
                 // that we finished our work.
                 //
                 // SAFETY: This release operation makes writes within the task
