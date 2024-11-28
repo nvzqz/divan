@@ -8,6 +8,11 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Reduced thread pool memory usage by many kilobytes by using rendezvous
+  channels instead of array-based channels.
+
 ## [0.1.16] - 2024-11-25
 
 ### Added

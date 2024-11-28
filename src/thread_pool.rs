@@ -223,14 +223,13 @@ fn spawn(additional: NonZeroUsize, threads: &mut Vec<mpsc::SyncSender<Task>>) {
     let next_thread_id = threads.len() + 1;
 
     threads.extend((next_thread_id..(next_thread_id + additional.get())).map(|thread_id| {
-        // Create single-task channel.
+        // Create single-task channel. Unless another benchmark is running, the
+        // current thread will be immediately unblocked after the auxiliary
+        // thread accepts the task.
         //
-        // If we used 0 (rendezvous channel), then the main thread would block
-        // while sending a task until the auxiliary thread accepts the task.
-        // Using a capacity of 1 allows the main thread to immediately progress
-        // onto finishing its local work, including sending the task to all
-        // remaining threads.
-        let (sender, receiver) = mpsc::sync_channel::<Task>(1);
+        // This uses a rendezvous channel (capacity 0) instead of other standard
+        // library channels because it reduces memory usage by many kilobytes.
+        let (sender, receiver) = mpsc::sync_channel::<Task>(0);
 
         let work = move || {
             // Abort the process if the caught panic error itself panics when
@@ -378,5 +377,13 @@ mod benches {
         benched();
 
         bencher.bench(benched);
+    }
+
+    /// Benchmarks using `ThreadPool` once.
+    #[crate::bench(crate = crate, args = aux_thread_counts(), sample_size = 1)]
+    fn broadcast_once(bencher: crate::Bencher, aux_threads: usize) {
+        bencher
+            .with_inputs(ThreadPool::new)
+            .bench_refs(|pool| pool.broadcast(aux_threads, crate::black_box_drop));
     }
 }
