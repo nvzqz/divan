@@ -54,7 +54,7 @@ impl<T> PThreadKey<T> {
     where
         D: FnOnce(NonNull<T>) + Copy,
     {
-        assert_eq!(std::mem::size_of::<D>(), 0);
+        assert_eq!(size_of::<D>(), 0);
 
         unsafe extern "C" fn dtor<T, D>(ptr: *mut libc::c_void)
         where

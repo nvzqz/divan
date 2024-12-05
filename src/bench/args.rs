@@ -212,7 +212,7 @@ where
     // This can be done multiple times without invoking a `Drop` destructor
     // because it implements `Copy`.
     let bench_impl: B = unsafe {
-        assert_eq!(mem::size_of::<B>(), 0, "benchmark closure expected to be zero-sized");
+        assert_eq!(size_of::<B>(), 0, "benchmark closure expected to be zero-sized");
         mem::zeroed()
     };
 

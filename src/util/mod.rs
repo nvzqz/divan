@@ -37,7 +37,7 @@ pub(crate) fn defer<F: FnOnce()>(f: F) -> impl Drop {
 #[inline]
 pub(crate) fn slice_ptr_index<T>(slice: &[T], ptr: *const T) -> usize {
     // Safe pointer `offset_from`.
-    (ptr as usize - slice.as_ptr() as usize) / std::mem::size_of::<T>()
+    (ptr as usize - slice.as_ptr() as usize) / size_of::<T>()
 }
 
 /// Returns the values in the middle of `slice`.

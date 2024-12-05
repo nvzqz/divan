@@ -25,7 +25,7 @@
 //! }
 //! ```
 
-use std::{any::Any, mem};
+use std::any::Any;
 
 mod any_counter;
 mod collection;
@@ -129,30 +129,29 @@ impl BytesCount {
         Self { count: count.into_max_uint() }
     }
 
-    /// Counts the size of a type with [`std::mem::size_of`].
+    /// Counts the size of a type with [`size_of`].
     #[inline]
     #[doc(alias = "size_of")]
     pub const fn of<T>() -> Self {
-        Self { count: mem::size_of::<T>() as MaxCountUInt }
+        Self { count: size_of::<T>() as MaxCountUInt }
     }
 
-    /// Counts the size of multiple instances of a type with
-    /// [`std::mem::size_of`].
+    /// Counts the size of multiple instances of a type with [`size_of`].
     #[inline]
     #[doc(alias = "size_of")]
     pub const fn of_many<T>(n: usize) -> Self {
-        match (mem::size_of::<T>() as MaxCountUInt).checked_mul(n as MaxCountUInt) {
+        match (size_of::<T>() as MaxCountUInt).checked_mul(n as MaxCountUInt) {
             Some(count) => Self { count },
             None => panic!("overflow"),
         }
     }
 
-    /// Counts the size of a value with [`std::mem::size_of_val`].
+    /// Counts the size of a value with [`size_of_val`].
     #[inline]
     #[doc(alias = "size_of_val")]
     pub fn of_val<T: ?Sized>(val: &T) -> Self {
         // TODO: Make const, https://github.com/rust-lang/rust/issues/46571
-        Self { count: mem::size_of_val(val) as MaxCountUInt }
+        Self { count: size_of_val(val) as MaxCountUInt }
     }
 
     /// Counts the bytes of [`Iterator::Item`s](Iterator::Item).

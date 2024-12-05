@@ -468,7 +468,7 @@ impl<T: fmt::Debug> fmt::Debug for AllocOpMap<T> {
 impl ThreadAllocTallyMap {
     #[inline]
     pub const fn new() -> Self {
-        unsafe { std::mem::transmute([0u8; std::mem::size_of::<Self>()]) }
+        unsafe { std::mem::transmute([0u8; size_of::<Self>()]) }
     }
 
     /// Returns `true` if all tallies are 0.
@@ -602,7 +602,7 @@ mod tests {
 
         // Helper to create `ThreadAllocTallyMap` since each operation only
         // changes `buf` by 1 `i32`.
-        let item_tally = ThreadAllocTally { count: 1, size: std::mem::size_of::<i32>() as _ };
+        let item_tally = ThreadAllocTally { count: 1, size: size_of::<i32>() as _ };
         let make_tally_map = |op: AllocOp| {
             ThreadAllocTallyMap::from_fn(|other_op| {
                 if other_op == op {

@@ -895,7 +895,7 @@ impl<'a> BenchContext<'a> {
             let sample_start: UntaggedTimestamp;
             let sample_end: UntaggedTimestamp;
 
-            if mem::size_of::<I>() == 0 && (mem::size_of::<O>() == 0 || !mem::needs_drop::<O>()) {
+            if size_of::<I>() == 0 && (size_of::<O>() == 0 || !mem::needs_drop::<O>()) {
                 // Use a range instead of `defer_store` to make the benchmarking
                 // loop cheaper.
 
@@ -928,7 +928,7 @@ impl<'a> BenchContext<'a> {
                 // Drop outputs and inputs.
                 for _ in 0..sample_size {
                     // Output only needs drop if ZST.
-                    if mem::size_of::<O>() == 0 {
+                    if size_of::<O>() == 0 {
                         // SAFETY: Output is a ZST, so we can construct one out
                         // of thin air.
                         unsafe { _ = mem::zeroed::<O>() }
