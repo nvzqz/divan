@@ -7,6 +7,7 @@
     unknown_lints,
     unused_unsafe,
     clippy::needless_doctest_main,
+    clippy::needless_lifetimes,
     clippy::new_without_default,
     clippy::type_complexity,
     clippy::missing_transmute_annotations
