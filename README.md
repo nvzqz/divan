@@ -33,6 +33,8 @@ A guide is being worked on. In the meantime, see:
 
 ## Getting Started
 
+This library requires Rust 1.80 or later.
+
 1. Add the following to your project's [`Cargo.toml`](https://doc.rust-lang.org/cargo/reference/manifest.html):
 
     ```toml

@@ -1,6 +1,7 @@
 [package]
 name = "divan"
 version = "0.1.16"
+rust-version = "1.80.0"
 edition = "2021"
 authors = ["Nikolai Vazquez"]
 license = "MIT OR Apache-2.0"

@@ -717,7 +717,7 @@ impl<'a> BenchContext<'a> {
                 }
 
                 unsafe {
-                    assert_eq!(size_of::<RawSample>(), size_of::<Option<RawSample>>());
+                    assert_eq!(mem::size_of::<RawSample>(), mem::size_of::<Option<RawSample>>());
                     std::slice::from_raw_parts(raw_samples.as_ptr().cast(), raw_samples.len())
                 }
             };

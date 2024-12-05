@@ -10,6 +10,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Set [MSRV] to 1.80 for `size_of` [`LazyLock`] and new prelude imports.
+
 - Reduced thread pool memory usage by many kilobytes by using rendezvous
   channels instead of array-based channels.
 
@@ -200,8 +202,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 ### Added
 
 - [`black_box_drop`](https://docs.rs/divan/0.1.5/divan/fn.black_box_drop.html)
-  convenience function for [`black_box`] + [`drop`][drop_fn]. This is useful
-  when benchmarking a lazy [`Iterator`] to completion with `for_each`:
+  convenience function for [`black_box`] + [`drop`]. This is useful when
+  benchmarking a lazy [`Iterator`] to completion with `for_each`:
 
   ```rust
   #[divan::bench]
@@ -369,14 +371,18 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [`Any`]: https://doc.rust-lang.org/std/any/trait.Any.html
 [`Copy`]: https://doc.rust-lang.org/std/marker/trait.Copy.html
 [`Debug`]: https://doc.rust-lang.org/std/fmt/trait.Debug.html
+[`drop`]: https://doc.rust-lang.org/std/mem/fn.drop.html
 [`Drop`]: https://doc.rust-lang.org/std/ops/trait.Drop.html
 [`Iterator`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html
+[`LazyLock`]: https://doc.rust-lang.org/std/sync/struct.LazyLock.html
 [`Send`]: https://doc.rust-lang.org/std/marker/trait.Send.html
+[`size_of`]: https://doc.rust-lang.org/std/mem/fn.size_of.html
 [`Sync`]: https://doc.rust-lang.org/std/marker/trait.Sync.html
+[`thread_local!`]: https://doc.rust-lang.org/std/macro.thread_local.html
 [`ToString`]: https://doc.rust-lang.org/std/string/trait.ToString.html
 [available parallelism]: https://doc.rust-lang.org/std/thread/fn.available_parallelism.html
-[drop_fn]: https://doc.rust-lang.org/std/mem/fn.drop.html
 [slice]: https://doc.rust-lang.org/std/primitive.slice.html
-[`thread_local!`]: https://doc.rust-lang.org/std/macro.thread_local.html
+
+[MSRV]: https://doc.rust-lang.org/cargo/reference/rust-version.html
 
 [`pthread_key_create`]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_key_create.html
