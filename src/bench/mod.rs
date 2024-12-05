@@ -399,12 +399,12 @@ where
     ///         });
     /// }
     /// ```
-    pub fn bench_refs<O, B>(self, benched: B)
+    pub fn bench_refs<'i, O, B>(self, benched: B)
     where
-        B: Fn(&mut I) -> O + Sync,
+        I: 'i,
+        B: Fn(&'i mut I) -> O + Sync,
         GenI: Fn() -> I + Sync,
     {
-        // TODO: Allow `O` to reference `&mut I` as long as `I` outlives `O`.
         self.context.bench_loop_threaded(
             self.config.gen_input,
             |input| {
@@ -445,11 +445,11 @@ where
     ///         });
     /// }
     /// ```
-    pub fn bench_local_refs<O, B>(self, mut benched: B)
+    pub fn bench_local_refs<'i, O, B>(self, mut benched: B)
     where
-        B: FnMut(&mut I) -> O,
+        I: 'i,
+        B: FnMut(&'i mut I) -> O,
     {
-        // TODO: Allow `O` to reference `&mut I` as long as `I` outlives `O`.
         self.context.bench_loop_local(
             self.config.gen_input,
             |input| {

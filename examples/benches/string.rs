@@ -178,3 +178,19 @@ fn to_uppercase<G: GenString>(bencher: Bencher, len: usize) {
         .input_counter(BytesCount::of_str)
         .bench_local_refs(|s| s.to_uppercase());
 }
+
+#[divan::bench(
+    types = [Ascii, Unicode],
+    args = LENS,
+)]
+fn matches<G: GenString>(bencher: Bencher, len: usize) {
+    let mut gen = G::default();
+    // The return value of the closure passed to bench_refs/bench_local_refs
+    // is allowed to capture the input lifetime - in this example, its input
+    // is a &'a String, and its output a Vec<&'a str>.
+    bencher
+        .counter(CharsCount::new(len))
+        .with_inputs(|| gen.gen_string(len))
+        .input_counter(BytesCount::of_str)
+        .bench_local_refs(|s| s.matches(|c: char| c.is_ascii_digit()).collect::<Vec<_>>());
+}
