@@ -12,7 +12,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Set [MSRV] to 1.80 for `size_of` [`LazyLock`] and new prelude imports.
+- Set [MSRV] to 1.80 for [`LazyLock`] and new `size_of` prelude import.
 
 - Reduced thread pool memory usage by many kilobytes by using rendezvous
   channels instead of array-based channels.
