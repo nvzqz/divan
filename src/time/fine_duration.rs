@@ -136,16 +136,6 @@ impl FineDuration {
             self.min(other)
         }
     }
-
-    /// Returns the absolute difference between two durations.
-    #[inline]
-    pub fn abs_diff(self, other: Self) -> Self {
-        if self > other {
-            FineDuration { picos: self.picos - other.picos }
-        } else {
-            FineDuration { picos: other.picos - self.picos }
-        }
-    }
 }
 
 mod picos {
