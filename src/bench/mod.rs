@@ -1081,7 +1081,20 @@ impl<'a> BenchContext<'a> {
 
         // Samples sorted by duration.
         let sorted_samples = self.samples.sorted_samples();
+        // 50th percentile and beyond.
         let median_samples = util::slice_middle(&sorted_samples);
+
+        let stddev_duration = {
+            let variance = time_samples
+                .iter()
+                .map(|s| {
+                    let diff = s.duration.abs_diff(mean_duration).picos;
+                    diff * diff
+                })
+                .sum::<u128>()
+                / sample_count as u128;
+            FineDuration { picos: (variance as f64).sqrt() as u128 }
+        };
 
         let index_of_sample = |sample: &TimeSample| -> usize {
             util::slice_ptr_index(&self.samples.time_samples, sample)
@@ -1126,6 +1139,7 @@ impl<'a> BenchContext<'a> {
                 (sum / median_samples.len() as u128) as MaxCountUInt
             };
 
+            let mean = self.counters.mean_count(counter_kind);
             Some(StatsSet {
                 fastest: sorted_samples
                     .first()
@@ -1134,7 +1148,8 @@ impl<'a> BenchContext<'a> {
                     .last()
                     .and_then(|s| counter_count_for_sample(s, counter_kind))?,
                 median,
-                mean: self.counters.mean_count(counter_kind),
+                mean,
+                stddev: self.counters.stddev_count(counter_kind, mean),
             })
         });
 
@@ -1170,6 +1185,7 @@ impl<'a> BenchContext<'a> {
                 slowest: max_duration,
                 median: median_duration,
                 mean: mean_duration,
+                stddev: stddev_duration,
             },
             max_alloc: StatsSet {
                 fastest: {
@@ -1224,6 +1240,10 @@ impl<'a> BenchContext<'a> {
                     count: alloc_total_max_count as f64 / total_count as f64,
                     size: alloc_total_max_size as f64 / total_count as f64,
                 },
+                stddev: {
+                    // TODO
+                    AllocTally { count: 0.0, size: 0.0 }
+                },
             }
             .transpose(),
             alloc_tallies: AllocOpMap {
@@ -1270,6 +1290,8 @@ impl<'a> BenchContext<'a> {
                                 size: tally.size as f64 / total_count as f64,
                             }
                         },
+                        // TODO
+                        stddev: AllocTally { count: 0.0, size: 0.0 },
                     })
                     .map(StatsSet::transpose),
             },
@@ -1287,12 +1309,14 @@ impl<T> StatsSet<AllocTally<T>> {
                 slowest: self.slowest.count,
                 median: self.median.count,
                 mean: self.mean.count,
+                stddev: self.stddev.count,
             },
             size: StatsSet {
                 fastest: self.fastest.size,
                 slowest: self.slowest.size,
                 median: self.median.size,
                 mean: self.mean.size,
+                stddev: self.stddev.size,
             },
         }
     }

@@ -40,6 +40,21 @@ impl CounterCollection {
         (sum / counts.len() as u128) as MaxCountUInt
     }
 
+    pub(crate) fn stddev_count(
+        &self,
+        counter_kind: KnownCounterKind,
+        mean: MaxCountUInt,
+    ) -> MaxCountUInt {
+        let counts = self.counts(counter_kind);
+
+        let mean = mean as i128;
+        let sum: u128 =
+            counts.iter().map(|&c| ((c as i128 - mean).abs() as u128).pow(2)).sum::<u128>()
+                / counts.len() as u128;
+
+        (sum as f64).sqrt() as MaxCountUInt
+    }
+
     #[inline]
     pub(crate) fn uses_input_counts(&self, counter_kind: KnownCounterKind) -> bool {
         self.info(counter_kind).count_input.is_some()

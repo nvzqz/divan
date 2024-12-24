@@ -6,6 +6,7 @@ use crate::util;
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub(crate) struct FineDuration {
+    /// picoseconds
     pub picos: u128,
 }
 
@@ -133,6 +134,16 @@ impl FineDuration {
             self
         } else {
             self.min(other)
+        }
+    }
+
+    /// Returns the absolute difference between two durations.
+    #[inline]
+    pub fn abs_diff(self, other: Self) -> Self {
+        if self > other {
+            FineDuration { picos: self.picos - other.picos }
+        } else {
+            FineDuration { picos: other.picos - self.picos }
         }
     }
 }
