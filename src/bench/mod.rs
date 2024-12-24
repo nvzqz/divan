@@ -1083,16 +1083,12 @@ impl<'a> BenchContext<'a> {
         let sorted_samples = self.samples.sorted_samples();
         let median_samples = util::slice_middle(&sorted_samples);
 
-        let stddev_duration = {
-            let variance = time_samples
-                .iter()
-                .map(|s| {
-                    let diff = s.duration.abs_diff(mean_duration).picos;
-                    diff * diff
-                })
-                .sum::<u128>()
-                / sample_count as u128;
-            FineDuration { picos: (variance as f64).sqrt() as u128 }
+        let stddev_duration = FineDuration {
+            picos: util::stddev(
+                time_samples.iter().map(|ts| ts.duration.picos),
+                time_samples.len() as u128,
+                mean_duration.picos as u128,
+            ) / sample_size as u128,
         };
 
         let index_of_sample = |sample: &TimeSample| -> usize {
@@ -1176,6 +1172,10 @@ impl<'a> BenchContext<'a> {
         }
 
         let sample_size = f64::from(sample_size);
+        let mean = AllocTally {
+            count: alloc_total_max_count as f64 / total_count as f64,
+            size: alloc_total_max_size as f64 / total_count as f64,
+        };
         Stats {
             sample_count: sample_count as u32,
             iter_count: total_count,
@@ -1235,62 +1235,95 @@ impl<'a> BenchContext<'a> {
                         size: median_max_size / median_count / sample_size,
                     }
                 },
-                mean: AllocTally {
-                    count: alloc_total_max_count as f64 / total_count as f64,
-                    size: alloc_total_max_size as f64 / total_count as f64,
-                },
+                mean,
                 stddev: {
                     // TODO
-                    AllocTally { count: 0.0, size: 0.0 }
+                    AllocTally {
+                        count: util::stddev(
+                            self.samples
+                                .alloc_info_by_sample
+                                .iter()
+                                .map(|ai| ai.1.max_count as f64),
+                            self.samples.alloc_info_by_sample.len() as f64,
+                            mean.count as f64,
+                        ) / sample_count as f64,
+                        size: util::stddev(
+                            self.samples.alloc_info_by_sample.iter().map(|ai| ai.1.max_size as f64),
+                            self.samples.alloc_info_by_sample.len() as f64,
+                            mean.size as f64,
+                        ) / sample_count as f64,
+                    }
                 },
             }
             .transpose(),
             alloc_tallies: AllocOpMap {
                 values: AllocOp::ALL
-                    .map(|op| StatsSet {
-                        fastest: {
-                            let fastest = sample_alloc_tally(sorted_samples.first().copied(), op);
-
-                            AllocTally {
-                                count: fastest.count as f64 / sample_size,
-                                size: fastest.size as f64 / sample_size,
-                            }
-                        },
-                        slowest: {
-                            let slowest = sample_alloc_tally(sorted_samples.last().copied(), op);
-
-                            AllocTally {
-                                count: slowest.count as f64 / sample_size,
-                                size: slowest.size as f64 / sample_size,
-                            }
-                        },
-                        median: {
-                            let tally_for_median = |index: usize| -> ThreadAllocTally {
-                                sample_alloc_tally(median_samples.get(index).copied(), op)
-                            };
-
-                            let a = tally_for_median(0);
-                            let b = tally_for_median(1);
-
-                            let median_count = median_samples.len().max(1) as f64;
-
-                            let avg_count = (a.count as f64 + b.count as f64) / median_count;
-                            let avg_size = (a.size as f64 + b.size as f64) / median_count;
-
-                            AllocTally {
-                                count: avg_count / sample_size,
-                                size: avg_size / sample_size,
-                            }
-                        },
-                        mean: {
+                    .map(|op| {
+                        let mean = {
                             let tally = alloc_total_tallies.get(op);
                             AllocTally {
                                 count: tally.count as f64 / total_count as f64,
                                 size: tally.size as f64 / total_count as f64,
                             }
-                        },
-                        // TODO
-                        stddev: AllocTally { count: 0.0, size: 0.0 },
+                        };
+                        StatsSet {
+                            fastest: {
+                                let fastest =
+                                    sample_alloc_tally(sorted_samples.first().copied(), op);
+
+                                AllocTally {
+                                    count: fastest.count as f64 / sample_size,
+                                    size: fastest.size as f64 / sample_size,
+                                }
+                            },
+                            slowest: {
+                                let slowest =
+                                    sample_alloc_tally(sorted_samples.last().copied(), op);
+
+                                AllocTally {
+                                    count: slowest.count as f64 / sample_size,
+                                    size: slowest.size as f64 / sample_size,
+                                }
+                            },
+                            median: {
+                                let tally_for_median = |index: usize| -> ThreadAllocTally {
+                                    sample_alloc_tally(median_samples.get(index).copied(), op)
+                                };
+
+                                let a = tally_for_median(0);
+                                let b = tally_for_median(1);
+
+                                let median_count = median_samples.len().max(1) as f64;
+
+                                let avg_count = (a.count as f64 + b.count as f64) / median_count;
+                                let avg_size = (a.size as f64 + b.size as f64) / median_count;
+
+                                AllocTally {
+                                    count: avg_count / sample_size,
+                                    size: avg_size / sample_size,
+                                }
+                            },
+                            mean,
+                            // TODO
+                            stddev: AllocTally {
+                                count: util::stddev(
+                                    self.samples
+                                        .alloc_info_by_sample
+                                        .iter()
+                                        .map(|ai| ai.1.tallies.get(op).count as f64),
+                                    self.samples.alloc_info_by_sample.len() as f64,
+                                    mean.count,
+                                ) / sample_count as f64,
+                                size: util::stddev(
+                                    self.samples
+                                        .alloc_info_by_sample
+                                        .iter()
+                                        .map(|ai| ai.1.tallies.get(op).size as f64),
+                                    self.samples.alloc_info_by_sample.len() as f64,
+                                    mean.size,
+                                ) / sample_count as f64,
+                            },
+                        }
                     })
                     .map(StatsSet::transpose),
             },
