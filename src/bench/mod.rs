@@ -1237,7 +1237,6 @@ impl<'a> BenchContext<'a> {
                 },
                 mean,
                 stddev: {
-                    // TODO
                     AllocTally {
                         count: util::stddev(
                             self.samples
@@ -1304,7 +1303,6 @@ impl<'a> BenchContext<'a> {
                                 }
                             },
                             mean,
-                            // TODO
                             stddev: AllocTally {
                                 count: util::stddev(
                                     self.samples
