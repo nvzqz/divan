@@ -1081,7 +1081,6 @@ impl<'a> BenchContext<'a> {
 
         // Samples sorted by duration.
         let sorted_samples = self.samples.sorted_samples();
-        // 50th percentile and beyond.
         let median_samples = util::slice_middle(&sorted_samples);
 
         let stddev_duration = {
