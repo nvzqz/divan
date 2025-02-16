@@ -1,4 +1,7 @@
-use crate::counter::{AnyCounter, IntoCounter, KnownCounterKind, MaxCountUInt};
+use crate::{
+    counter::{AnyCounter, IntoCounter, KnownCounterKind, MaxCountUInt},
+    util,
+};
 
 /// Multi-map from counters to their counts and input-based initializer.
 #[derive(Default)]
@@ -38,6 +41,16 @@ impl CounterCollection {
         let sum: u128 = counts.iter().map(|&c| c as u128).sum();
 
         (sum / counts.len() as u128) as MaxCountUInt
+    }
+
+    pub(crate) fn stddev_count(
+        &self,
+        counter_kind: KnownCounterKind,
+        mean: MaxCountUInt,
+    ) -> MaxCountUInt {
+        let counts = self.counts(counter_kind);
+        util::stddev(counts.iter().map(|a| *a as u128), counts.len() as u128, mean as u128)
+            as MaxCountUInt
     }
 
     #[inline]

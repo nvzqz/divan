@@ -6,6 +6,7 @@ use crate::util;
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub(crate) struct FineDuration {
+    /// picoseconds
     pub picos: u128,
 }
 

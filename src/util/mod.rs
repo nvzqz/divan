@@ -79,6 +79,70 @@ pub(crate) fn known_parallelism() -> NonZeroUsize {
     }
 }
 
+pub(crate) trait Sqrt {
+    fn sqrt(self) -> Self;
+}
+
+impl Sqrt for f64 {
+    fn sqrt(self) -> Self {
+        self.sqrt()
+    }
+}
+
+// The reason for this algorithm here instead of
+// simply casting the integer to f64 and using sqrt
+// is the loss of precision.
+//
+// Consider that the stddev is 100s, which is
+// 10^14 ps. Its squared value is 10^28 ps^2, or
+// approximately 2^93 ps^2. The f64's mantissa is
+// 53 bits, which means, adding some 2^(93 - 53) =
+// 2^40 has no impact on the value of f64. That means
+// the loss of precision while computing standard
+// deviation will be sqrt(2^40), which is around
+// 1'000'000 ps ≈ 1 µs. This isn't much for a 100s
+// standard deviation, but still can be avoided
+// easily.
+//
+// See test f64_prec below.
+impl Sqrt for u128 {
+    fn sqrt(self) -> Self {
+        if self <= 1 {
+            return self;
+        }
+        let mut x0 = self / 2;
+        let mut x1 = (x0 + self / x0) / 2;
+        while x1 < x0 {
+            x0 = x1;
+            x1 = (x0 + self / x0) / 2;
+        }
+        x0
+    }
+}
+
+/// Standard deviation on a sequence generated
+/// by the iterator.
+pub(crate) fn stddev<T, IT>(it: IT, len: T, mean: T) -> T
+where
+    IT: Iterator<Item = T>,
+    T: std::ops::Mul<Output = T>
+        + Sqrt
+        + std::ops::Sub<Output = T>
+        + PartialOrd
+        + Copy
+        + std::ops::Div<Output = T>,
+    T: std::iter::Sum<IT::Item>,
+{
+    let variance: T = it
+        .map(|x| {
+            let diff = if x > mean { x - mean } else { mean - x };
+            diff * diff
+        })
+        .sum::<T>()
+        / len;
+    variance.sqrt()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::black_box;
@@ -102,5 +166,33 @@ mod tests {
         assert_eq!(slice_middle(&[1, 2, 3]), &[2]);
         assert_eq!(slice_middle(&[1, 2, 3, 4]), &[2, 3]);
         assert_eq!(slice_middle(&[1, 2, 3, 4, 5]), &[3]);
+    }
+
+    #[test]
+    fn stddev() {
+        let data = [1.0, 2.0, 3.0, 4.0, 5.0];
+        let mean = data.iter().sum::<f64>() / data.len() as f64;
+        let expected = 2.0f64.sqrt();
+        let actual = crate::util::stddev(data.iter().copied(), data.len() as f64, mean);
+        assert!((expected - actual).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn f64_prec() {
+        const EXP: u32 = 93;
+        const F64_MANTISSA: u32 = EXP - 53;
+        let a1 = 2u128.pow(EXP);
+        let a2 = a1 - 1 + 2u128.pow(F64_MANTISSA - 1);
+        let f1 = a1 as f64;
+        let f2 = a2 as f64;
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn u128_sqrt() {
+        assert_eq!(0u128.sqrt(), 0);
+        assert_eq!(1u128.sqrt(), 1);
+        assert_eq!(101u128.sqrt(), 10);
+        assert_eq!(102390123.sqrt(), 10118);
     }
 }
