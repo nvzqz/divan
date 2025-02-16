@@ -43,7 +43,7 @@ mod systems {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "wasi",
-            target_os = "emscripten",
+            target_os = "emscripten"
         }
     }
 
