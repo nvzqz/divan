@@ -52,6 +52,9 @@ pub(crate) struct StatsSet<T> {
 
     /// Associated with average time taken by all iterations.
     pub mean: T,
+
+    /// Associated with the standard deviation of time taken by all iterations.
+    pub stddev: T,
 }
 
 impl StatsSet<f64> {
