@@ -153,9 +153,15 @@ impl EntryConst {
     /// Returns [`PartialOrd::partial_cmp`] ordering if `<` or `>, falling back
     /// to comparing [`ToString::to_string`] otherwise.
     pub(crate) fn cmp_name(&self, other: &Self) -> Ordering {
+        // SAFETY: If both constants have the same `partial_cmp` function
+        // pointer, they are safely comparable. In the context of how this
+        // method is used, it is because the constants are of the same type.
+        //
+        // We don't need a type ID check because constants that are compared to
+        // each other all come from the same code generation unit, so their
+        // `partial_cmp` function pointers will never differ.
+        #[allow(unpredictable_function_pointer_comparisons)]
         if self.partial_cmp == other.partial_cmp {
-            // SAFETY: Both constants have the same comparison function, so they
-            // must be the same type.
             if let Some(ordering) = unsafe { (self.partial_cmp)(self.value, other.value) } {
                 if !ordering.is_eq() {
                     return ordering;
