@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.18] - 2025-04-05
+
 ### Added
 
 - Support for [`cargo-nextest`](https://nexte.st) running benchmarks as tests.
@@ -347,7 +349,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.17...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.18...HEAD
+[0.1.18]: https://github.com/nvzqz/divan/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/nvzqz/divan/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/nvzqz/divan/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/nvzqz/divan/compare/v0.1.14...v0.1.15
