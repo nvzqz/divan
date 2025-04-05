@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, ptr::NonNull};
 
 use crate::{
-    bench::{BenchOptions, DEFAULT_SAMPLE_COUNT},
+    benchmark::{BenchOptions, DEFAULT_SAMPLE_COUNT},
     config::SortingAttr,
     counter::KnownCounterKind,
     entry::{AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry},

@@ -4,7 +4,7 @@ use std::{
 };
 
 pub use crate::{
-    bench::{BenchArgs, BenchOptions},
+    benchmark::{BenchArgs, BenchOptions},
     entry::{
         BenchEntry, BenchEntryRunner, EntryConst, EntryList, EntryLocation, EntryMeta, EntryType,
         GenericBenchEntry, GroupEntry, BENCH_ENTRIES, GROUP_ENTRIES,

@@ -19,7 +19,7 @@
 pub mod __private;
 
 mod alloc;
-mod bench;
+mod benchmark; // NOTE: "bench" would be imported into the prelude.
 mod cli;
 mod compile_fail;
 mod config;
@@ -32,6 +32,12 @@ mod tree_painter;
 mod util;
 
 pub mod counter;
+
+/// `use divan::prelude::*;` to import common items.
+pub mod prelude {
+    #[doc(no_inline)]
+    pub use crate::{bench, bench_group, black_box, black_box_drop, AllocProfiler, Bencher, Divan};
+}
 
 /// Prevents compiler optimizations on a value.
 ///
@@ -125,7 +131,7 @@ pub mod counter;
 pub use std::hint::black_box;
 
 #[doc(inline)]
-pub use crate::{alloc::AllocProfiler, bench::Bencher, divan::Divan};
+pub use crate::{alloc::AllocProfiler, benchmark::Bencher, divan::Divan};
 
 /// Runs all registered benchmarks.
 ///

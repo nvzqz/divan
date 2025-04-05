@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use crate::bench::BenchOptions;
+use crate::benchmark::BenchOptions;
 
 /// Metadata common to `#[divan::bench]` and `#[divan::bench_group]`.
 pub struct EntryMeta {

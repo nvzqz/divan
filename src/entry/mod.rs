@@ -1,6 +1,6 @@
 use std::ptr::NonNull;
 
-use crate::{bench::BenchArgsRunner, Bencher};
+use crate::{benchmark::BenchArgsRunner, Bencher};
 
 mod generic;
 mod list;

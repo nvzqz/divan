@@ -10,6 +10,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `prelude` module for simplifying imports of [`#[bench]`][bench_attr],
+  [`#[bench_group]`][bench_group_attr], [`black_box`], [`black_box_drop`],
+  [`AllocProfiler`], [`Bencher`], and [`Divan`].
+
 - Support `wasi` and `emscripten` targets.
 
 ## [0.1.17] - 2024-12-04
@@ -207,9 +211,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- [`black_box_drop`](https://docs.rs/divan/0.1.5/divan/fn.black_box_drop.html)
-  convenience function for [`black_box`] + [`drop`]. This is useful when
-  benchmarking a lazy [`Iterator`] to completion with `for_each`:
+- [`black_box_drop`] convenience function for [`black_box`] + [`drop`]. This is
+  useful when benchmarking a lazy [`Iterator`] to completion with `for_each`:
 
   ```rust
   #[divan::bench]
@@ -365,15 +368,22 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [#59]: https://github.com/nvzqz/divan/issues/59
 [#64]: https://github.com/nvzqz/divan/issues/64
 
-[`AllocProfiler`]: https://docs.rs/divan/0.1/divan/struct.AllocProfiler.html
+<!-- Stable -->
+[`AllocProfiler`]: https://docs.rs/divan/latest/divan/struct.AllocProfiler.html
 [`args`]: https://docs.rs/divan/latest/divan/attr.bench.html#args
-[`Bencher`]: https://docs.rs/divan/0.1/divan/struct.Bencher.html
+[`Bencher`]: https://docs.rs/divan/latest/divan/struct.Bencher.html
+[`black_box_drop`]: https://docs.rs/divan/latest/divan/fn.black_box_drop.html
 [`black_box`]: https://docs.rs/divan/latest/divan/fn.black_box.html
+[`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
+[`Divan::max_time`]: https://docs.rs/divan/latest/divan/struct.Divan.html#method.max_time
+[`Divan`]: https://docs.rs/divan/latest/divan/struct.Divan.html
+[bench_attr]: https://docs.rs/divan/latest/divan/attr.bench.html
+[bench_group_attr]: https://docs.rs/divan/latest/divan/attr.bench_group.html
+
+<!-- 0.1 -->
 [`BytesCount::of_iter`]: https://docs.rs/divan/0.1/divan/counter/struct.BytesCount.html#method.of_iter
 [`BytesCount::of_many`]: https://docs.rs/divan/0.1/divan/counter/struct.BytesCount.html#method.of_many
-[`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
 [`CyclesCount`]: https://docs.rs/divan/0.1/divan/counter/struct.CyclesCount.html
-[`Divan::max_time`]: https://docs.rs/divan/0.1/divan/struct.Divan.html#method.max_time
 
 [`Any`]: https://doc.rust-lang.org/std/any/trait.Any.html
 [`Copy`]: https://doc.rust-lang.org/std/marker/trait.Copy.html

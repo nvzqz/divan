@@ -6,7 +6,7 @@ use clap::ColorChoice;
 use regex::Regex;
 
 use crate::{
-    bench::BenchOptions,
+    benchmark::BenchOptions,
     config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
     counter::{
         BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter, ItemsCount, MaxCountUInt,
@@ -230,7 +230,7 @@ impl Divan {
         tree_painter: &RefCell<TreePainter>,
         is_last_entry: bool,
     ) {
-        use crate::bench::BenchContext;
+        use crate::benchmark::BenchContext;
 
         let entry_display_name = bench_entry.display_name();
 
