@@ -131,6 +131,13 @@ impl Divan {
             return;
         }
 
+        // When run under `cargo-nextest`, it provides `--list --format terse`.
+        // We don't currently accept this action under any other circumstances.
+        if action.is_list_terse() {
+            self.run_tree_list(&tree, "");
+            return;
+        }
+
         // Sorting is after filtering to compare fewer elements.
         EntryTree::sort_by_attr(&mut tree, self.sorting_attr, self.reverse_sort);
 
@@ -171,6 +178,36 @@ impl Divan {
             RefCell::new(TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths));
 
         self.run_tree(action, &tree, &shared_context, None, &tree_painter);
+    }
+
+    /// Emits the entries in `tree` for the purpose of `--list --format terse`.
+    ///
+    /// This only happens when running under `cargo-nextest` (`NEXTEST=1`).
+    fn run_tree_list(&self, tree: &[EntryTree], parent_path: &str) {
+        let mut full_path = String::with_capacity(parent_path.len());
+
+        for child in tree {
+            let ignore =
+                child.bench_options().and_then(|options| options.ignore).unwrap_or_default();
+
+            if self.should_ignore(ignore) {
+                continue;
+            }
+
+            full_path.clear();
+
+            if !parent_path.is_empty() {
+                full_path.push_str(parent_path);
+                full_path.push_str("::");
+            }
+
+            full_path.push_str(child.display_name());
+
+            match child {
+                EntryTree::Leaf { .. } => println!("{full_path}: benchmark"),
+                EntryTree::Parent { children, .. } => self.run_tree_list(children, &full_path),
+            }
+        }
     }
 
     fn run_tree(
@@ -415,7 +452,19 @@ impl Divan {
         }
 
         self.action = if matches.get_flag("list") {
-            Action::List
+            // We support `--list --format terse` only under `cargo-nextest`.
+            let is_terse = matches
+                .try_get_one::<String>("format")
+                .ok()
+                .flatten()
+                .map(|format| format == "terse")
+                .unwrap_or_default();
+
+            if is_terse {
+                Action::ListTerse
+            } else {
+                Action::List
+            }
         } else if matches.get_flag("test") || !matches.get_flag("bench") {
             // Either of:
             // `cargo bench -- --test`

@@ -79,6 +79,11 @@ pub(crate) fn known_parallelism() -> NonZeroUsize {
     }
 }
 
+/// Returns `true` if running under [`cargo-nextest`](https://nexte.st).
+pub(crate) fn is_cargo_nextest() -> bool {
+    std::env::var_os("NEXTEST").unwrap_or_default() == "1"
+}
+
 #[cfg(test)]
 mod tests {
     use crate::black_box;

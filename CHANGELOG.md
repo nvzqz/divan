@@ -10,6 +10,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Support for [`cargo-nextest`](https://nexte.st) running benchmarks as tests.
+
 - `prelude` module for simplifying imports of [`#[bench]`][bench_attr],
   [`#[bench_group]`][bench_group_attr], [`black_box`], [`black_box_drop`],
   [`AllocProfiler`], [`Bencher`], and [`Divan`].

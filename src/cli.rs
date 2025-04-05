@@ -4,6 +4,7 @@ use crate::{
     config::{ParsedSeconds, SortingAttr},
     counter::MaxCountUInt,
     time::TimerKind,
+    util,
 };
 
 pub(crate) fn command() -> Command {
@@ -29,7 +30,16 @@ pub(crate) fn command() -> Command {
 
     // TODO: `--format <pretty|terse>`
 
-    Command::new("divan")
+    let mut cmd = Command::new("divan");
+
+    // Support `cargo-nextest` running us with `--list --format terse`.
+    //
+    // TODO: Add CI test to ensure this doesn't break.
+    if util::is_cargo_nextest() {
+        cmd = cmd.arg(option("format").value_parser(["terse"]).requires("list"));
+    }
+
+    cmd
         .arg(
             Arg::new("filter")
                 .value_name("FILTER")

@@ -28,6 +28,11 @@ pub(crate) enum Action {
 
     /// List benchmarks.
     List,
+
+    /// List benchmarks in the style of `cargo test --list --format terse`.
+    ///
+    /// This only applies when running under `cargo-nextest` (`NEXTEST=1`).
+    ListTerse,
 }
 
 #[allow(dead_code)]
@@ -45,6 +50,11 @@ impl Action {
     #[inline]
     pub fn is_list(&self) -> bool {
         matches!(self, Self::List)
+    }
+
+    #[inline]
+    pub fn is_list_terse(&self) -> bool {
+        matches!(self, Self::ListTerse)
     }
 }
 
