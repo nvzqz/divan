@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Support `wasi` and `emscripten` targets.
+
 ## [0.1.17] - 2024-12-04
 
 ### Changed
