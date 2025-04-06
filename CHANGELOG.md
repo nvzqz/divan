@@ -14,7 +14,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 - Support for [`cargo-nextest`](https://nexte.st) running benchmarks as tests.
 
-- `prelude` module for simplifying imports of [`#[bench]`][bench_attr],
+- [`prelude`] module for simplifying imports of [`#[bench]`][bench_attr],
   [`#[bench_group]`][bench_group_attr], [`black_box`], [`black_box_drop`],
   [`AllocProfiler`], [`Bencher`], and [`Divan`].
 
@@ -382,6 +382,7 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [`consts`]: https://docs.rs/divan/latest/divan/attr.bench.html#consts
 [`Divan::max_time`]: https://docs.rs/divan/latest/divan/struct.Divan.html#method.max_time
 [`Divan`]: https://docs.rs/divan/latest/divan/struct.Divan.html
+[`prelude`]: https://docs.rs/divan/latest/divan/prelude/index.html
 [bench_attr]: https://docs.rs/divan/latest/divan/attr.bench.html
 [bench_group_attr]: https://docs.rs/divan/latest/divan/attr.bench_group.html
 
