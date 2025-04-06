@@ -18,6 +18,9 @@
 #[path = "private.rs"]
 pub mod __private;
 
+#[macro_use]
+mod util;
+
 mod alloc;
 mod benchmark; // NOTE: "bench" would be imported into the prelude.
 mod cli;
@@ -29,7 +32,6 @@ mod stats;
 mod thread_pool;
 mod time;
 mod tree_painter;
-mod util;
 
 pub mod counter;
 

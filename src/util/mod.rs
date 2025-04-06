@@ -4,8 +4,14 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering::Relaxed},
 };
 
+use regex::Regex;
+
+#[macro_use]
+mod macros;
+
 pub mod fmt;
 pub mod sort;
+pub mod split_vec;
 pub mod sync;
 pub mod thread;
 pub mod ty;
@@ -16,6 +22,36 @@ pub mod ty;
 /// working with `()` unintentionally.
 #[non_exhaustive]
 pub struct Unit;
+
+/// Public-in-private trait to make `DivanConfig::skip_regex` polymorphic over
+/// regular expression types.
+pub trait IntoRegex {
+    fn into_regex(self) -> Regex;
+}
+
+impl IntoRegex for &str {
+    #[inline]
+    #[track_caller]
+    fn into_regex(self) -> Regex {
+        Regex::new(self).unwrap()
+    }
+}
+
+impl IntoRegex for String {
+    #[inline]
+    #[track_caller]
+    fn into_regex(self) -> Regex {
+        Regex::new(&self).unwrap()
+    }
+}
+
+/// [`std::hint::assert_unchecked`] polyfill.
+#[inline]
+pub(crate) const unsafe fn assert_unchecked(cond: bool) {
+    if !cond {
+        std::hint::unreachable_unchecked();
+    }
+}
 
 #[inline]
 pub(crate) fn defer<F: FnOnce()>(f: F) -> impl Drop {

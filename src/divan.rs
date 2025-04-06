@@ -7,7 +7,10 @@ use regex::Regex;
 
 use crate::{
     benchmark::BenchOptions,
-    config::{Action, Filter, ParsedSeconds, RunIgnored, SortingAttr},
+    config::{
+        filter::{Filter, FilterSet},
+        Action, ParsedSeconds, RunIgnored, SortingAttr,
+    },
     counter::{
         BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter, ItemsCount, MaxCountUInt,
         PrivBytesFormat,
@@ -16,7 +19,7 @@ use crate::{
     thread_pool::BENCH_POOL,
     time::{Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
-    util::{self, defer},
+    util::{self, defer, IntoRegex},
     Bencher,
 };
 
@@ -29,8 +32,7 @@ pub struct Divan {
     sorting_attr: SortingAttr,
     color: ColorChoice,
     bytes_format: BytesFormat,
-    filters: Vec<Filter>,
-    skip_filters: Vec<Filter>,
+    filters: FilterSet,
     run_ignored: RunIgnored,
     bench_options: BenchOptions<'static>,
 }
@@ -82,13 +84,7 @@ impl Divan {
     /// This does not take into account `entry.ignored` because that is handled
     /// separately.
     fn filter(&self, entry_path: &str) -> bool {
-        if !self.filters.is_empty()
-            && !self.filters.iter().any(|filter| filter.is_match(entry_path))
-        {
-            return false;
-        }
-
-        !self.skip_filters.iter().any(|filter| filter.is_match(entry_path))
+        self.filters.is_match(entry_path)
     }
 
     pub(crate) fn should_ignore(&self, ignored: bool) -> bool {
@@ -392,31 +388,6 @@ impl Divan {
     }
 }
 
-/// Makes `Divan::skip_regex` input polymorphic.
-pub trait SkipRegex {
-    fn skip_regex(self, divan: &mut Divan);
-}
-
-impl SkipRegex for Regex {
-    fn skip_regex(self, divan: &mut Divan) {
-        divan.skip_filters.push(Filter::Regex(self));
-    }
-}
-
-impl SkipRegex for &str {
-    #[track_caller]
-    fn skip_regex(self, divan: &mut Divan) {
-        Regex::new(self).unwrap().skip_regex(divan);
-    }
-}
-
-impl SkipRegex for String {
-    #[track_caller]
-    fn skip_regex(self, divan: &mut Divan) {
-        self.as_str().skip_regex(divan)
-    }
-}
-
 /// Configuration options.
 impl Divan {
     /// Creates an instance with options set by parsing CLI arguments.
@@ -431,29 +402,43 @@ impl Divan {
     pub fn config_with_args(mut self) -> Self {
         let mut command = crate::cli::command();
 
-        let matches = command.get_matches_mut();
+        let mut matches = command.get_matches_mut();
         let is_exact = matches.get_flag("exact");
 
-        let mut parse_filter = |filter: &String| {
-            if is_exact {
-                Filter::Exact(filter.to_owned())
-            } else {
-                match Regex::new(filter) {
-                    Ok(r) => Filter::Regex(r),
-                    Err(error) => {
+        // Insert filters.
+        {
+            let mut parse_filter = |filter: String| -> Filter {
+                if is_exact {
+                    Filter::Exact(filter)
+                } else {
+                    Filter::Regex(Regex::new(&filter).unwrap_or_else(|error| {
                         let kind = clap::error::ErrorKind::ValueValidation;
                         command.error(kind, error).exit();
-                    }
+                    }))
+                }
+            };
+
+            let positive_filters = matches.remove_many::<String>("filter");
+            let negative_filters = matches.remove_many::<String>("skip");
+
+            // Reduce allocation size and reallocation count.
+            self.filters.reserve_exact({
+                let positive_count = positive_filters.as_ref().map(|f| f.len()).unwrap_or_default();
+                let negative_count = negative_filters.as_ref().map(|f| f.len()).unwrap_or_default();
+                positive_count + negative_count
+            });
+
+            if let Some(positive_filters) = positive_filters {
+                for filter in positive_filters {
+                    self.filters.insert(parse_filter(filter), true);
                 }
             }
-        };
 
-        if let Some(filters) = matches.get_many::<String>("filter") {
-            self.filters.extend(filters.map(&mut parse_filter));
-        }
-
-        if let Some(skip_filters) = matches.get_many::<String>("skip") {
-            self.skip_filters.extend(skip_filters.map(&mut parse_filter));
+            if let Some(negative_filters) = negative_filters {
+                for filter in negative_filters {
+                    self.filters.insert(parse_filter(filter), false);
+                }
+            }
         }
 
         self.action = if matches.get_flag("list") {
@@ -621,8 +606,9 @@ impl Divan {
     ///
     /// Panics if `filter` is a string and [`Regex::new`] fails.
     #[must_use]
-    pub fn skip_regex(mut self, filter: impl SkipRegex) -> Self {
-        filter.skip_regex(&mut self);
+    #[track_caller]
+    pub fn skip_regex(mut self, filter: impl IntoRegex) -> Self {
+        self.filters.insert(Filter::Regex(filter.into_regex()), true);
         self
     }
 
@@ -650,7 +636,7 @@ impl Divan {
     /// ```
     #[must_use]
     pub fn skip_exact(mut self, filter: impl Into<String>) -> Self {
-        self.skip_filters.push(Filter::Exact(filter.into()));
+        self.filters.insert(Filter::Exact(filter.into()), true);
         self
     }
 

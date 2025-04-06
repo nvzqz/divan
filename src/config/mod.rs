@@ -1,8 +1,8 @@
 use std::{cmp::Ordering, error::Error, str::FromStr, time::Duration};
 
-use regex::Regex;
-
 use crate::util::sort::natural_cmp;
+
+pub mod filter;
 
 /// `Duration` wrapper for parsing seconds from the CLI.
 #[derive(Clone, Copy)]
@@ -55,22 +55,6 @@ impl Action {
     #[inline]
     pub fn is_list_terse(&self) -> bool {
         matches!(self, Self::ListTerse)
-    }
-}
-
-/// Filters which benchmark to run based on name.
-pub(crate) enum Filter {
-    Regex(Regex),
-    Exact(String),
-}
-
-impl Filter {
-    /// Returns `true` if a string matches this filter.
-    pub fn is_match(&self, s: &str) -> bool {
-        match self {
-            Self::Regex(r) => r.is_match(s),
-            Self::Exact(e) => e == s,
-        }
     }
 }
 
