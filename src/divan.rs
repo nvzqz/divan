@@ -204,7 +204,12 @@ impl Divan {
             full_path.push_str(child.display_name());
 
             match child {
-                EntryTree::Leaf { .. } => println!("{full_path}: benchmark"),
+                EntryTree::Leaf { args: None, .. } => println!("{full_path}: benchmark"),
+                EntryTree::Leaf { args: Some(args), .. } => {
+                    for arg in args {
+                        println!("{full_path}::{arg}: benchmark")
+                    }
+                }
                 EntryTree::Parent { children, .. } => self.run_tree_list(children, &full_path),
             }
         }
