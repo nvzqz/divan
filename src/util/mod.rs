@@ -16,13 +16,6 @@ pub mod sync;
 pub mod thread;
 pub mod ty;
 
-/// Public-in-private type like `()` but meant to be externally-unreachable.
-///
-/// Using this in place of `()` for `GenI` prevents `Bencher::with_inputs` from
-/// working with `()` unintentionally.
-#[non_exhaustive]
-pub struct Unit;
-
 /// Public-in-private trait to make `DivanConfig::skip_regex` polymorphic over
 /// regular expression types.
 pub trait IntoRegex {

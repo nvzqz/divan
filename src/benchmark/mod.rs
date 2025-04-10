@@ -19,7 +19,7 @@ use crate::{
     stats::{RawSample, SampleCollection, Stats, StatsSet, TimeSample},
     thread_pool::BENCH_POOL,
     time::{FineDuration, Timestamp, UntaggedTimestamp},
-    util::{self, sync::SyncWrap, Unit},
+    util::{self, sync::SyncWrap},
 };
 
 #[cfg(test)]
@@ -66,9 +66,15 @@ pub struct Bencher<'a, 'b, C = BencherConfig> {
 ///
 /// This enables configuring `Bencher` using the builder pattern with zero
 /// runtime cost.
-pub struct BencherConfig<GenI = Unit> {
+pub struct BencherConfig<GenI = NoInput> {
     gen_input: GenI,
 }
+
+/// Public-in-private marker for default `Bencher` input-generation functions.
+///
+/// Using this in place of `()` for `GenI` prevents `Bencher::with_inputs` from
+/// working with `()` unintentionally.
+pub struct NoInput;
 
 impl<C> fmt::Debug for Bencher<'_, '_, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -79,7 +85,7 @@ impl<C> fmt::Debug for Bencher<'_, '_, C> {
 impl<'a, 'b> Bencher<'a, 'b> {
     #[inline]
     pub(crate) fn new(context: &'a mut BenchContext<'b>) -> Self {
-        Self { context, config: BencherConfig { gen_input: Unit } }
+        Self { context, config: BencherConfig { gen_input: NoInput } }
     }
 }
 

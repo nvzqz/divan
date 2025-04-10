@@ -8,6 +8,10 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed default `Unit` input generator type in `Bencher` to `NoInput`.
+
 ## [0.1.21] - 2025-04-09
 
 ### Fixed
