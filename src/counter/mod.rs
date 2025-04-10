@@ -30,13 +30,11 @@ use std::any::Any;
 mod any_counter;
 mod collection;
 mod into_counter;
-mod sealed;
 mod uint;
 
 pub(crate) use self::{
     any_counter::{AnyCounter, KnownCounterKind},
     collection::{CounterCollection, CounterSet},
-    sealed::Sealed,
     uint::{AsCountUInt, CountUInt, MaxCountUInt},
 };
 pub use into_counter::IntoCounter;
@@ -50,7 +48,11 @@ pub use into_counter::IntoCounter;
 /// - [`Bencher::counter`](crate::Bencher::counter)
 /// - [`Bencher::input_counter`](crate::Bencher::input_counter)
 #[doc(alias = "throughput")]
-pub trait Counter: Sized + Any + Sealed {}
+pub trait Counter: Sized + Any + sealed::Sealed {}
+
+mod sealed {
+    pub trait Sealed {}
+}
 
 /// Process N bytes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -84,10 +86,10 @@ pub struct ItemsCount {
     count: MaxCountUInt,
 }
 
-impl Sealed for BytesCount {}
-impl Sealed for CharsCount {}
-impl Sealed for CyclesCount {}
-impl Sealed for ItemsCount {}
+impl sealed::Sealed for BytesCount {}
+impl sealed::Sealed for CharsCount {}
+impl sealed::Sealed for CyclesCount {}
+impl sealed::Sealed for ItemsCount {}
 
 impl Counter for BytesCount {}
 impl Counter for CharsCount {}
