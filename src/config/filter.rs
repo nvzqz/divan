@@ -28,6 +28,9 @@ impl Filter {
 #[derive(Default)]
 pub(crate) struct FilterSet {
     /// Stores exclusive filters followed by inclusive filters.
+    ///
+    /// Exclusive filters are checked first because they have priority and this
+    /// simplifies `FilterSet::is_match`.
     filters: SplitVec<Filter>,
 }
 
@@ -37,11 +40,15 @@ impl FilterSet {
         self.filters.reserve_exact(additional);
     }
 
+    /// Makes this set only match benchmarks for the given filter (or other
+    /// inclusive filters).
     #[inline]
     pub fn include(&mut self, filter: Filter) {
         self.insert_filter(filter, true);
     }
 
+    /// Makes this set never match benchmarks for the given filter (or other
+    /// exclusive filters).
     #[inline]
     pub fn exclude(&mut self, filter: Filter) {
         self.insert_filter(filter, false);
@@ -54,14 +61,14 @@ impl FilterSet {
     /// Returns `true` if a benchmark/group path matches these filters, and thus
     /// the entry should be included.
     ///
-    /// Negative filters are prioritized over inclusive filters.
+    /// Exclusive filters are prioritized over inclusive filters.
     pub fn is_match(&self, entry_path: &str) -> bool {
         let filters = self.filters.all();
         let inclusive_start = self.filters.split_index();
 
-        // If any filter matches, return whether it was inclusive or negative.
-        // Negative filters are placed before inclusive filters because they have
-        // priority.
+        // If any filter matches, return whether it was inclusive or exclusive.
+        // Exclusive filters are checked before inclusive filters because they
+        // have priority.
         if let Some(index) = filters.iter().position(|f| f.is_match(entry_path)) {
             return index >= inclusive_start;
         }
@@ -90,7 +97,7 @@ mod tests {
         fn inclusive_exact() {
             let mut filters = FilterSet::default();
 
-            filters.insert_filter(Filter::Exact("abc".into()), true);
+            filters.include(Filter::Exact("abc".into()));
 
             assert!(filters.is_match("abc"));
             assert!(!filters.is_match("ab"));
@@ -101,7 +108,7 @@ mod tests {
         fn exclusive_exact() {
             let mut filters = FilterSet::default();
 
-            filters.insert_filter(Filter::Exact("abc".into()), false);
+            filters.exclude(Filter::Exact("abc".into()));
 
             assert!(!filters.is_match("abc"));
             assert!(filters.is_match("ab"));
@@ -113,7 +120,7 @@ mod tests {
             let mut filters = FilterSet::default();
             let regex = Regex::new("abc.*123").unwrap();
 
-            filters.insert_filter(Filter::Regex(regex), true);
+            filters.include(Filter::Regex(regex));
 
             assert!(!filters.is_match("abc"));
             assert!(filters.is_match("abc123"));
@@ -125,7 +132,7 @@ mod tests {
             let mut filters = FilterSet::default();
             let regex = Regex::new("abc.*123").unwrap();
 
-            filters.insert_filter(Filter::Regex(regex), false);
+            filters.exclude(Filter::Regex(regex));
 
             assert!(filters.is_match("abc"));
             assert!(!filters.is_match("abc123"));
@@ -133,7 +140,7 @@ mod tests {
         }
     }
 
-    /// Multiple inclusive filters should not be restrictive, whereas negative
+    /// Multiple inclusive filters should not be restrictive, whereas exclusive
     /// filters are increasingly restrictive.
     mod multi {
         use super::*;
@@ -142,8 +149,8 @@ mod tests {
         fn exact() {
             let mut filters = FilterSet::default();
 
-            filters.insert_filter(Filter::Exact("abc".into()), true);
-            filters.insert_filter(Filter::Exact("123".into()), true);
+            filters.include(Filter::Exact("abc".into()));
+            filters.include(Filter::Exact("123".into()));
 
             assert!(filters.is_match("abc"));
             assert!(filters.is_match("123"));
@@ -151,7 +158,7 @@ mod tests {
         }
     }
 
-    /// Negative filters override inclusive filters.
+    /// Exclusive filters override inclusive filters.
     mod overridden {
         use super::*;
 
@@ -159,8 +166,8 @@ mod tests {
         fn exact() {
             let mut filters = FilterSet::default();
 
-            filters.insert_filter(Filter::Exact("abc".into()), true);
-            filters.insert_filter(Filter::Exact("abc".into()), false);
+            filters.include(Filter::Exact("abc".into()));
+            filters.exclude(Filter::Exact("abc".into()));
 
             assert!(!filters.is_match("abc"));
         }
@@ -170,8 +177,8 @@ mod tests {
             let mut filters = FilterSet::default();
             let regex = Regex::new("abc.*123").unwrap();
 
-            filters.insert_filter(Filter::Regex(regex.clone()), true);
-            filters.insert_filter(Filter::Regex(regex), false);
+            filters.include(Filter::Regex(regex.clone()));
+            filters.exclude(Filter::Regex(regex));
 
             assert!(!filters.is_match("abc::123"));
             assert!(!filters.is_match("123::abc"));
