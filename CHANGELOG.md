@@ -8,6 +8,15 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `Divan::skip_exact` behaved incorrectly in `v0.1.19`.
+
+### Changed
+
+- Improved handling of internal code around filters and those responsible for
+  sacking the people who have just been sacked have been sacked.
+
 ## [0.1.20] - 2025-04-09
 
 ### Fixed

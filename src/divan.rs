@@ -418,25 +418,29 @@ impl Divan {
                 }
             };
 
-            let positive_filters = matches.remove_many::<String>("filter");
-            let negative_filters = matches.remove_many::<String>("skip");
+            let inclusive_filters = matches.remove_many::<String>("filter");
+            let exclusive_filters = matches.remove_many::<String>("skip");
 
             // Reduce allocation size and reallocation count.
             self.filters.reserve_exact({
-                let positive_count = positive_filters.as_ref().map(|f| f.len()).unwrap_or_default();
-                let negative_count = negative_filters.as_ref().map(|f| f.len()).unwrap_or_default();
-                positive_count + negative_count
+                let inclusive_count =
+                    inclusive_filters.as_ref().map(|f| f.len()).unwrap_or_default();
+
+                let exclusive_count =
+                    exclusive_filters.as_ref().map(|f| f.len()).unwrap_or_default();
+
+                inclusive_count + exclusive_count
             });
 
-            if let Some(positive_filters) = positive_filters {
-                for filter in positive_filters {
-                    self.filters.insert(parse_filter(filter), true);
+            if let Some(inclusive_filters) = inclusive_filters {
+                for filter in inclusive_filters {
+                    self.filters.include(parse_filter(filter));
                 }
             }
 
-            if let Some(negative_filters) = negative_filters {
-                for filter in negative_filters {
-                    self.filters.insert(parse_filter(filter), false);
+            if let Some(exclusive_filters) = exclusive_filters {
+                for filter in exclusive_filters {
+                    self.filters.exclude(parse_filter(filter));
                 }
             }
         }
@@ -608,7 +612,7 @@ impl Divan {
     #[must_use]
     #[track_caller]
     pub fn skip_regex(mut self, filter: impl IntoRegex) -> Self {
-        self.filters.insert(Filter::Regex(filter.into_regex()), false);
+        self.filters.exclude(Filter::Regex(filter.into_regex()));
         self
     }
 
@@ -636,7 +640,7 @@ impl Divan {
     /// ```
     #[must_use]
     pub fn skip_exact(mut self, filter: impl Into<String>) -> Self {
-        self.filters.insert(Filter::Exact(filter.into()), true);
+        self.filters.exclude(Filter::Exact(filter.into()));
         self
     }
 

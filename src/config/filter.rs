@@ -17,13 +17,17 @@ impl Filter {
     }
 }
 
-/// Collection of positive and negative filters.
+/// Collection of inclusive and exclusive filters.
 ///
-/// Positive filters indicate that a benchmark/group path should be included,
-/// whereas negative filters exclude entries. Negative filters are placed before
-/// positive filters because they have priority.
+/// Inclusive filters indicate that a benchmark/group path should be run without
+/// running other benchmarks (unless also included).
+///
+/// Exclusive filters make all matching candidate benchmarks be skipped (even if
+/// explicitly included). As a result, they have priority over inclusive
+/// filters.
 #[derive(Default)]
 pub(crate) struct FilterSet {
+    /// Stores exclusive filters followed by inclusive filters.
     filters: SplitVec<Filter>,
 }
 
@@ -33,27 +37,37 @@ impl FilterSet {
         self.filters.reserve_exact(additional);
     }
 
-    pub fn insert(&mut self, filter: Filter, positive: bool) {
-        self.filters.insert(filter, positive);
+    #[inline]
+    pub fn include(&mut self, filter: Filter) {
+        self.insert_filter(filter, true);
+    }
+
+    #[inline]
+    pub fn exclude(&mut self, filter: Filter) {
+        self.insert_filter(filter, false);
+    }
+
+    fn insert_filter(&mut self, filter: Filter, inclusive: bool) {
+        self.filters.insert(filter, inclusive);
     }
 
     /// Returns `true` if a benchmark/group path matches these filters, and thus
     /// the entry should be included.
     ///
-    /// Negative filters are prioritized over positive filters.
+    /// Negative filters are prioritized over inclusive filters.
     pub fn is_match(&self, entry_path: &str) -> bool {
         let filters = self.filters.all();
-        let positive_start = self.filters.split_index();
+        let inclusive_start = self.filters.split_index();
 
-        // If any filter matches, return whether it was positive or negative.
-        // Negative filters are placed before positive filters because they have
+        // If any filter matches, return whether it was inclusive or negative.
+        // Negative filters are placed before inclusive filters because they have
         // priority.
         if let Some(index) = filters.iter().position(|f| f.is_match(entry_path)) {
-            return index >= positive_start;
+            return index >= inclusive_start;
         }
 
-        // Otherwise succeed only if there are no positive filters.
-        filters.len() == positive_start
+        // Otherwise succeed only if there are no inclusive filters.
+        filters.len() == inclusive_start
     }
 }
 
@@ -73,10 +87,10 @@ mod tests {
         use super::*;
 
         #[test]
-        fn positive_exact() {
+        fn inclusive_exact() {
             let mut filters = FilterSet::default();
 
-            filters.insert(Filter::Exact("abc".into()), true);
+            filters.insert_filter(Filter::Exact("abc".into()), true);
 
             assert!(filters.is_match("abc"));
             assert!(!filters.is_match("ab"));
@@ -84,10 +98,10 @@ mod tests {
         }
 
         #[test]
-        fn negative_exact() {
+        fn exclusive_exact() {
             let mut filters = FilterSet::default();
 
-            filters.insert(Filter::Exact("abc".into()), false);
+            filters.insert_filter(Filter::Exact("abc".into()), false);
 
             assert!(!filters.is_match("abc"));
             assert!(filters.is_match("ab"));
@@ -95,11 +109,11 @@ mod tests {
         }
 
         #[test]
-        fn positive_regex() {
+        fn inclusive_regex() {
             let mut filters = FilterSet::default();
             let regex = Regex::new("abc.*123").unwrap();
 
-            filters.insert(Filter::Regex(regex), true);
+            filters.insert_filter(Filter::Regex(regex), true);
 
             assert!(!filters.is_match("abc"));
             assert!(filters.is_match("abc123"));
@@ -107,11 +121,11 @@ mod tests {
         }
 
         #[test]
-        fn negative_regex() {
+        fn exclusive_regex() {
             let mut filters = FilterSet::default();
             let regex = Regex::new("abc.*123").unwrap();
 
-            filters.insert(Filter::Regex(regex), false);
+            filters.insert_filter(Filter::Regex(regex), false);
 
             assert!(filters.is_match("abc"));
             assert!(!filters.is_match("abc123"));
@@ -119,7 +133,7 @@ mod tests {
         }
     }
 
-    /// Multiple positive filters should not be restrictive, whereas negative
+    /// Multiple inclusive filters should not be restrictive, whereas negative
     /// filters are increasingly restrictive.
     mod multi {
         use super::*;
@@ -128,8 +142,8 @@ mod tests {
         fn exact() {
             let mut filters = FilterSet::default();
 
-            filters.insert(Filter::Exact("abc".into()), true);
-            filters.insert(Filter::Exact("123".into()), true);
+            filters.insert_filter(Filter::Exact("abc".into()), true);
+            filters.insert_filter(Filter::Exact("123".into()), true);
 
             assert!(filters.is_match("abc"));
             assert!(filters.is_match("123"));
@@ -137,7 +151,7 @@ mod tests {
         }
     }
 
-    /// Negative filters override positive filters.
+    /// Negative filters override inclusive filters.
     mod overridden {
         use super::*;
 
@@ -145,8 +159,8 @@ mod tests {
         fn exact() {
             let mut filters = FilterSet::default();
 
-            filters.insert(Filter::Exact("abc".into()), true);
-            filters.insert(Filter::Exact("abc".into()), false);
+            filters.insert_filter(Filter::Exact("abc".into()), true);
+            filters.insert_filter(Filter::Exact("abc".into()), false);
 
             assert!(!filters.is_match("abc"));
         }
@@ -156,8 +170,8 @@ mod tests {
             let mut filters = FilterSet::default();
             let regex = Regex::new("abc.*123").unwrap();
 
-            filters.insert(Filter::Regex(regex.clone()), true);
-            filters.insert(Filter::Regex(regex), false);
+            filters.insert_filter(Filter::Regex(regex.clone()), true);
+            filters.insert_filter(Filter::Regex(regex), false);
 
             assert!(!filters.is_match("abc::123"));
             assert!(!filters.is_match("123::abc"));
