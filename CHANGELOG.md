@@ -78,7 +78,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 - Multi-thread allocation counting in `sum_alloc_tallies` on macOS was loading a
   null pointer instead of the pointer initialized by `sync_threads`.
 
-### Changes
+### Changed
 
 - Sort all output benchmark names
   [naturally](https://en.wikipedia.org/wiki/Natural_sort_order) instead of
@@ -103,7 +103,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 - Set correct field in [`Divan::max_time`]. ([#45](https://github.com/nvzqz/divan/pull/45))
 
-### Changes
+### Changed
 
 - Improve [`args`] documentation by relating it to using [`Bencher`].
 
@@ -176,7 +176,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [0.1.8] - 2023-12-19
 
-### Changes
+### Changed
 
 - Reduce [`AllocProfiler`] footprint from 6-10ns to 1-2ns:
 
@@ -205,7 +205,7 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [0.1.7] - 2023-12-13
 
-### Changes
+### Changed
 
 - Improve [`AllocProfiler`] implementation documentation.
 
