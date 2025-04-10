@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.19] - 2025-04-09
+
 ### Fixed
 
 - [`cargo-nextest`] no longer skips benchmarks with argument parameters ([#75]).
@@ -357,7 +359,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.18...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.19...HEAD
+[0.1.19]: https://github.com/nvzqz/divan/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/nvzqz/divan/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/nvzqz/divan/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/nvzqz/divan/compare/v0.1.15...v0.1.16
