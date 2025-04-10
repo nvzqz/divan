@@ -29,6 +29,13 @@ pub trait IntoRegex {
     fn into_regex(self) -> Regex;
 }
 
+impl IntoRegex for Regex {
+    #[inline]
+    fn into_regex(self) -> Regex {
+        self
+    }
+}
+
 impl IntoRegex for &str {
     #[inline]
     #[track_caller]

@@ -608,7 +608,7 @@ impl Divan {
     #[must_use]
     #[track_caller]
     pub fn skip_regex(mut self, filter: impl IntoRegex) -> Self {
-        self.filters.insert(Filter::Regex(filter.into_regex()), true);
+        self.filters.insert(Filter::Regex(filter.into_regex()), false);
         self
     }
 

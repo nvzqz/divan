@@ -8,6 +8,12 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `Divan::skip_regex` accidentally dropped
+  [`regex_lite::Regex`](https://docs.rs/regex-lite/latest/regex_lite/struct.Regex.html)
+  and behaved incorrectly in `v0.1.19`.
+
 ## [0.1.19] - 2025-04-09
 
 ### Fixed
