@@ -8,11 +8,19 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- [`cargo-nextest`] no longer skips benchmarks with argument parameters ([#75]).
+
+### Changed
+
+- Organized positive and negative filters into a split buffer.
+
 ## [0.1.18] - 2025-04-05
 
 ### Added
 
-- Support for [`cargo-nextest`](https://nexte.st) running benchmarks as tests.
+- Support for [`cargo-nextest`] running benchmarks as tests.
 
 - [`prelude`] module for simplifying imports of [`#[bench]`][bench_attr],
   [`#[bench_group]`][bench_group_attr], [`black_box`], [`black_box_drop`],
@@ -372,6 +380,7 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [#37]: https://github.com/nvzqz/divan/issues/37
 [#59]: https://github.com/nvzqz/divan/issues/59
 [#64]: https://github.com/nvzqz/divan/issues/64
+[#75]: https://github.com/nvzqz/divan/issues/75
 
 <!-- Stable -->
 [`AllocProfiler`]: https://docs.rs/divan/latest/divan/struct.AllocProfiler.html
@@ -408,4 +417,5 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 
 [MSRV]: https://doc.rust-lang.org/cargo/reference/rust-version.html
 
+[`cargo-nextest`]: https://nexte.st
 [`pthread_key_create`]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_key_create.html
