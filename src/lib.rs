@@ -29,7 +29,6 @@ mod config;
 mod divan;
 mod entry;
 mod stats;
-mod thread_pool;
 mod time;
 mod tree_painter;
 

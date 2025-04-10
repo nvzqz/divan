@@ -1,4 +1,4 @@
-//! Threading utilities.
+//! Thread-local storage.
 
 #![cfg(target_os = "macos")]
 

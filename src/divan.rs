@@ -16,10 +16,9 @@ use crate::{
         PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
-    thread_pool::ThreadPool,
     time::{Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
-    util::{self, IntoRegex},
+    util::{self, thread::ThreadPool, IntoRegex},
     Bencher,
 };
 

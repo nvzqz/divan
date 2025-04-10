@@ -9,8 +9,8 @@ use std::{
 use super::*;
 use crate::{
     config::Action,
-    thread_pool::ThreadPool,
     time::{Timer, TimerKind},
+    util::thread::ThreadPool,
 };
 
 // We use a small number of runs because Miri is very slow.
