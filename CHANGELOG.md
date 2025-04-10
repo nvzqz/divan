@@ -8,6 +8,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.21] - 2025-04-09
+
 ### Fixed
 
 - `Divan::skip_exact` behaved incorrectly in `v0.1.19`.
@@ -376,7 +378,8 @@ Initial release. See [blog post](https://nikolaivazquez.com/blog/divan/).
 [crate]:       https://crates.io/crates/divan
 [crate-badge]: https://img.shields.io/crates/v/divan.svg
 
-[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.20...HEAD
+[Unreleased]: https://github.com/nvzqz/divan/compare/v0.1.21...HEAD
+[0.1.21]: https://github.com/nvzqz/divan/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/nvzqz/divan/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/nvzqz/divan/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/nvzqz/divan/compare/v0.1.17...v0.1.18
