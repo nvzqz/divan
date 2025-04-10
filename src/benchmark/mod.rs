@@ -17,7 +17,6 @@ use crate::{
     },
     divan::SharedContext,
     stats::{RawSample, SampleCollection, Stats, StatsSet, TimeSample},
-    thread_pool::BENCH_POOL,
     time::{FineDuration, Timestamp, UntaggedTimestamp},
     util::{self, sync::SyncWrap},
 };
@@ -710,7 +709,9 @@ impl<'a> BenchContext<'a> {
 
             // Sample loop:
             raw_samples.clear();
-            BENCH_POOL.par_extend(&mut raw_samples, aux_thread_count, |_| record_sample());
+            self.shared_context
+                .thread_pool
+                .par_extend(&mut raw_samples, aux_thread_count, |_| record_sample());
 
             // Convert `&[Option<RawSample>]` to `&[Sample]`.
             let raw_samples: &[RawSample] = {

@@ -11,9 +11,6 @@ use std::{
 
 use crate::util::{defer, sync::SyncWrap};
 
-/// Single shared thread pool for running benchmarks on.
-pub(crate) static BENCH_POOL: ThreadPool = ThreadPool::new();
-
 /// Reusable threads for broadcasting tasks.
 ///
 /// This thread pool runs only a single task at a time, since only one benchmark
@@ -42,7 +39,7 @@ pub(crate) struct ThreadPool {
 }
 
 impl ThreadPool {
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self { threads: Mutex::new(Vec::new()) }
     }
 
@@ -122,10 +119,6 @@ impl ThreadPool {
         // Don't drop our result until other threads finish, in case the panic
         // error's drop handler itself also panics.
         drop(main_result);
-    }
-
-    pub fn drop_threads(&self) {
-        *self.threads.lock().unwrap_or_else(PoisonError::into_inner) = Default::default();
     }
 
     #[cfg(test)]
@@ -283,19 +276,19 @@ mod tests {
     /// buffer contains all IDs.
     #[test]
     fn extend() {
-        static TEST_POOL: ThreadPool = ThreadPool::new();
+        let test_pool = ThreadPool::new();
 
-        fn test(aux_threads: usize, final_aux_threads: usize) {
+        let test = |aux_threads: usize, final_aux_threads: usize| {
             let total_threads = aux_threads + 1;
 
             let mut results = Vec::new();
             let expected = (0..total_threads).map(Some).collect::<Vec<_>>();
 
-            TEST_POOL.par_extend(&mut results, aux_threads, |index| index);
+            test_pool.par_extend(&mut results, aux_threads, |index| index);
 
             assert_eq!(results, expected);
-            assert_eq!(TEST_POOL.aux_thread_count(), final_aux_threads);
-        }
+            assert_eq!(test_pool.aux_thread_count(), final_aux_threads);
+        };
 
         test(0, 0);
         test(1, 1);
@@ -308,9 +301,6 @@ mod tests {
         // previously spawned threads running.
         test(4, 8);
         test(0, 8);
-
-        // Silence Miri about leaking threads.
-        TEST_POOL.drop_threads();
     }
 
     /// Execute a task that takes longer on all other threads than the main
@@ -319,32 +309,26 @@ mod tests {
     fn broadcast_sleep() {
         use std::time::Duration;
 
-        static TEST_POOL: ThreadPool = ThreadPool::new();
+        let test_pool = ThreadPool::new();
 
-        TEST_POOL.broadcast(10, |thread_id| {
+        test_pool.broadcast(10, |thread_id| {
             if thread_id > 0 {
                 std::thread::sleep(Duration::from_millis(10));
             }
         });
-
-        // Silence Miri about leaking threads.
-        TEST_POOL.drop_threads();
     }
 
     /// Checks that thread ID 0 refers to the main thread.
     #[test]
     fn broadcast_thread_id() {
-        static TEST_POOL: ThreadPool = ThreadPool::new();
+        let test_pool = ThreadPool::new();
 
         let main_thread = std::thread::current().id();
 
-        TEST_POOL.broadcast(10, |thread_id| {
+        test_pool.broadcast(10, |thread_id| {
             let is_main = main_thread == std::thread::current().id();
             assert_eq!(is_main, thread_id == 0);
         });
-
-        // Silence Miri about leaking threads.
-        TEST_POOL.drop_threads();
     }
 }
 

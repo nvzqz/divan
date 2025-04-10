@@ -12,6 +12,8 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 - Renamed default `Unit` input generator type in `Bencher` to `NoInput`.
 
+- Made the thread pool be per-run instead of global.
+
 ## [0.1.21] - 2025-04-09
 
 ### Fixed

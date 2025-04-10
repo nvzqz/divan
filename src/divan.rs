@@ -16,10 +16,10 @@ use crate::{
         PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
-    thread_pool::BENCH_POOL,
+    thread_pool::ThreadPool,
     time::{Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
-    util::{self, defer, IntoRegex},
+    util::{self, IntoRegex},
     Bencher,
 };
 
@@ -37,13 +37,16 @@ pub struct Divan {
     bench_options: BenchOptions<'static>,
 }
 
-/// Immutable context shared between entry runs.
+/// Context shared across all benchmarks.
 pub(crate) struct SharedContext {
     /// The specific action being performed.
     pub action: Action,
 
     /// The timer used to measure samples.
     pub timer: Timer,
+
+    /// Pre-spawned pool of threads for running benchmarks on.
+    pub thread_pool: ThreadPool,
 }
 
 impl fmt::Debug for Divan {
@@ -92,8 +95,6 @@ impl Divan {
     }
 
     pub(crate) fn run_action(&self, action: Action) {
-        let _drop_threads = defer(|| BENCH_POOL.drop_threads());
-
         let mut tree: Vec<EntryTree> = if cfg!(miri) {
             // Miri does not work with our linker tricks.
             Vec::new()
@@ -155,7 +156,7 @@ impl Divan {
             eprintln!("Timer precision: {}", timer.precision());
         }
 
-        let shared_context = SharedContext { action, timer };
+        let shared_context = SharedContext { action, timer, thread_pool: ThreadPool::new() };
 
         let column_widths = if action.is_bench() {
             TreeColumn::ALL.map(|column| {

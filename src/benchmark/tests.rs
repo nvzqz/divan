@@ -6,11 +6,10 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering::SeqCst},
 };
 
-use util::defer;
-
 use super::*;
 use crate::{
     config::Action,
+    thread_pool::ThreadPool,
     time::{Timer, TimerKind},
 };
 
@@ -36,8 +35,6 @@ const THREAD_COUNTS: &[usize] = if cfg!(miri) {
 #[track_caller]
 fn test_bencher(test: &mut dyn FnMut(Bencher)) {
     // Silence Miri about leaking threads.
-    let _drop_threads = defer(|| BENCH_POOL.drop_threads());
-
     let bench_options = BenchOptions {
         sample_count: Some(SAMPLE_COUNT),
         sample_size: Some(SAMPLE_SIZE),
@@ -46,7 +43,7 @@ fn test_bencher(test: &mut dyn FnMut(Bencher)) {
 
     for timer in Timer::available() {
         for action in [Action::Bench, Action::Test] {
-            let shared_context = SharedContext { action, timer };
+            let shared_context = SharedContext { action, timer, thread_pool: ThreadPool::new() };
 
             for &thread_count in THREAD_COUNTS {
                 let mut bench_context = BenchContext::new(
