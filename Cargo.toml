@@ -39,7 +39,7 @@ regex = { package = "regex-lite", version = "0.1", default-features = false, fea
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
 
-[dev-dependencies]
+[target.'cfg(not(miri))'.dev-dependencies]
 mimalloc = "0.1"
 
 [workspace]

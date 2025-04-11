@@ -71,7 +71,8 @@ pub(crate) static IGNORE_ALLOC: AtomicFlag = AtomicFlag::new(false);
 /// Wrap other [`GlobalAlloc`] implementations like
 /// [`mimalloc`](https://docs.rs/mimalloc) with [`AllocProfiler::new()`]:
 ///
-/// ```
+#[cfg_attr(not(miri), doc = "```")]
+#[cfg_attr(miri, doc = "```ignore")]
 /// use divan::AllocProfiler;
 /// use mimalloc::MiMalloc;
 ///
