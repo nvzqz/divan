@@ -53,7 +53,8 @@ impl Timer {
     ///
     /// The result is cached.
     pub fn precision(self) -> FineDuration {
-        static CACHED: [OnceLock<FineDuration>; Timer::COUNT] = [OnceLock::new(), OnceLock::new()];
+        static CACHED: [OnceLock<FineDuration>; Timer::COUNT] =
+            [OnceLock::new(), OnceLock::new()];
 
         let cached = &CACHED[self.kind() as usize];
 
@@ -94,7 +95,10 @@ impl Timer {
                 // SAFETY: These values are guaranteed to be the correct variant
                 // because they were created from the same `timer_kind`.
                 let [sample_start, sample_end] = unsafe {
-                    [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
+                    [
+                        sample_start.into_timestamp(timer_kind),
+                        sample_end.into_timestamp(timer_kind),
+                    ]
                 };
 
                 let sample = sample_end.duration_since(sample_start, self);
@@ -141,7 +145,8 @@ impl Timer {
             return &TimedOverhead::ZERO;
         }
 
-        static CACHED: [OnceLock<TimedOverhead>; Timer::COUNT] = [OnceLock::new(), OnceLock::new()];
+        static CACHED: [OnceLock<TimedOverhead>; Timer::COUNT] =
+            [OnceLock::new(), OnceLock::new()];
 
         let cached = &CACHED[self.kind() as usize];
 
@@ -160,7 +165,8 @@ impl Timer {
             return FineDuration::default();
         }
 
-        static CACHED: [OnceLock<FineDuration>; Timer::COUNT] = [OnceLock::new(), OnceLock::new()];
+        static CACHED: [OnceLock<FineDuration>; Timer::COUNT] =
+            [OnceLock::new(), OnceLock::new()];
 
         let cached = &CACHED[self.kind() as usize];
 
@@ -188,8 +194,12 @@ impl Timer {
 
             // SAFETY: These values are guaranteed to be the correct variant because
             // they were created from the same `timer_kind`.
-            let [start, end] =
-                unsafe { [start.into_timestamp(timer_kind), end.into_timestamp(timer_kind)] };
+            let [start, end] = unsafe {
+                [
+                    start.into_timestamp(timer_kind),
+                    end.into_timestamp(timer_kind),
+                ]
+            };
 
             let mut sample = end.duration_since(start, self);
             sample.picos /= sample_size as u128;
@@ -202,23 +212,32 @@ impl Timer {
 
     fn measure_tally_alloc_overhead(self) -> FineDuration {
         let size = black_box(0);
-        self.measure_alloc_info_overhead(|alloc_info| alloc_info.tally_alloc(size))
+        self.measure_alloc_info_overhead(|alloc_info| {
+            alloc_info.tally_alloc(size)
+        })
     }
 
     fn measure_tally_dealloc_overhead(self) -> FineDuration {
         let size = black_box(0);
-        self.measure_alloc_info_overhead(|alloc_info| alloc_info.tally_dealloc(size))
+        self.measure_alloc_info_overhead(|alloc_info| {
+            alloc_info.tally_dealloc(size)
+        })
     }
 
     fn measure_tally_realloc_overhead(self) -> FineDuration {
         let new_size = black_box(0);
         let old_size = black_box(0);
-        self.measure_alloc_info_overhead(|alloc_info| alloc_info.tally_realloc(old_size, new_size))
+        self.measure_alloc_info_overhead(|alloc_info| {
+            alloc_info.tally_realloc(old_size, new_size)
+        })
     }
 
     // SAFETY: This function is not reentrant. Calling it within `operation`
     // would cause aliasing of `ThreadAllocInfo::current`.
-    fn measure_alloc_info_overhead(self, operation: impl Fn(&mut ThreadAllocInfo)) -> FineDuration {
+    fn measure_alloc_info_overhead(
+        self,
+        operation: impl Fn(&mut ThreadAllocInfo),
+    ) -> FineDuration {
         // Initialize the current thread's alloc info.
         let alloc_info = ThreadAllocInfo::current();
 
@@ -266,8 +285,12 @@ impl Timer {
 
             // SAFETY: These values are guaranteed to be the correct variant
             // because they were created from the same `timer_kind`.
-            let [start, end] =
-                unsafe { [start.into_timestamp(timer_kind), end.into_timestamp(timer_kind)] };
+            let [start, end] = unsafe {
+                [
+                    start.into_timestamp(timer_kind),
+                    end.into_timestamp(timer_kind),
+                ]
+            };
 
             let mut sample = end.duration_since(start, self);
             sample.picos /= sample_size as u128;
@@ -309,18 +332,21 @@ impl TimedOverhead {
         tally_realloc: FineDuration::ZERO,
     };
 
-    pub fn total_overhead(&self, sample_size: u32, alloc_info: &ThreadAllocInfo) -> FineDuration {
-        let sample_loop_overhead = self.sample_loop.picos.saturating_mul(sample_size as u128);
+    pub fn total_overhead(
+        &self,
+        sample_size: u32,
+        alloc_info: &ThreadAllocInfo,
+    ) -> FineDuration {
+        let sample_loop_overhead =
+            self.sample_loop.picos.saturating_mul(sample_size as u128);
 
-        let tally_alloc_overhead = self
-            .tally_alloc
-            .picos
-            .saturating_mul(alloc_info.tallies.get(AllocOp::Alloc).count as u128);
+        let tally_alloc_overhead = self.tally_alloc.picos.saturating_mul(
+            alloc_info.tallies.get(AllocOp::Alloc).count as u128,
+        );
 
-        let tally_dealloc_overhead = self
-            .tally_dealloc
-            .picos
-            .saturating_mul(alloc_info.tallies.get(AllocOp::Dealloc).count as u128);
+        let tally_dealloc_overhead = self.tally_dealloc.picos.saturating_mul(
+            alloc_info.tallies.get(AllocOp::Dealloc).count as u128,
+        );
 
         let tally_realloc_overhead = self.tally_realloc.picos.saturating_mul(
             alloc_info.tallies.get(AllocOp::Grow).count as u128

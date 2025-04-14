@@ -200,11 +200,13 @@ mod measure {
         let mut measures = [0.0; TRIES];
 
         for slot in &mut measures {
-            let measure = measure_frequency_once(Duration::from_millis(delay_ms));
+            let measure =
+                measure_frequency_once(Duration::from_millis(delay_ms));
 
             // This measurement is sufficiently accurate if within 0.1% of the
             // previous.
-            if measure * 0.999 < prev_measure && prev_measure < measure * 1.001 {
+            if measure * 0.999 < prev_measure && prev_measure < measure * 1.001
+            {
                 return measure;
             }
 

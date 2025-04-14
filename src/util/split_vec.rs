@@ -70,7 +70,12 @@ impl<T> SplitVec<T> {
 
         // Optimization hint to remove bounds checks.
         let len = self.items.len();
-        unsafe { assert_unchecked!(index <= len, "index {index} out of bounds (len = {len})") }
+        unsafe {
+            assert_unchecked!(
+                index <= len,
+                "index {index} out of bounds (len = {len})"
+            )
+        }
 
         index
     }

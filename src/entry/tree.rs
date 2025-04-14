@@ -4,7 +4,9 @@ use crate::{
     benchmark::{BenchOptions, DEFAULT_SAMPLE_COUNT},
     config::SortingAttr,
     counter::KnownCounterKind,
-    entry::{AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry},
+    entry::{
+        AnyBenchEntry, EntryLocation, EntryMeta, GenericBenchEntry, GroupEntry,
+    },
     tree_painter::TreeColumn,
     util::sort::natural_cmp,
 };
@@ -12,7 +14,11 @@ use crate::{
 /// `BenchEntry` tree organized by path components.
 pub(crate) enum EntryTree<'a> {
     /// Benchmark group; parent to leaves and other parents.
-    Parent { raw_name: &'a str, group: Option<&'a GroupEntry>, children: Vec<Self> },
+    Parent {
+        raw_name: &'a str,
+        group: Option<&'a GroupEntry>,
+        children: Vec<Self>,
+    },
 
     /// Benchmark entry leaf.
     Leaf {
@@ -69,7 +75,8 @@ impl<'a> EntryTree<'a> {
                 };
 
                 // The maximum span of any descendent.
-                let children_max_span = Self::max_name_span(node.children(), depth + 1);
+                let children_max_span =
+                    Self::max_name_span(node.children(), depth + 1);
 
                 // The maximum span of any runtime argument.
                 let args_max_span = node
@@ -105,8 +112,11 @@ impl<'a> EntryTree<'a> {
 
                 let width = match column {
                     TreeColumn::Samples => {
-                        let sample_count = options.sample_count.unwrap_or(DEFAULT_SAMPLE_COUNT);
-                        1 + sample_count.checked_ilog10().unwrap_or_default() as usize
+                        let sample_count = options
+                            .sample_count
+                            .unwrap_or(DEFAULT_SAMPLE_COUNT);
+                        1 + sample_count.checked_ilog10().unwrap_or_default()
+                            as usize
                     }
 
                     // Iters is the last column, so it does not need pad width.
@@ -131,7 +141,9 @@ impl<'a> EntryTree<'a> {
         'component: for component in group.meta.module_path_components() {
             for subtree in tree {
                 match subtree {
-                    EntryTree::Parent { raw_name, children, .. } if component == *raw_name => {
+                    EntryTree::Parent { raw_name, children, .. }
+                        if component == *raw_name =>
+                    {
                         tree = children;
                         continue 'component;
                     }
@@ -169,7 +181,8 @@ impl<'a> EntryTree<'a> {
                 let subtree_path: &str = if parent_path.is_empty() {
                     subtree.display_name()
                 } else {
-                    subtree_path = format!("{parent_path}::{}", subtree.display_name());
+                    subtree_path =
+                        format!("{parent_path}::{}", subtree.display_name());
                     &subtree_path
                 };
 
@@ -184,7 +197,9 @@ impl<'a> EntryTree<'a> {
                     EntryTree::Leaf { args: None, .. } => filter(subtree_path),
 
                     EntryTree::Leaf { args: Some(args), .. } => {
-                        args.retain(|arg| filter(&format!("{subtree_path}::{arg}")));
+                        args.retain(|arg| {
+                            filter(&format!("{subtree_path}::{arg}"))
+                        });
 
                         // If no arguments exist, filter out this leaf.
                         !args.is_empty()
@@ -197,8 +212,13 @@ impl<'a> EntryTree<'a> {
 
     /// Sorts the tree by the given ordering.
     pub fn sort_by_attr(tree: &mut [Self], attr: SortingAttr, reverse: bool) {
-        let apply_reverse =
-            |ordering: Ordering| if reverse { ordering.reverse() } else { ordering };
+        let apply_reverse = |ordering: Ordering| {
+            if reverse {
+                ordering.reverse()
+            } else {
+                ordering
+            }
+        };
 
         tree.sort_unstable_by(|a, b| apply_reverse(a.cmp_by_attr(b, attr)));
 
@@ -207,7 +227,9 @@ impl<'a> EntryTree<'a> {
                 // Sort benchmark arguments.
                 EntryTree::Leaf { args, .. } => {
                     if let Some(args) = args {
-                        args.sort_by(|&a, &b| apply_reverse(attr.cmp_bench_arg_names(a, b)));
+                        args.sort_by(|&a, &b| {
+                            apply_reverse(attr.cmp_bench_arg_names(a, b))
+                        });
                     }
                 }
 
@@ -222,7 +244,8 @@ impl<'a> EntryTree<'a> {
     fn cmp_by_attr(&self, other: &Self, attr: SortingAttr) -> Ordering {
         // We take advantage of the fact that entries have stable addresses,
         // unlike `EntryTree`.
-        let entry_addr_ordering = match (self.entry_addr(), other.entry_addr()) {
+        let entry_addr_ordering = match (self.entry_addr(), other.entry_addr())
+        {
             (Some(a), Some(b)) => Some(a.cmp(&b)),
             _ => None,
         };
@@ -237,7 +260,8 @@ impl<'a> EntryTree<'a> {
                 SortingAttr::Kind => self.kind().cmp(&other.kind()),
                 SortingAttr::Name => self.cmp_display_name(other),
                 SortingAttr::Location => {
-                    let location_ordering = self.location().cmp(&other.location());
+                    let location_ordering =
+                        self.location().cmp(&other.location());
 
                     // Use the entry's address to break location ties.
                     //
@@ -293,15 +317,29 @@ impl<'a> EntryTree<'a> {
         let child = if let Some(next_module) = rem_modules.next() {
             Self::from_path(entry, next_module, rem_modules)
         } else {
-            Self::Leaf { entry, args: entry.arg_names().map(|args| args.iter().collect()) }
+            Self::Leaf {
+                entry,
+                args: entry.arg_names().map(|args| args.iter().collect()),
+            }
         };
-        Self::Parent { raw_name: current_module, group: None, children: vec![child] }
+        Self::Parent {
+            raw_name: current_module,
+            group: None,
+            children: vec![child],
+        }
     }
 
     /// Finds the `Parent.children` for the corresponding module in `tree`.
-    fn get_children<'t>(tree: &'t mut [Self], module: &str) -> Option<&'t mut Vec<Self>> {
+    fn get_children<'t>(
+        tree: &'t mut [Self],
+        module: &str,
+    ) -> Option<&'t mut Vec<Self>> {
         tree.iter_mut().find_map(|tree| match tree {
-            Self::Parent { raw_name, children, group: _ } if *raw_name == module => Some(children),
+            Self::Parent { raw_name, children, group: _ }
+                if *raw_name == module =>
+            {
+                Some(children)
+            }
             _ => None,
         })
     }
@@ -379,14 +417,16 @@ impl<'a> EntryTree<'a> {
                 Self::Leaf {
                     entry:
                         AnyBenchEntry::GenericBench(GenericBenchEntry {
-                            const_value: Some(this), ..
+                            const_value: Some(this),
+                            ..
                         }),
                     ..
                 },
                 Self::Leaf {
                     entry:
                         AnyBenchEntry::GenericBench(GenericBenchEntry {
-                            const_value: Some(other), ..
+                            const_value: Some(other),
+                            ..
                         }),
                     ..
                 },

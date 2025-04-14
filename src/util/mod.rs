@@ -99,7 +99,8 @@ pub(crate) fn known_parallelism() -> NonZeroUsize {
 
     #[cold]
     fn slow() -> NonZeroUsize {
-        let n = std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
+        let n =
+            std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
 
         match CACHED.compare_exchange(0, n.get(), Relaxed, Relaxed) {
             Ok(_) => n,

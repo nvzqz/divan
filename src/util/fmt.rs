@@ -18,13 +18,14 @@ pub(crate) fn format_f64(val: f64, sig_figs: usize) -> String {
 
             if let Some(fract_str) = str.get(fract_range) {
                 // Get the offset from the end before all 0s.
-                let pre_zero = fract_str.bytes().rev().enumerate().find_map(|(i, b)| {
-                    if b != b'0' {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                });
+                let pre_zero =
+                    fract_str.bytes().rev().enumerate().find_map(|(i, b)| {
+                        if b != b'0' {
+                            Some(i)
+                        } else {
+                            None
+                        }
+                    });
 
                 if let Some(pre_zero) = pre_zero {
                     str.truncate(fract_end - pre_zero);
@@ -38,7 +39,11 @@ pub(crate) fn format_f64(val: f64, sig_figs: usize) -> String {
     str
 }
 
-pub(crate) fn format_bytes(val: f64, sig_figs: usize, bytes_format: BytesFormat) -> String {
+pub(crate) fn format_bytes(
+    val: f64,
+    sig_figs: usize,
+    bytes_format: BytesFormat,
+) -> String {
     let (val, scale) = scale_value(val, bytes_format);
 
     let mut result = format_f64(val, sig_figs);
@@ -63,10 +68,13 @@ impl fmt::Display for DisplayThroughput<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let picos = self.picos;
         let count = self.counter.count();
-        let count_per_sec = if count == 0 { 0. } else { count as f64 * (1e12 / picos) };
+        let count_per_sec =
+            if count == 0 { 0. } else { count as f64 * (1e12 / picos) };
 
         let format = match self.counter.kind {
-            KnownCounterKind::Bytes => ScaleFormat::BytesThroughput(self.bytes_format),
+            KnownCounterKind::Bytes => {
+                ScaleFormat::BytesThroughput(self.bytes_format)
+            }
             KnownCounterKind::Chars => ScaleFormat::CharsThroughput,
             KnownCounterKind::Cycles => ScaleFormat::CyclesThroughput,
             KnownCounterKind::Items => ScaleFormat::ItemsThroughput,
@@ -81,7 +89,9 @@ impl fmt::Display for DisplayThroughput<'_> {
         str.push_str(scale.suffix(format));
 
         // Fill up to specified width.
-        if let Some(fill_len) = f.width().and_then(|width| width.checked_sub(str.len())) {
+        if let Some(fill_len) =
+            f.width().and_then(|width| width.checked_sub(str.len()))
+        {
             match f.align() {
                 None | Some(fmt::Alignment::Left) => {
                     str.extend(std::iter::repeat(f.fill()).take(fill_len));
@@ -138,9 +148,9 @@ impl ScaleFormat {
     pub fn bytes_format(self) -> BytesFormat {
         match self {
             Self::Bytes(format) | Self::BytesThroughput(format) => format,
-            Self::CharsThroughput | Self::CyclesThroughput | Self::ItemsThroughput => {
-                BytesFormat::Decimal
-            }
+            Self::CharsThroughput
+            | Self::CyclesThroughput
+            | Self::ItemsThroughput => BytesFormat::Decimal,
         }
     }
 }
@@ -183,19 +193,24 @@ impl Scale {
                 SUFFIXES[format as usize][self as usize]
             }
             ScaleFormat::CharsThroughput => {
-                const SUFFIXES: &[&str; Scale::COUNT] =
-                    &["char/s", "Kchar/s", "Mchar/s", "Gchar/s", "Tchar/s", "Pchar/s"];
+                const SUFFIXES: &[&str; Scale::COUNT] = &[
+                    "char/s", "Kchar/s", "Mchar/s", "Gchar/s", "Tchar/s",
+                    "Pchar/s",
+                ];
 
                 SUFFIXES[self as usize]
             }
             ScaleFormat::CyclesThroughput => {
-                const SUFFIXES: &[&str; Scale::COUNT] = &["Hz", "KHz", "MHz", "GHz", "THz", "PHz"];
+                const SUFFIXES: &[&str; Scale::COUNT] =
+                    &["Hz", "KHz", "MHz", "GHz", "THz", "PHz"];
 
                 SUFFIXES[self as usize]
             }
             ScaleFormat::ItemsThroughput => {
-                const SUFFIXES: &[&str; Scale::COUNT] =
-                    &["item/s", "Kitem/s", "Mitem/s", "Gitem/s", "Titem/s", "Pitem/s"];
+                const SUFFIXES: &[&str; Scale::COUNT] = &[
+                    "item/s", "Kitem/s", "Mitem/s", "Gitem/s", "Titem/s",
+                    "Pitem/s",
+                ];
 
                 SUFFIXES[self as usize]
             }
@@ -210,8 +225,16 @@ mod tests {
     #[test]
     fn scale_value() {
         #[track_caller]
-        fn test(n: f64, format: BytesFormat, expected_value: f64, expected_scale: Scale) {
-            assert_eq!(super::scale_value(n, format), (expected_value, expected_scale));
+        fn test(
+            n: f64,
+            format: BytesFormat,
+            expected_value: f64,
+            expected_scale: Scale,
+        ) {
+            assert_eq!(
+                super::scale_value(n, format),
+                (expected_value, expected_scale)
+            );
         }
 
         #[track_caller]

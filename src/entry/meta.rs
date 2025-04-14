@@ -38,7 +38,9 @@ impl EntryMeta {
     }
 
     #[inline]
-    pub(crate) fn module_path_components<'a>(&self) -> impl Iterator<Item = &'a str> {
+    pub(crate) fn module_path_components<'a>(
+        &self,
+    ) -> impl Iterator<Item = &'a str> {
         self.module_path.split("::")
     }
 }

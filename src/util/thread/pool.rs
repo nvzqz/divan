@@ -45,8 +45,12 @@ impl ThreadPool {
 
     /// Performs the given task and pushes the results into a `vec`.
     #[inline]
-    pub fn par_extend<T, F>(&self, vec: &mut Vec<Option<T>>, aux_threads: usize, task: F)
-    where
+    pub fn par_extend<T, F>(
+        &self,
+        vec: &mut Vec<Option<T>>,
+        aux_threads: usize,
+        task: F,
+    ) where
         F: Sync + Fn(usize) -> T,
         T: Sync + Send,
     {
@@ -92,10 +96,15 @@ impl ThreadPool {
     unsafe fn broadcast_task(&self, aux_threads: usize, task: Task) {
         // Send task to auxiliary threads.
         if aux_threads > 0 {
-            let threads = &mut *self.threads.lock().unwrap_or_else(PoisonError::into_inner);
+            let threads = &mut *self
+                .threads
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
 
             // Spawn more threads if necessary.
-            if let Some(additional) = NonZeroUsize::new(aux_threads.saturating_sub(threads.len())) {
+            if let Some(additional) =
+                NonZeroUsize::new(aux_threads.saturating_sub(threads.len()))
+            {
                 spawn(additional, threads);
             }
 
@@ -105,7 +114,8 @@ impl ThreadPool {
         }
 
         // Run the task on the main thread.
-        let main_result = std::panic::catch_unwind(AssertUnwindSafe(|| task.run(0)));
+        let main_result =
+            std::panic::catch_unwind(AssertUnwindSafe(|| task.run(0)));
 
         // Wait for other threads to finish writing their results.
         //
@@ -215,57 +225,68 @@ impl<F> TaskShared<F> {
 fn spawn(additional: NonZeroUsize, threads: &mut Vec<mpsc::SyncSender<Task>>) {
     let next_thread_id = threads.len() + 1;
 
-    threads.extend((next_thread_id..(next_thread_id + additional.get())).map(|thread_id| {
-        // Create single-task channel. Unless another benchmark is running, the
-        // current thread will be immediately unblocked after the auxiliary
-        // thread accepts the task.
-        //
-        // This uses a rendezvous channel (capacity 0) instead of other standard
-        // library channels because it reduces memory usage by many kilobytes.
-        let (sender, receiver) = mpsc::sync_channel::<Task>(0);
+    threads.extend((next_thread_id..(next_thread_id + additional.get())).map(
+        |thread_id| {
+            // Create single-task channel. Unless another benchmark is running, the
+            // current thread will be immediately unblocked after the auxiliary
+            // thread accepts the task.
+            //
+            // This uses a rendezvous channel (capacity 0) instead of other standard
+            // library channels because it reduces memory usage by many kilobytes.
+            let (sender, receiver) = mpsc::sync_channel::<Task>(0);
 
-        let work = move || {
-            // Abort the process if the caught panic error itself panics when
-            // dropped.
-            let panic_guard = defer(|| std::process::abort());
+            let work = move || {
+                // Abort the process if the caught panic error itself panics when
+                // dropped.
+                let panic_guard = defer(|| std::process::abort());
 
-            while let Ok(task) = receiver.recv() {
-                // Run the task on this auxiliary thread.
-                //
-                // SAFETY: The task is valid until `ref_count == 0`.
-                let result =
-                    std::panic::catch_unwind(AssertUnwindSafe(|| unsafe { task.run(thread_id) }));
+                while let Ok(task) = receiver.recv() {
+                    // Run the task on this auxiliary thread.
+                    //
+                    // SAFETY: The task is valid until `ref_count == 0`.
+                    let result =
+                        std::panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+                            task.run(thread_id)
+                        }));
 
-                // Decrement the `ref_count` count to notify the main thread
-                // that we finished our work.
-                //
-                // SAFETY: This release operation makes writes within the task
-                // become visible to the main thread.
-                unsafe {
-                    // Clone the main thread's handle for unparking because the
-                    // `TaskShared` will be invalidated when `ref_count` is 0.
-                    let main_thread = task.shared.as_ref().main_thread.clone();
+                    // Decrement the `ref_count` count to notify the main thread
+                    // that we finished our work.
+                    //
+                    // SAFETY: This release operation makes writes within the task
+                    // become visible to the main thread.
+                    unsafe {
+                        // Clone the main thread's handle for unparking because the
+                        // `TaskShared` will be invalidated when `ref_count` is 0.
+                        let main_thread =
+                            task.shared.as_ref().main_thread.clone();
 
-                    if task.shared.as_ref().ref_count.fetch_sub(1, Ordering::Release) == 1 {
-                        main_thread.unpark();
+                        if task
+                            .shared
+                            .as_ref()
+                            .ref_count
+                            .fetch_sub(1, Ordering::Release)
+                            == 1
+                        {
+                            main_thread.unpark();
+                        }
                     }
+
+                    // Don't drop our result until after notifying the main thread,
+                    // in case the panic error's drop handler itself also panics.
+                    drop(result);
                 }
 
-                // Don't drop our result until after notifying the main thread,
-                // in case the panic error's drop handler itself also panics.
-                drop(result);
-            }
+                std::mem::forget(panic_guard);
+            };
 
-            std::mem::forget(panic_guard);
-        };
+            std::thread::Builder::new()
+                .name(format!("divan-{thread_id}"))
+                .spawn(work)
+                .expect("failed to spawn thread");
 
-        std::thread::Builder::new()
-            .name(format!("divan-{thread_id}"))
-            .spawn(work)
-            .expect("failed to spawn thread");
-
-        sender
-    }));
+            sender
+        },
+    ));
 }
 
 #[cfg(test)]
@@ -337,7 +358,8 @@ mod benches {
     use super::*;
 
     fn aux_thread_counts() -> impl Iterator<Item = usize> {
-        let mut available_parallelism = std::thread::available_parallelism().ok().map(|n| n.get());
+        let mut available_parallelism =
+            std::thread::available_parallelism().ok().map(|n| n.get());
 
         let range = 0..=16;
 
@@ -355,7 +377,8 @@ mod benches {
     #[crate::bench(crate = crate, args = aux_thread_counts())]
     fn broadcast(bencher: crate::Bencher, aux_threads: usize) {
         let pool = ThreadPool::new();
-        let benched = move || pool.broadcast(aux_threads, crate::black_box_drop);
+        let benched =
+            move || pool.broadcast(aux_threads, crate::black_box_drop);
 
         // Warmup to spawn threads.
         benched();
@@ -366,8 +389,8 @@ mod benches {
     /// Benchmarks using `ThreadPool` once.
     #[crate::bench(crate = crate, args = aux_thread_counts(), sample_size = 1)]
     fn broadcast_once(bencher: crate::Bencher, aux_threads: usize) {
-        bencher
-            .with_inputs(ThreadPool::new)
-            .bench_refs(|pool| pool.broadcast(aux_threads, crate::black_box_drop));
+        bencher.with_inputs(ThreadPool::new).bench_refs(|pool| {
+            pool.broadcast(aux_threads, crate::black_box_drop)
+        });
     }
 }

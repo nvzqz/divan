@@ -13,10 +13,9 @@ impl From<Duration> for FineDuration {
     #[inline]
     fn from(duration: Duration) -> Self {
         Self {
-            picos: duration
-                .as_nanos()
-                .checked_mul(1_000)
-                .unwrap_or_else(|| panic!("{duration:?} is too large to fit in `FineDuration`")),
+            picos: duration.as_nanos().checked_mul(1_000).unwrap_or_else(
+                || panic!("{duration:?} is too large to fit in `FineDuration`"),
+            ),
         }
     }
 }
@@ -50,7 +49,8 @@ impl fmt::Display for FineDuration {
                 // Format using floating point representation.
 
                 // Multiply to allow `sig_figs` digits of fractional precision.
-                let val = (((picos * multiple) / scale.picos()) as f64) / multiple as f64;
+                let val = (((picos * multiple) / scale.picos()) as f64)
+                    / multiple as f64;
 
                 util::fmt::format_f64(val, sig_figs)
             }
@@ -60,7 +60,9 @@ impl fmt::Display for FineDuration {
         str.push_str(scale.suffix());
 
         // Fill up to specified width.
-        if let Some(fill_len) = f.width().and_then(|width| width.checked_sub(str.len())) {
+        if let Some(fill_len) =
+            f.width().and_then(|width| width.checked_sub(str.len()))
+        {
             match f.align() {
                 None | Some(fmt::Alignment::Left) => {
                     str.extend(std::iter::repeat(f.fill()).take(fill_len));
@@ -266,7 +268,8 @@ mod tests {
         #[track_caller]
         fn test(a: u128, b: u128, expected: u128) {
             assert_eq!(
-                FineDuration { picos: a }.clamp_to_min(FineDuration { picos: b }),
+                FineDuration { picos: a }
+                    .clamp_to_min(FineDuration { picos: b }),
                 FineDuration { picos: expected }
             );
         }

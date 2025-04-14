@@ -22,13 +22,14 @@ const LENS: &[usize] = &[
 
 #[divan::bench(args = LENS)]
 fn memcpy(bencher: Bencher, len: usize) {
-    bencher.counter(BytesCount::new(len)).with_inputs(Input::gen(len)).bench_local_refs(
-        |input| unsafe {
+    bencher
+        .counter(BytesCount::new(len))
+        .with_inputs(Input::gen(len))
+        .bench_local_refs(|input| unsafe {
             let src_ptr = input.src_ptr();
             let dst_ptr = input.dst_ptr();
             libc::memcpy(dst_ptr.cast(), src_ptr.cast(), len);
-        },
-    )
+        })
 }
 
 #[divan::bench(args = LENS)]
@@ -36,8 +37,10 @@ fn memcpy(bencher: Bencher, len: usize) {
 fn movsb(bencher: Bencher, len: usize) {
     use std::arch::asm;
 
-    bencher.counter(BytesCount::new(len)).with_inputs(Input::gen(len)).bench_local_refs(
-        |input| unsafe {
+    bencher
+        .counter(BytesCount::new(len))
+        .with_inputs(Input::gen(len))
+        .bench_local_refs(|input| unsafe {
             #[cfg(target_arch = "x86")]
             asm!(
                 "rep movsb",
@@ -55,8 +58,7 @@ fn movsb(bencher: Bencher, len: usize) {
                 inout("rdi") input.dst_ptr() => _,
                 options(nostack, preserves_flags),
             );
-        },
-    )
+        })
 }
 
 /// Self-referential input.

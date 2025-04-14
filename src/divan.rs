@@ -12,8 +12,8 @@ use crate::{
         Action, ParsedSeconds, RunIgnored, SortingAttr,
     },
     counter::{
-        BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter, ItemsCount, MaxCountUInt,
-        PrivBytesFormat,
+        BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter,
+        ItemsCount, MaxCountUInt, PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
     time::{Timer, TimerKind},
@@ -100,9 +100,12 @@ impl Divan {
         } else {
             let group_entries = &crate::entry::GROUP_ENTRIES;
 
-            let generic_bench_entries = group_entries
-                .iter()
-                .flat_map(|group| group.generic_benches_iter().map(AnyBenchEntry::GenericBench));
+            let generic_bench_entries =
+                group_entries.iter().flat_map(|group| {
+                    group
+                        .generic_benches_iter()
+                        .map(AnyBenchEntry::GenericBench)
+                });
 
             let bench_entries = crate::entry::BENCH_ENTRIES
                 .iter()
@@ -135,27 +138,30 @@ impl Divan {
         }
 
         // Sorting is after filtering to compare fewer elements.
-        EntryTree::sort_by_attr(&mut tree, self.sorting_attr, self.reverse_sort);
+        EntryTree::sort_by_attr(
+            &mut tree,
+            self.sorting_attr,
+            self.reverse_sort,
+        );
 
         let timer = match self.timer {
             TimerKind::Os => Timer::Os,
 
-            TimerKind::Tsc => {
-                match Timer::get_tsc() {
-                    Ok(tsc) => tsc,
-                    Err(error) => {
-                        eprintln!("warning: CPU timestamp counter is unavailable ({error}), defaulting to OS");
-                        Timer::Os
-                    }
+            TimerKind::Tsc => match Timer::get_tsc() {
+                Ok(tsc) => tsc,
+                Err(error) => {
+                    eprintln!("warning: CPU timestamp counter is unavailable ({error}), defaulting to OS");
+                    Timer::Os
                 }
-            }
+            },
         };
 
         if action.is_bench() {
             eprintln!("Timer precision: {}", timer.precision());
         }
 
-        let shared_context = SharedContext { action, timer, thread_pool: ThreadPool::new() };
+        let shared_context =
+            SharedContext { action, timer, thread_pool: ThreadPool::new() };
 
         let column_widths = if action.is_bench() {
             TreeColumn::ALL.map(|column| {
@@ -170,8 +176,10 @@ impl Divan {
             [0; TreeColumn::COUNT]
         };
 
-        let tree_painter =
-            RefCell::new(TreePainter::new(EntryTree::max_name_span(&tree, 0), column_widths));
+        let tree_painter = RefCell::new(TreePainter::new(
+            EntryTree::max_name_span(&tree, 0),
+            column_widths,
+        ));
 
         self.run_tree(action, &tree, &shared_context, None, &tree_painter);
     }
@@ -183,8 +191,10 @@ impl Divan {
         let mut full_path = String::with_capacity(parent_path.len());
 
         for child in tree {
-            let ignore =
-                child.bench_options().and_then(|options| options.ignore).unwrap_or_default();
+            let ignore = child
+                .bench_options()
+                .and_then(|options| options.ignore)
+                .unwrap_or_default();
 
             if self.should_ignore(ignore) {
                 continue;
@@ -200,13 +210,17 @@ impl Divan {
             full_path.push_str(child.display_name());
 
             match child {
-                EntryTree::Leaf { args: None, .. } => println!("{full_path}: benchmark"),
+                EntryTree::Leaf { args: None, .. } => {
+                    println!("{full_path}: benchmark")
+                }
                 EntryTree::Leaf { args: Some(args), .. } => {
                     for arg in args {
                         println!("{full_path}::{arg}: benchmark")
                     }
                 }
-                EntryTree::Parent { children, .. } => self.run_tree_list(children, &full_path),
+                EntryTree::Parent { children, .. } => {
+                    self.run_tree_list(children, &full_path)
+                }
             }
         }
     }
@@ -228,14 +242,17 @@ impl Divan {
 
             // Overwrite `parent_options` with `child_options` if applicable.
             let options: BenchOptions;
-            let options: Option<&BenchOptions> = match (parent_options, child_options) {
-                (None, None) => None,
-                (Some(options), None) | (None, Some(options)) => Some(options),
-                (Some(parent_options), Some(child_options)) => {
-                    options = child_options.overwrite(parent_options);
-                    Some(&options)
-                }
-            };
+            let options: Option<&BenchOptions> =
+                match (parent_options, child_options) {
+                    (None, None) => None,
+                    (Some(options), None) | (None, Some(options)) => {
+                        Some(options)
+                    }
+                    (Some(parent_options), Some(child_options)) => {
+                        options = child_options.overwrite(parent_options);
+                        Some(&options)
+                    }
+                };
 
             match child {
                 EntryTree::Leaf { entry, args } => self.run_bench_entry(
@@ -250,7 +267,13 @@ impl Divan {
                 EntryTree::Parent { children, .. } => {
                     tree_painter.borrow_mut().start_parent(name, is_last);
 
-                    self.run_tree(action, children, shared_context, options, tree_painter);
+                    self.run_tree(
+                        action,
+                        children,
+                        shared_context,
+                        options,
+                        tree_painter,
+                    );
 
                     tree_painter.borrow_mut().finish_parent();
                 }
@@ -283,7 +306,9 @@ impl Divan {
         };
 
         if self.should_ignore(options.ignore.unwrap_or_default()) {
-            tree_painter.borrow_mut().ignore_leaf(entry_display_name, is_last_entry);
+            tree_painter
+                .borrow_mut()
+                .ignore_leaf(entry_display_name, is_last_entry);
             return;
         }
 
@@ -309,65 +334,85 @@ impl Divan {
         thread_counts.sort_unstable();
         thread_counts.dedup();
 
-        let thread_counts: &[NonZeroUsize] =
-            if thread_counts.is_empty() { &[NonZeroUsize::MIN] } else { &thread_counts };
+        let thread_counts: &[NonZeroUsize] = if thread_counts.is_empty() {
+            &[NonZeroUsize::MIN]
+        } else {
+            &thread_counts
+        };
 
         // Whether we should emit child branches for thread counts.
         let has_thread_branches = thread_counts.len() > 1;
 
-        let run_bench = |bench_display_name: &str,
-                         is_last_bench: bool,
-                         with_bencher: &dyn Fn(Bencher)| {
-            if has_thread_branches {
-                tree_painter.borrow_mut().start_parent(bench_display_name, is_last_bench);
-            } else {
-                tree_painter.borrow_mut().start_leaf(bench_display_name, is_last_bench);
-            }
-
-            for (i, &thread_count) in thread_counts.iter().enumerate() {
-                let is_last_thread_count =
-                    if has_thread_branches { i == thread_counts.len() - 1 } else { is_last_bench };
-
+        let run_bench =
+            |bench_display_name: &str,
+             is_last_bench: bool,
+             with_bencher: &dyn Fn(Bencher)| {
                 if has_thread_branches {
                     tree_painter
                         .borrow_mut()
-                        .start_leaf(&format!("t={thread_count}"), is_last_thread_count);
+                        .start_parent(bench_display_name, is_last_bench);
+                } else {
+                    tree_painter
+                        .borrow_mut()
+                        .start_leaf(bench_display_name, is_last_bench);
                 }
 
-                let mut bench_context = BenchContext::new(shared_context, options, thread_count);
-                with_bencher(Bencher::new(&mut bench_context));
+                for (i, &thread_count) in thread_counts.iter().enumerate() {
+                    let is_last_thread_count = if has_thread_branches {
+                        i == thread_counts.len() - 1
+                    } else {
+                        is_last_bench
+                    };
 
-                if !bench_context.did_run {
-                    eprintln!(
+                    if has_thread_branches {
+                        tree_painter.borrow_mut().start_leaf(
+                            &format!("t={thread_count}"),
+                            is_last_thread_count,
+                        );
+                    }
+
+                    let mut bench_context = BenchContext::new(
+                        shared_context,
+                        options,
+                        thread_count,
+                    );
+                    with_bencher(Bencher::new(&mut bench_context));
+
+                    if !bench_context.did_run {
+                        eprintln!(
                         "warning: No benchmark function registered for '{bench_display_name}'"
                     );
+                    }
+
+                    let should_compute_stats = bench_context.did_run
+                        && shared_context.action.is_bench();
+
+                    if should_compute_stats {
+                        let stats = bench_context.compute_stats();
+                        tree_painter.borrow_mut().finish_leaf(
+                            is_last_thread_count,
+                            &stats,
+                            self.bytes_format,
+                        );
+                    } else {
+                        tree_painter.borrow_mut().finish_empty_leaf();
+                    }
                 }
 
-                let should_compute_stats =
-                    bench_context.did_run && shared_context.action.is_bench();
-
-                if should_compute_stats {
-                    let stats = bench_context.compute_stats();
-                    tree_painter.borrow_mut().finish_leaf(
-                        is_last_thread_count,
-                        &stats,
-                        self.bytes_format,
-                    );
-                } else {
-                    tree_painter.borrow_mut().finish_empty_leaf();
+                if has_thread_branches {
+                    tree_painter.borrow_mut().finish_parent();
                 }
-            }
-
-            if has_thread_branches {
-                tree_painter.borrow_mut().finish_parent();
-            }
-        };
+            };
 
         match bench_entry.bench_runner() {
-            BenchEntryRunner::Plain(bench) => run_bench(entry_display_name, is_last_entry, bench),
+            BenchEntryRunner::Plain(bench) => {
+                run_bench(entry_display_name, is_last_entry, bench)
+            }
 
             BenchEntryRunner::Args(bench_runner) => {
-                tree_painter.borrow_mut().start_parent(entry_display_name, is_last_entry);
+                tree_painter
+                    .borrow_mut()
+                    .start_parent(entry_display_name, is_last_entry);
 
                 let bench_runner = bench_runner();
                 let orig_arg_names = bench_runner.arg_names();
@@ -375,7 +420,8 @@ impl Divan {
 
                 for (i, &arg_name) in bench_arg_names.iter().enumerate() {
                     let is_last_arg = i == bench_arg_names.len() - 1;
-                    let arg_index = util::slice_ptr_index(orig_arg_names, arg_name);
+                    let arg_index =
+                        util::slice_ptr_index(orig_arg_names, arg_name);
 
                     run_bench(arg_name, is_last_arg, &|bencher| {
                         bench_runner.bench(bencher, arg_index);
@@ -423,11 +469,15 @@ impl Divan {
 
             // Reduce allocation size and reallocation count.
             self.filters.reserve_exact({
-                let inclusive_count =
-                    inclusive_filters.as_ref().map(|f| f.len()).unwrap_or_default();
+                let inclusive_count = inclusive_filters
+                    .as_ref()
+                    .map(|f| f.len())
+                    .unwrap_or_default();
 
-                let exclusive_count =
-                    exclusive_filters.as_ref().map(|f| f.len()).unwrap_or_default();
+                let exclusive_count = exclusive_filters
+                    .as_ref()
+                    .map(|f| f.len())
+                    .unwrap_or_default();
 
                 inclusive_count + exclusive_count
             });
@@ -513,7 +563,9 @@ impl Divan {
             self.bench_options.max_time = Some(max_time);
         }
 
-        if let Some(mut skip_ext_time) = matches.get_many::<bool>("skip-ext-time") {
+        if let Some(mut skip_ext_time) =
+            matches.get_many::<bool>("skip-ext-time")
+        {
             // If the option is present without a value, then it's `true`.
             self.bench_options.skip_ext_time =
                 Some(matches!(skip_ext_time.next(), Some(true) | None));
@@ -527,7 +579,9 @@ impl Divan {
             self.counter_mut(BytesCount::new(count));
         }
 
-        if let Some(&PrivBytesFormat(bytes_format)) = matches.get_one("bytes-format") {
+        if let Some(&PrivBytesFormat(bytes_format)) =
+            matches.get_one("bytes-format")
+        {
             self.bytes_format = bytes_format;
         }
 

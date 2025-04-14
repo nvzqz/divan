@@ -109,8 +109,11 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
     // Find any `#[ignore]` attribute so that we can use its span to help
     // compiler diagnostics.
-    let ignore_attr_ident =
-        fn_item.attrs.iter().map(|attr| attr.meta.path()).find(|path| path.is_ident("ignore"));
+    let ignore_attr_ident = fn_item
+        .attrs
+        .iter()
+        .map(|attr| attr.meta.path())
+        .find(|path| path.is_ident("ignore"));
 
     // If the function is `extern "ABI"`, it is wrapped in a Rust-ABI function.
     let is_extern_abi = fn_sig.abi.is_some();
@@ -330,12 +333,15 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
     // Creates a `GenericBenchEntry` expr for a generic benchmark instance.
     let make_generic_bench_entry =
         |ty: Option<&dyn ToTokens>, const_value: Option<&dyn ToTokens>| {
-            let generic_const_value = const_value.map(|const_value| quote!({ #const_value }));
+            let generic_const_value =
+                const_value.map(|const_value| quote!({ #const_value }));
 
             let generics: Vec<&dyn ToTokens> = {
                 let mut generics = Vec::new();
 
-                generics.extend(generic_const_value.as_ref().map(|t| t as &dyn ToTokens));
+                generics.extend(
+                    generic_const_value.as_ref().map(|t| t as &dyn ToTokens),
+                );
                 generics.extend(ty);
 
                 if is_type_before_const {
@@ -371,7 +377,10 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
             }
         };
 
-    let generated_items: proc_macro2::TokenStream = match &options.generic.consts {
+    let generated_items: proc_macro2::TokenStream = match &options
+        .generic
+        .consts
+    {
         // Only specified `types = []` or `consts = []`; generate nothing.
         _ if options.generic.is_empty() => Default::default(),
 
@@ -413,8 +422,9 @@ pub fn bench(options: TokenStream, item: TokenStream) -> TokenStream {
 
             // Generate a benchmark group entry with generic benchmark entries.
             Some(GenericTypes::List(generic_types)) => {
-                let generic_benches =
-                    generic_types.iter().map(|ty| make_generic_bench_entry(Some(&ty), None));
+                let generic_benches = generic_types
+                    .iter()
+                    .map(|ty| make_generic_bench_entry(Some(&ty), None));
 
                 make_generic_group(quote! {
                     &[&[#(#generic_benches),*]]
@@ -528,8 +538,11 @@ pub fn bench_group(options: TokenStream, item: TokenStream) -> TokenStream {
     // compiler diagnostics.
     //
     // TODO: Fix `unused_attributes` warning when using `#[ignore]` on a module.
-    let ignore_attr_ident =
-        mod_item.attrs.iter().map(|attr| attr.meta.path()).find(|path| path.is_ident("ignore"));
+    let ignore_attr_ident = mod_item
+        .attrs
+        .iter()
+        .map(|attr| attr.meta.path())
+        .find(|path| path.is_ident("ignore"));
 
     // Prefixed with "__" to prevent IDEs from recommending using this symbol.
     //

@@ -2,7 +2,8 @@ use std::any::TypeId;
 
 use crate::{
     counter::{
-        BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter, ItemsCount, MaxCountUInt,
+        BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter,
+        ItemsCount, MaxCountUInt,
     },
     time::FineDuration,
     util::{fmt::DisplayThroughput, ty::TypeCast},
@@ -66,7 +67,11 @@ impl AnyCounter {
         duration: FineDuration,
         bytes_format: BytesFormat,
     ) -> DisplayThroughput {
-        DisplayThroughput { counter: self, picos: duration.picos as f64, bytes_format }
+        DisplayThroughput {
+            counter: self,
+            picos: duration.picos as f64,
+            bytes_format,
+        }
     }
 
     #[inline]
@@ -92,7 +97,8 @@ pub(crate) enum KnownCounterKind {
 impl KnownCounterKind {
     pub const COUNT: usize = 4;
 
-    pub const ALL: [Self; Self::COUNT] = [Self::Bytes, Self::Chars, Self::Cycles, Self::Items];
+    pub const ALL: [Self; Self::COUNT] =
+        [Self::Bytes, Self::Chars, Self::Cycles, Self::Items];
 
     /// The maximum width for columns displaying counters.
     pub const MAX_COMMON_COLUMN_WIDTH: usize = "1.111 Kitem/s".len();
@@ -150,7 +156,10 @@ mod tests {
                 ] {
                     assert_eq!(
                         AnyCounter::bytes(bytes)
-                            .display_throughput(FineDuration { picos }, bytes_format)
+                            .display_throughput(
+                                FineDuration { picos },
+                                bytes_format
+                            )
                             .to_string(),
                         expected
                     );
@@ -176,7 +185,10 @@ mod tests {
             fn test(chars: MaxCountUInt, picos: u128, expected: &str) {
                 assert_eq!(
                     AnyCounter::chars(chars)
-                        .display_throughput(FineDuration { picos }, BytesFormat::default())
+                        .display_throughput(
+                            FineDuration { picos },
+                            BytesFormat::default()
+                        )
                         .to_string(),
                     expected
                 );
@@ -196,7 +208,10 @@ mod tests {
             fn test(cycles: MaxCountUInt, picos: u128, expected: &str) {
                 assert_eq!(
                     AnyCounter::cycles(cycles)
-                        .display_throughput(FineDuration { picos }, BytesFormat::default())
+                        .display_throughput(
+                            FineDuration { picos },
+                            BytesFormat::default()
+                        )
                         .to_string(),
                     expected
                 );
@@ -216,7 +231,10 @@ mod tests {
             fn test(items: MaxCountUInt, picos: u128, expected: &str) {
                 assert_eq!(
                     AnyCounter::items(items)
-                        .display_throughput(FineDuration { picos }, BytesFormat::default())
+                        .display_throughput(
+                            FineDuration { picos },
+                            BytesFormat::default()
+                        )
                         .to_string(),
                     expected
                 );

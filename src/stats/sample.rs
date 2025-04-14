@@ -67,7 +67,9 @@ impl SampleCollection {
     /// Computes the total time across all samples.
     #[inline]
     pub fn total_duration(&self) -> FineDuration {
-        FineDuration { picos: self.time_samples.iter().map(|s| s.duration.picos).sum() }
+        FineDuration {
+            picos: self.time_samples.iter().map(|s| s.duration.picos).sum(),
+        }
     }
 
     /// Returns all samples sorted by duration.

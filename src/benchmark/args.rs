@@ -73,8 +73,9 @@ impl BenchArgs {
             //
             // NOTE: We do this over `I::IntoIter` instead of `I` since it works
             // for both slices and `slice::Iter`.
-            let args_strings: Option<&'static [&str]> =
-                args_iter.cast_ref::<slice::Iter<&str>>().map(|iter| iter.as_slice());
+            let args_strings: Option<&'static [&str]> = args_iter
+                .cast_ref::<slice::Iter<&str>>()
+                .map(|iter| iter.as_slice());
 
             // Collect arguments into leaked slice.
             //
@@ -186,8 +187,11 @@ impl ErasedArgsSlice {
 }
 
 /// The `BenchArgsRunner.bench` implementation.
-fn bench<T, B>(bencher: Bencher, erased_args: &ErasedArgsSlice, arg_index: usize)
-where
+fn bench<T, B>(
+    bencher: Bencher,
+    erased_args: &ErasedArgsSlice,
+    arg_index: usize,
+) where
     T: Any,
     B: FnOnce(Bencher, &T) + Copy,
 {
@@ -212,7 +216,11 @@ where
     // This can be done multiple times without invoking a `Drop` destructor
     // because it implements `Copy`.
     let bench_impl: B = unsafe {
-        assert_eq!(size_of::<B>(), 0, "benchmark closure expected to be zero-sized");
+        assert_eq!(
+            size_of::<B>(),
+            0,
+            "benchmark closure expected to be zero-sized"
+        );
         mem::zeroed()
     };
 
@@ -247,10 +255,17 @@ mod tests {
             static ARGS: BenchArgs = BenchArgs::new();
             static ORIG_ARGS: &[&str] = &["a", "b"];
 
-            let runner = ARGS.runner(|| ORIG_ARGS, ToString::to_string, |_, _| {});
+            let runner =
+                ARGS.runner(|| ORIG_ARGS, ToString::to_string, |_, _| {});
 
-            let typed_args: Vec<&str> =
-                runner.args.typed_args::<&&str>().unwrap().iter().copied().copied().collect();
+            let typed_args: Vec<&str> = runner
+                .args
+                .typed_args::<&&str>()
+                .unwrap()
+                .iter()
+                .copied()
+                .copied()
+                .collect();
             let names = runner.arg_names();
 
             // Test values.
@@ -268,7 +283,8 @@ mod tests {
         fn str_array() {
             static ARGS: BenchArgs = BenchArgs::new();
 
-            let runner = ARGS.runner(|| ["a", "b"], ToString::to_string, |_, _| {});
+            let runner =
+                ARGS.runner(|| ["a", "b"], ToString::to_string, |_, _| {});
 
             let typed_args = runner.args.typed_args::<&str>().unwrap();
             let names = runner.arg_names();
@@ -287,8 +303,11 @@ mod tests {
         fn string_array() {
             static ARGS: BenchArgs = BenchArgs::new();
 
-            let runner =
-                ARGS.runner(|| ["a".to_owned(), "b".to_owned()], ToString::to_string, |_, _| {});
+            let runner = ARGS.runner(
+                || ["a".to_owned(), "b".to_owned()],
+                ToString::to_string,
+                |_, _| {},
+            );
 
             let typed_args = runner.args.typed_args::<String>().unwrap();
             let names = runner.arg_names();
@@ -304,7 +323,12 @@ mod tests {
             static ARGS: BenchArgs = BenchArgs::new();
 
             let runner = ARGS.runner(
-                || ["a".to_owned().into_boxed_str(), "b".to_owned().into_boxed_str()],
+                || {
+                    [
+                        "a".to_owned().into_boxed_str(),
+                        "b".to_owned().into_boxed_str(),
+                    ]
+                },
                 ToString::to_string,
                 |_, _| {},
             );

@@ -37,7 +37,10 @@ pub mod counter;
 /// `use divan::prelude::*;` to import common items.
 pub mod prelude {
     #[doc(no_inline)]
-    pub use crate::{bench, bench_group, black_box, black_box_drop, AllocProfiler, Bencher, Divan};
+    pub use crate::{
+        bench, bench_group, black_box, black_box_drop, AllocProfiler, Bencher,
+        Divan,
+    };
 }
 
 /// Prevents compiler optimizations on a value.

@@ -8,12 +8,14 @@ use std::{
 
 use crate::{
     alloc::{
-        AllocOp, AllocOpMap, AllocTally, ThreadAllocInfo, ThreadAllocTally, TotalAllocTallyMap,
+        AllocOp, AllocOpMap, AllocTally, ThreadAllocInfo, ThreadAllocTally,
+        TotalAllocTallyMap,
     },
     black_box, black_box_drop,
     counter::{
-        AnyCounter, AsCountUInt, BytesCount, CharsCount, Counter, CounterCollection, CyclesCount,
-        IntoCounter, ItemsCount, KnownCounterKind, MaxCountUInt,
+        AnyCounter, AsCountUInt, BytesCount, CharsCount, Counter,
+        CounterCollection, CyclesCount, IntoCounter, ItemsCount,
+        KnownCounterKind, MaxCountUInt,
     },
     divan::SharedContext,
     stats::{RawSample, SampleCollection, Stats, StatsSet, TimeSample},
@@ -159,7 +161,10 @@ impl<'a, 'b> Bencher<'a, 'b> {
     ///         });
     /// }
     /// ```
-    pub fn with_inputs<G>(self, gen_input: G) -> Bencher<'a, 'b, BencherConfig<G>> {
+    pub fn with_inputs<G>(
+        self,
+        gen_input: G,
+    ) -> Bencher<'a, 'b, BencherConfig<G>> {
         Bencher { context: self.context, config: BencherConfig { gen_input } }
     }
 }
@@ -289,10 +294,18 @@ where
         I: AsCountUInt,
     {
         match KnownCounterKind::of::<C>() {
-            KnownCounterKind::Bytes => self.input_counter(|c| BytesCount::from(c)),
-            KnownCounterKind::Chars => self.input_counter(|c| CharsCount::from(c)),
-            KnownCounterKind::Cycles => self.input_counter(|c| CyclesCount::from(c)),
-            KnownCounterKind::Items => self.input_counter(|c| ItemsCount::from(c)),
+            KnownCounterKind::Bytes => {
+                self.input_counter(|c| BytesCount::from(c))
+            }
+            KnownCounterKind::Chars => {
+                self.input_counter(|c| CharsCount::from(c))
+            }
+            KnownCounterKind::Cycles => {
+                self.input_counter(|c| CyclesCount::from(c))
+            }
+            KnownCounterKind::Items => {
+                self.input_counter(|c| ItemsCount::from(c))
+            }
         }
     }
 
@@ -509,7 +522,8 @@ impl BenchMode {
     pub fn sample_size(self) -> u32 {
         match self {
             Self::Test => 1,
-            Self::Tune { sample_size, .. } | Self::Collect { sample_size, .. } => sample_size,
+            Self::Tune { sample_size, .. }
+            | Self::Collect { sample_size, .. } => sample_size,
         }
     }
 }
@@ -611,7 +625,8 @@ impl<'a> BenchContext<'a> {
         let mut current_mode = self.initial_mode();
         let is_test = current_mode.is_test();
 
-        let record_sample = self.sample_recorder(gen_input, benched, drop_input);
+        let record_sample =
+            self.sample_recorder(gen_input, benched, drop_input);
 
         let thread_count = self.thread_count.get();
         let aux_thread_count = thread_count - 1;
@@ -650,15 +665,24 @@ impl<'a> BenchContext<'a> {
         };
 
         // Only measure precision if we need to tune sample size.
-        let timer_precision =
-            if current_mode.is_tune() { timer.precision() } else { FineDuration::default() };
+        let timer_precision = if current_mode.is_tune() {
+            timer.precision()
+        } else {
+            FineDuration::default()
+        };
 
         if !is_test {
-            self.samples.time_samples.reserve(self.options.sample_count.unwrap_or(1) as usize);
+            self.samples
+                .time_samples
+                .reserve(self.options.sample_count.unwrap_or(1) as usize);
         }
 
         let skip_ext_time = self.options.skip_ext_time.unwrap_or_default();
-        let initial_start = if skip_ext_time { None } else { Some(Timestamp::start(timer_kind)) };
+        let initial_start = if skip_ext_time {
+            None
+        } else {
+            Some(Timestamp::start(timer_kind))
+        };
 
         let bench_overheads = timer.bench_overheads();
 
@@ -679,7 +703,11 @@ impl<'a> BenchContext<'a> {
             let sample_size = current_mode.sample_size();
             self.samples.sample_size = sample_size;
 
-            let barrier = if is_single_thread { None } else { Some(Barrier::new(thread_count)) };
+            let barrier = if is_single_thread {
+                None
+            } else {
+                Some(Barrier::new(thread_count))
+            };
 
             // Sample loop helper:
             let record_sample = || -> RawSample {
@@ -691,41 +719,51 @@ impl<'a> BenchContext<'a> {
                     for counter_kind in KnownCounterKind::ALL {
                         // SAFETY: The `I` type cannot change since `with_inputs`
                         // cannot be called more than once on the same `Bencher`.
-                        if let Some(count) =
-                            unsafe { self.counters.get_input_count(counter_kind, input) }
-                        {
-                            let total = &mut counter_totals[counter_kind as usize];
+                        if let Some(count) = unsafe {
+                            self.counters.get_input_count(counter_kind, input)
+                        } {
+                            let total =
+                                &mut counter_totals[counter_kind as usize];
                             *total = (*total).saturating_add(count as u128);
                         }
                     }
                 };
 
                 // Sample loop:
-                let ([start, end], alloc_info) =
-                    record_sample(sample_size as usize, barrier.as_ref(), &mut count_input);
+                let ([start, end], alloc_info) = record_sample(
+                    sample_size as usize,
+                    barrier.as_ref(),
+                    &mut count_input,
+                );
 
                 RawSample { start, end, timer, alloc_info, counter_totals }
             };
 
             // Sample loop:
             raw_samples.clear();
-            self.shared_context
-                .thread_pool
-                .par_extend(&mut raw_samples, aux_thread_count, |_| record_sample());
+            self.shared_context.thread_pool.par_extend(
+                &mut raw_samples,
+                aux_thread_count,
+                |_| record_sample(),
+            );
 
             // Convert `&[Option<RawSample>]` to `&[Sample]`.
             let raw_samples: &[RawSample] = {
-                if let Some(thread) = raw_samples
-                    .iter()
-                    .enumerate()
-                    .find_map(|(thread, sample)| sample.is_none().then_some(thread))
-                {
+                if let Some(thread) = raw_samples.iter().enumerate().find_map(
+                    |(thread, sample)| sample.is_none().then_some(thread),
+                ) {
                     panic!("Divan benchmarking thread {thread} panicked");
                 }
 
                 unsafe {
-                    assert_eq!(mem::size_of::<RawSample>(), mem::size_of::<Option<RawSample>>());
-                    std::slice::from_raw_parts(raw_samples.as_ptr().cast(), raw_samples.len())
+                    assert_eq!(
+                        mem::size_of::<RawSample>(),
+                        mem::size_of::<Option<RawSample>>()
+                    );
+                    std::slice::from_raw_parts(
+                        raw_samples.as_ptr().cast(),
+                        raw_samples.len(),
+                    )
                 }
             };
 
@@ -735,7 +773,8 @@ impl<'a> BenchContext<'a> {
                 break;
             }
 
-            let slowest_sample = raw_samples.iter().max_by_key(|s| s.duration()).unwrap();
+            let slowest_sample =
+                raw_samples.iter().max_by_key(|s| s.duration()).unwrap();
             let slowest_time = slowest_sample.duration();
 
             // TODO: Make tuning be less influenced by early runs. Currently if
@@ -751,18 +790,25 @@ impl<'a> BenchContext<'a> {
                 self.counters.clear_input_counts();
 
                 // If within 100x timer precision, continue tuning.
-                let precision_multiple = slowest_time.picos / timer_precision.picos;
+                let precision_multiple =
+                    slowest_time.picos / timer_precision.picos;
                 if precision_multiple <= 100 {
-                    current_mode = BenchMode::Tune { sample_size: sample_size * 2 };
+                    current_mode =
+                        BenchMode::Tune { sample_size: sample_size * 2 };
                 } else {
                     current_mode = BenchMode::Collect { sample_size };
-                    rem_samples = Some(self.options.sample_count.unwrap_or(DEFAULT_SAMPLE_COUNT));
+                    rem_samples = Some(
+                        self.options
+                            .sample_count
+                            .unwrap_or(DEFAULT_SAMPLE_COUNT),
+                    );
                 }
             }
 
             // Returns the sample's duration adjusted for overhead.
             let sample_duration_sub_overhead = |raw_sample: &RawSample| {
-                let overhead = bench_overheads.total_overhead(sample_size, &raw_sample.alloc_info);
+                let overhead = bench_overheads
+                    .total_overhead(sample_size, &raw_sample.alloc_info);
 
                 FineDuration {
                     picos: raw_sample
@@ -777,14 +823,15 @@ impl<'a> BenchContext<'a> {
             for raw_sample in raw_samples {
                 let sample_index = self.samples.time_samples.len();
 
-                self.samples
-                    .time_samples
-                    .push(TimeSample { duration: sample_duration_sub_overhead(raw_sample) });
+                self.samples.time_samples.push(TimeSample {
+                    duration: sample_duration_sub_overhead(raw_sample),
+                });
 
                 if !raw_sample.alloc_info.tallies.is_empty() {
-                    self.samples
-                        .alloc_info_by_sample
-                        .insert(sample_index as u32, raw_sample.alloc_info.clone());
+                    self.samples.alloc_info_by_sample.insert(
+                        sample_index as u32,
+                        raw_sample.alloc_info.clone(),
+                    );
                 }
 
                 // Insert per-input counter information.
@@ -793,13 +840,18 @@ impl<'a> BenchContext<'a> {
                         continue;
                     }
 
-                    let total_count = raw_sample.counter_totals[counter_kind as usize];
+                    let total_count =
+                        raw_sample.counter_totals[counter_kind as usize];
 
                     // Cannot overflow `MaxCountUInt` because `total_count`
                     // cannot exceed `MaxCountUInt::MAX * sample_size`.
-                    let per_iter_count = (total_count / sample_size as u128) as MaxCountUInt;
+                    let per_iter_count =
+                        (total_count / sample_size as u128) as MaxCountUInt;
 
-                    self.counters.push_counter(AnyCounter::known(counter_kind, per_iter_count));
+                    self.counters.push_counter(AnyCounter::known(
+                        counter_kind,
+                        per_iter_count,
+                    ));
                 }
 
                 if let Some(rem_samples) = &mut rem_samples {
@@ -809,7 +861,8 @@ impl<'a> BenchContext<'a> {
 
             if let Some(initial_start) = initial_start {
                 let last_end = raw_samples.iter().map(|s| s.end).max().unwrap();
-                elapsed_picos = last_end.duration_since(initial_start, timer).picos;
+                elapsed_picos =
+                    last_end.duration_since(initial_start, timer).picos;
             } else {
                 // Progress by at least 1ns to prevent extremely fast
                 // functions from taking forever when `min_time` is set.
@@ -829,8 +882,11 @@ impl<'a> BenchContext<'a> {
         gen_input: impl Fn() -> I,
         benched: impl Fn(&UnsafeCell<MaybeUninit<I>>) -> O,
         drop_input: impl Fn(&UnsafeCell<MaybeUninit<I>>),
-    ) -> impl Fn(usize, Option<&Barrier>, &mut dyn FnMut(&I)) -> ([Timestamp; 2], ThreadAllocInfo)
-    {
+    ) -> impl Fn(
+        usize,
+        Option<&Barrier>,
+        &mut dyn FnMut(&I),
+    ) -> ([Timestamp; 2], ThreadAllocInfo) {
         // We defer:
         // - Usage of `gen_input` values.
         // - Drop destructor for `O`, preventing it from affecting sample
@@ -840,7 +896,9 @@ impl<'a> BenchContext<'a> {
 
         let timer_kind = self.shared_context.timer.kind();
 
-        move |sample_size: usize, barrier: Option<&Barrier>, count_input: &mut dyn FnMut(&I)| {
+        move |sample_size: usize,
+              barrier: Option<&Barrier>,
+              count_input: &mut dyn FnMut(&I)| {
             let mut defer_store = DeferStore::<I, O>::default();
 
             let mut saved_alloc_info = ThreadAllocInfo::new();
@@ -868,7 +926,11 @@ impl<'a> BenchContext<'a> {
                 fn sync_impl(barrier: Option<&Barrier>, is_start: bool) {
                     // Ensure benchmarked section has a `ThreadAllocInfo`
                     // allocated for the current thread and clear previous info.
-                    let alloc_info = if is_start { ThreadAllocInfo::current() } else { None };
+                    let alloc_info = if is_start {
+                        ThreadAllocInfo::current()
+                    } else {
+                        None
+                    };
 
                     // Synchronize all threads.
                     //
@@ -902,7 +964,9 @@ impl<'a> BenchContext<'a> {
             let sample_start: UntaggedTimestamp;
             let sample_end: UntaggedTimestamp;
 
-            if size_of::<I>() == 0 && (size_of::<O>() == 0 || !mem::needs_drop::<O>()) {
+            if size_of::<I>() == 0
+                && (size_of::<O>() == 0 || !mem::needs_drop::<O>())
+            {
                 // Use a range instead of `defer_store` to make the benchmarking
                 // loop cheaper.
 
@@ -923,7 +987,8 @@ impl<'a> BenchContext<'a> {
                 for _ in 0..sample_size {
                     // SAFETY: Input is a ZST, so we can construct one out of
                     // thin air.
-                    let input = unsafe { UnsafeCell::new(MaybeUninit::<I>::zeroed()) };
+                    let input =
+                        unsafe { UnsafeCell::new(MaybeUninit::<I>::zeroed()) };
 
                     mem::forget(black_box(benched(&input)));
                 }
@@ -944,7 +1009,11 @@ impl<'a> BenchContext<'a> {
                     if mem::needs_drop::<I>() {
                         // SAFETY: Input is a ZST, so we can construct one out
                         // of thin air and not worry about aliasing.
-                        unsafe { drop_input(&UnsafeCell::new(MaybeUninit::<I>::zeroed())) }
+                        unsafe {
+                            drop_input(&UnsafeCell::new(
+                                MaybeUninit::<I>::zeroed(),
+                            ))
+                        }
                     }
                 }
             } else {
@@ -979,7 +1048,8 @@ impl<'a> BenchContext<'a> {
                             // output slot.
                             unsafe {
                                 let output = benched(&defer_slot.input);
-                                *defer_slot.output.get() = MaybeUninit::new(output);
+                                *defer_slot.output.get() =
+                                    MaybeUninit::new(output);
                             }
                         }
 
@@ -1054,7 +1124,10 @@ impl<'a> BenchContext<'a> {
             // SAFETY: These values are guaranteed to be the correct variant
             // because they were created from the same `timer_kind`.
             let interval = unsafe {
-                [sample_start.into_timestamp(timer_kind), sample_end.into_timestamp(timer_kind)]
+                [
+                    sample_start.into_timestamp(timer_kind),
+                    sample_end.into_timestamp(timer_kind),
+                ]
             };
 
             (interval, saved_alloc_info)
@@ -1083,7 +1156,10 @@ impl<'a> BenchContext<'a> {
 
         let total_duration = self.samples.total_duration();
         let mean_duration = FineDuration {
-            picos: total_duration.picos.checked_div(total_count as u128).unwrap_or_default(),
+            picos: total_duration
+                .picos
+                .checked_div(total_count as u128)
+                .unwrap_or_default(),
         };
 
         // Samples sorted by duration.
@@ -1094,29 +1170,36 @@ impl<'a> BenchContext<'a> {
             util::slice_ptr_index(&self.samples.time_samples, sample)
         };
 
-        let counter_count_for_sample =
-            |sample: &TimeSample, counter_kind: KnownCounterKind| -> Option<MaxCountUInt> {
-                let counts = self.counters.counts(counter_kind);
+        let counter_count_for_sample = |sample: &TimeSample,
+                                        counter_kind: KnownCounterKind|
+         -> Option<MaxCountUInt> {
+            let counts = self.counters.counts(counter_kind);
 
-                let index = if self.counters.uses_input_counts(counter_kind) {
-                    index_of_sample(sample)
-                } else {
-                    0
-                };
-
-                counts.get(index).copied()
+            let index = if self.counters.uses_input_counts(counter_kind) {
+                index_of_sample(sample)
+            } else {
+                0
             };
 
-        let min_duration =
-            sorted_samples.first().map(|s| s.duration / sample_size).unwrap_or_default();
-        let max_duration =
-            sorted_samples.last().map(|s| s.duration / sample_size).unwrap_or_default();
+            counts.get(index).copied()
+        };
+
+        let min_duration = sorted_samples
+            .first()
+            .map(|s| s.duration / sample_size)
+            .unwrap_or_default();
+        let max_duration = sorted_samples
+            .last()
+            .map(|s| s.duration / sample_size)
+            .unwrap_or_default();
 
         let median_duration = if median_samples.is_empty() {
             FineDuration::default()
         } else {
-            let sum: u128 = median_samples.iter().map(|s| s.duration.picos).sum();
-            FineDuration { picos: sum / median_samples.len() as u128 } / sample_size
+            let sum: u128 =
+                median_samples.iter().map(|s| s.duration.picos).sum();
+            FineDuration { picos: sum / median_samples.len() as u128 }
+                / sample_size
         };
 
         let counts = KnownCounterKind::ALL.map(|counter_kind| {
@@ -1124,7 +1207,8 @@ impl<'a> BenchContext<'a> {
                 let mut sum: u128 = 0;
 
                 for sample in median_samples {
-                    let sample_count = counter_count_for_sample(sample, counter_kind)? as u128;
+                    let sample_count =
+                        counter_count_for_sample(sample, counter_kind)? as u128;
 
                     // Saturating add in case `MaxUIntCount > u64`.
                     sum = sum.saturating_add(sample_count);
@@ -1145,18 +1229,24 @@ impl<'a> BenchContext<'a> {
             })
         });
 
-        let sample_alloc_info = |sample: Option<&TimeSample>| -> Option<&ThreadAllocInfo> {
-            sample
-                .and_then(|sample| u32::try_from(index_of_sample(sample)).ok())
-                .and_then(|index| self.samples.alloc_info_by_sample.get(&index))
-        };
+        let sample_alloc_info =
+            |sample: Option<&TimeSample>| -> Option<&ThreadAllocInfo> {
+                sample
+                    .and_then(|sample| {
+                        u32::try_from(index_of_sample(sample)).ok()
+                    })
+                    .and_then(|index| {
+                        self.samples.alloc_info_by_sample.get(&index)
+                    })
+            };
 
-        let sample_alloc_tally = |sample: Option<&TimeSample>, op: AllocOp| -> ThreadAllocTally {
-            sample_alloc_info(sample)
-                .map(|alloc_info| alloc_info.tallies.get(op))
-                .copied()
-                .unwrap_or_default()
-        };
+        let sample_alloc_tally =
+            |sample: Option<&TimeSample>, op: AllocOp| -> ThreadAllocTally {
+                sample_alloc_info(sample)
+                    .map(|alloc_info| alloc_info.tallies.get(op))
+                    .copied()
+                    .unwrap_or_default()
+            };
 
         let mut alloc_total_max_count = 0u128;
         let mut alloc_total_max_size = 0u128;
@@ -1180,30 +1270,41 @@ impl<'a> BenchContext<'a> {
             },
             max_alloc: StatsSet {
                 fastest: {
-                    let alloc_info = sample_alloc_info(sorted_samples.first().copied());
+                    let alloc_info =
+                        sample_alloc_info(sorted_samples.first().copied());
 
                     AllocTally {
-                        count: alloc_info.map(|info| info.max_count as f64).unwrap_or_default()
+                        count: alloc_info
+                            .map(|info| info.max_count as f64)
+                            .unwrap_or_default()
                             / sample_size,
-                        size: alloc_info.map(|info| info.max_size as f64).unwrap_or_default()
+                        size: alloc_info
+                            .map(|info| info.max_size as f64)
+                            .unwrap_or_default()
                             / sample_size,
                     }
                 },
                 slowest: {
-                    let alloc_info = sample_alloc_info(sorted_samples.last().copied());
+                    let alloc_info =
+                        sample_alloc_info(sorted_samples.last().copied());
 
                     AllocTally {
-                        count: alloc_info.map(|info| info.max_count as f64).unwrap_or_default()
+                        count: alloc_info
+                            .map(|info| info.max_count as f64)
+                            .unwrap_or_default()
                             / sample_size,
-                        size: alloc_info.map(|info| info.max_size as f64).unwrap_or_default()
+                        size: alloc_info
+                            .map(|info| info.max_size as f64)
+                            .unwrap_or_default()
                             / sample_size,
                     }
                 },
                 // TODO: Switch to median of alloc info itself, rather than
                 // basing off of median times.
                 median: {
-                    let alloc_info_for_median =
-                        |index| sample_alloc_info(median_samples.get(index).copied());
+                    let alloc_info_for_median = |index| {
+                        sample_alloc_info(median_samples.get(index).copied())
+                    };
 
                     let max_count_for_median = |index: usize| -> f64 {
                         alloc_info_for_median(index)
@@ -1219,8 +1320,10 @@ impl<'a> BenchContext<'a> {
 
                     let median_count = median_samples.len().max(1) as f64;
 
-                    let median_max_count = max_count_for_median(0) + max_count_for_median(1);
-                    let median_max_size = max_size_for_median(0) + max_size_for_median(1);
+                    let median_max_count =
+                        max_count_for_median(0) + max_count_for_median(1);
+                    let median_max_size =
+                        max_size_for_median(0) + max_size_for_median(1);
 
                     AllocTally {
                         count: median_max_count / median_count / sample_size,
@@ -1237,7 +1340,10 @@ impl<'a> BenchContext<'a> {
                 values: AllocOp::ALL
                     .map(|op| StatsSet {
                         fastest: {
-                            let fastest = sample_alloc_tally(sorted_samples.first().copied(), op);
+                            let fastest = sample_alloc_tally(
+                                sorted_samples.first().copied(),
+                                op,
+                            );
 
                             AllocTally {
                                 count: fastest.count as f64 / sample_size,
@@ -1245,7 +1351,10 @@ impl<'a> BenchContext<'a> {
                             }
                         },
                         slowest: {
-                            let slowest = sample_alloc_tally(sorted_samples.last().copied(), op);
+                            let slowest = sample_alloc_tally(
+                                sorted_samples.last().copied(),
+                                op,
+                            );
 
                             AllocTally {
                                 count: slowest.count as f64 / sample_size,
@@ -1253,17 +1362,24 @@ impl<'a> BenchContext<'a> {
                             }
                         },
                         median: {
-                            let tally_for_median = |index: usize| -> ThreadAllocTally {
-                                sample_alloc_tally(median_samples.get(index).copied(), op)
-                            };
+                            let tally_for_median =
+                                |index: usize| -> ThreadAllocTally {
+                                    sample_alloc_tally(
+                                        median_samples.get(index).copied(),
+                                        op,
+                                    )
+                                };
 
                             let a = tally_for_median(0);
                             let b = tally_for_median(1);
 
-                            let median_count = median_samples.len().max(1) as f64;
+                            let median_count =
+                                median_samples.len().max(1) as f64;
 
-                            let avg_count = (a.count as f64 + b.count as f64) / median_count;
-                            let avg_size = (a.size as f64 + b.size as f64) / median_count;
+                            let avg_count = (a.count as f64 + b.count as f64)
+                                / median_count;
+                            let avg_size =
+                                (a.size as f64 + b.size as f64) / median_count;
 
                             AllocTally {
                                 count: avg_count / sample_size,

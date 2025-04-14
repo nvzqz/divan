@@ -133,7 +133,8 @@ mod tests {
     /// its fields being `MaybeUninit`.
     #[test]
     fn access_uninit_slot() {
-        let mut slot: MaybeUninit<DeferSlot<String, String>> = MaybeUninit::uninit();
+        let mut slot: MaybeUninit<DeferSlot<String, String>> =
+            MaybeUninit::uninit();
 
         let slot_ref = unsafe { slot.assume_init_mut() };
         slot_ref.input = UnsafeCell::new(MaybeUninit::new(String::new()));
@@ -161,7 +162,8 @@ mod tests {
             }
         }
 
-        let slot: MaybeUninit<DeferSlot<String, Output>> = MaybeUninit::uninit();
+        let slot: MaybeUninit<DeferSlot<String, Output>> =
+            MaybeUninit::uninit();
         let slot_ref = unsafe { slot.assume_init_ref() };
 
         // Loop to ensure previous iterations don't affect later uses of the

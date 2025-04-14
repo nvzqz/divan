@@ -37,7 +37,10 @@ pub(crate) struct AttrOptions {
 }
 
 impl AttrOptions {
-    pub fn parse(tokens: TokenStream, target_macro: Macro) -> Result<Self, TokenStream> {
+    pub fn parse(
+        tokens: TokenStream,
+        target_macro: Macro,
+    ) -> Result<Self, TokenStream> {
         let macro_name = target_macro.name();
 
         let mut divan_crate = None::<syn::Path>;
@@ -45,7 +48,8 @@ impl AttrOptions {
         let mut args_expr = None::<Expr>;
         let mut bench_options = Vec::new();
 
-        let mut counters = Vec::<(proc_macro2::TokenStream, Option<&str>)>::new();
+        let mut counters =
+            Vec::<(proc_macro2::TokenStream, Option<&str>)>::new();
         let mut counters_ident = None::<Ident>;
 
         let mut seen_bytes_count = false;
@@ -67,10 +71,13 @@ impl AttrOptions {
             };
 
             let ident_name = ident.to_string();
-            let ident_name = ident_name.strip_prefix("r#").unwrap_or(&ident_name);
+            let ident_name =
+                ident_name.strip_prefix("r#").unwrap_or(&ident_name);
 
-            let repeat_error = || error!("repeated '{macro_name}' option '{ident_name}'");
-            let unsupported_error = || error!("unsupported '{macro_name}' option '{ident_name}'");
+            let repeat_error =
+                || error!("repeated '{macro_name}' option '{ident_name}'");
+            let unsupported_error =
+                || error!("unsupported '{macro_name}' option '{ident_name}'");
 
             macro_rules! parse {
                 ($storage:expr) => {
@@ -135,7 +142,10 @@ impl AttrOptions {
                     }
                     let values: ExprArray = meta.value()?.parse()?;
                     counters.extend(
-                        values.elems.into_iter().map(|elem| (elem.into_token_stream(), None)),
+                        values
+                            .elems
+                            .into_iter()
+                            .map(|elem| (elem.into_token_stream(), None)),
                     );
                     counters_ident = Some(ident.clone());
                 }
@@ -145,7 +155,8 @@ impl AttrOptions {
                 "cycles_count" if seen_cycles_count => return repeat_error(),
                 "items_count" if seen_items_count => return repeat_error(),
 
-                "bytes_count" | "chars_count" | "cycles_count" | "items_count" => {
+                "bytes_count" | "chars_count" | "cycles_count"
+                | "items_count" => {
                     let name = match ident_name {
                         "bytes_count" => {
                             seen_bytes_count = true;
@@ -168,7 +179,10 @@ impl AttrOptions {
 
                     let value: Expr = meta.value()?.parse()?;
                     counters.push((value.into_token_stream(), Some(name)));
-                    counters_ident = Some(Ident::new("counters", proc_macro2::Span::call_site()));
+                    counters_ident = Some(Ident::new(
+                        "counters",
+                        proc_macro2::Span::call_site(),
+                    ));
                 }
 
                 _ => {
@@ -177,7 +191,8 @@ impl AttrOptions {
 
                         // If the option is missing `=`, use a `true` literal.
                         Err(_) => Expr::Lit(syn::ExprLit {
-                            lit: syn::LitBool::new(true, meta.path.span()).into(),
+                            lit: syn::LitBool::new(true, meta.path.span())
+                                .into(),
                             attrs: Vec::new(),
                         }),
                     };
@@ -194,24 +209,27 @@ impl AttrOptions {
             Err(error) => return Err(error.into_compile_error().into()),
         }
 
-        let divan_crate = divan_crate.unwrap_or_else(|| syn::parse_quote!(::divan));
+        let divan_crate =
+            divan_crate.unwrap_or_else(|| syn::parse_quote!(::divan));
         let private_mod = quote! { #divan_crate::__private };
 
-        let counters = counters.iter().map(|(expr, type_name)| match type_name {
-            Some(type_name) => {
-                let type_name = Ident::new(type_name, proc_macro2::Span::call_site());
-                quote! {
-                    // We do a scoped import for the expression to override any
-                    // local `From` trait.
-                    {
-                        use ::std::convert::From as _;
+        let counters =
+            counters.iter().map(|(expr, type_name)| match type_name {
+                Some(type_name) => {
+                    let type_name =
+                        Ident::new(type_name, proc_macro2::Span::call_site());
+                    quote! {
+                        // We do a scoped import for the expression to override any
+                        // local `From` trait.
+                        {
+                            use ::std::convert::From as _;
 
-                        #divan_crate::counter::#type_name::from(#expr)
+                            #divan_crate::counter::#type_name::from(#expr)
+                        }
                     }
                 }
-            }
-            None => expr.to_token_stream(),
-        });
+                None => expr.to_token_stream(),
+            });
 
         let counters = counters_ident
             .map(|ident| {
@@ -221,7 +239,14 @@ impl AttrOptions {
             })
             .unwrap_or_default();
 
-        Ok(Self { private_mod, name_expr, args_expr, generic, counters, bench_options })
+        Ok(Self {
+            private_mod,
+            name_expr,
+            args_expr,
+            generic,
+            counters,
+            bench_options,
+        })
     }
 
     /// Produces a function expression for creating `LazyLock<BenchOptions>`.
@@ -252,7 +277,9 @@ impl AttrOptions {
         // twice, even if raw identifiers are used. This also has the accidental
         // benefit of Rust Analyzer recognizing fields and emitting suggestions
         // with docs and type info.
-        if self.bench_options.is_empty() && self.counters.is_empty() && ignore_attr_ident.is_none()
+        if self.bench_options.is_empty()
+            && self.counters.is_empty()
+            && ignore_attr_ident.is_none()
         {
             tokens::option_none()
         } else {
@@ -288,7 +315,9 @@ impl AttrOptions {
             });
 
             let ignore = match ignore_attr_ident {
-                Some(ignore_attr_ident) => quote! { #ignore_attr_ident: #option_some(true), },
+                Some(ignore_attr_ident) => {
+                    quote! { #ignore_attr_ident: #option_some(true), }
+                }
                 None => Default::default(),
             };
 
@@ -338,7 +367,9 @@ impl GenericOptions {
 
     /// Returns an iterator of multiple `Some` for types, or a single `None` if
     /// there are no types.
-    pub fn types_iter(&self) -> Box<dyn Iterator<Item = Option<&dyn ToTokens>> + '_> {
+    pub fn types_iter(
+        &self,
+    ) -> Box<dyn Iterator<Item = Option<&dyn ToTokens>> + '_> {
         match &self.types {
             None => Box::new(std::iter::once(None)),
             Some(GenericTypes::List(types)) => {

@@ -56,7 +56,11 @@ impl<'a> BenchOptions<'a> {
             // `Copy` values:
             sample_count: self.sample_count.or(other.sample_count),
             sample_size: self.sample_size.or(other.sample_size),
-            threads: self.threads.as_deref().or(other.threads.as_deref()).map(Cow::Borrowed),
+            threads: self
+                .threads
+                .as_deref()
+                .or(other.threads.as_deref())
+                .map(Cow::Borrowed),
             min_time: self.min_time.or(other.min_time),
             max_time: self.max_time.or(other.max_time),
             skip_ext_time: self.skip_ext_time.or(other.skip_ext_time),

@@ -34,7 +34,10 @@ pub(crate) struct Stats {
 }
 
 impl Stats {
-    pub fn get_counts(&self, counter_kind: KnownCounterKind) -> Option<&StatsSet<MaxCountUInt>> {
+    pub fn get_counts(
+        &self,
+        counter_kind: KnownCounterKind,
+    ) -> Option<&StatsSet<MaxCountUInt>> {
         self.counts[counter_kind as usize].as_ref()
     }
 }
@@ -56,6 +59,9 @@ pub(crate) struct StatsSet<T> {
 
 impl StatsSet<f64> {
     pub fn is_zero(&self) -> bool {
-        self.fastest == 0.0 && self.slowest == 0.0 && self.median == 0.0 && self.mean == 0.0
+        self.fastest == 0.0
+            && self.slowest == 0.0
+            && self.median == 0.0
+            && self.mean == 0.0
     }
 }

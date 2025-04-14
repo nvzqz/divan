@@ -151,7 +151,12 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for AllocProfiler<A> {
         self.alloc.alloc_zeroed(layout)
     }
 
-    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+    unsafe fn realloc(
+        &self,
+        ptr: *mut u8,
+        layout: Layout,
+        new_size: usize,
+    ) -> *mut u8 {
         // Tally reallocation count.
         if let Some(mut info) = ThreadAllocInfo::try_current() {
             // SAFETY: We have exclusive access.
@@ -222,7 +227,8 @@ thread_local! {
 }
 
 #[cfg(target_os = "macos")]
-static ALLOC_PTHREAD_KEY: CachePadded<PThreadKey<ThreadAllocInfo>> = CachePadded(PThreadKey::new());
+static ALLOC_PTHREAD_KEY: CachePadded<PThreadKey<ThreadAllocInfo>> =
+    CachePadded(PThreadKey::new());
 
 impl ThreadAllocInfo {
     #[inline]
@@ -258,13 +264,21 @@ impl ThreadAllocInfo {
             unsafe {
                 let layout = Layout::new::<ThreadAllocInfo>();
 
-                let Some(info_alloc) = NonNull::new(unsafe { System.alloc_zeroed(layout) }) else {
+                let Some(info_alloc) =
+                    NonNull::new(unsafe { System.alloc_zeroed(layout) })
+                else {
                     handle_alloc_error(layout);
                 };
 
-                let success = ALLOC_PTHREAD_KEY.0.set(info_alloc.as_ptr().cast(), |this| {
-                    System.dealloc(this.as_ptr().cast(), Layout::new::<ThreadAllocInfo>());
-                });
+                let success = ALLOC_PTHREAD_KEY.0.set(
+                    info_alloc.as_ptr().cast(),
+                    |this| {
+                        System.dealloc(
+                            this.as_ptr().cast(),
+                            Layout::new::<ThreadAllocInfo>(),
+                        );
+                    },
+                );
 
                 if !success {
                     System.dealloc(info_alloc.as_ptr(), layout);
@@ -274,9 +288,15 @@ impl ThreadAllocInfo {
                 // When using static thread local key, write directly because it
                 // is undefined behavior to call `pthread_setspecific` with a
                 // key that didn't originate from `pthread_key_create`.
-                #[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
+                #[cfg(all(
+                    not(miri),
+                    not(feature = "dyn_thread_local"),
+                    target_arch = "x86_64"
+                ))]
                 unsafe {
-                    crate::util::thread::local::fast::set_static_thread_local(info_alloc.as_ptr());
+                    crate::util::thread::local::fast::set_static_thread_local(
+                        info_alloc.as_ptr(),
+                    );
                 };
 
                 Some(info_alloc.cast())
@@ -462,7 +482,9 @@ pub(crate) type TotalAllocTallyMap = AllocOpMap<TotalAllocTally>;
 
 impl<T: fmt::Debug> fmt::Debug for AllocOpMap<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_map().entries(AllocOp::ALL.iter().map(|&op| (op.name(), self.get(op)))).finish()
+        f.debug_map()
+            .entries(AllocOp::ALL.iter().map(|&op| (op.name(), self.get(op))))
+            .finish()
     }
 }
 
@@ -596,14 +618,16 @@ mod tests {
         let mut alloc_info = ThreadAllocInfo::current().unwrap();
 
         // Resets the allocation tallies and returns the previous tallies.
-        let mut take_alloc_tallies = || std::mem::take(unsafe { &mut alloc_info.as_mut().tallies });
+        let mut take_alloc_tallies =
+            || std::mem::take(unsafe { &mut alloc_info.as_mut().tallies });
 
         // Start fresh.
         _ = take_alloc_tallies();
 
         // Helper to create `ThreadAllocTallyMap` since each operation only
         // changes `buf` by 1 `i32`.
-        let item_tally = ThreadAllocTally { count: 1, size: size_of::<i32>() as _ };
+        let item_tally =
+            ThreadAllocTally { count: 1, size: size_of::<i32>() as _ };
         let make_tally_map = |op: AllocOp| {
             ThreadAllocTallyMap::from_fn(|other_op| {
                 if other_op == op {
@@ -640,6 +664,9 @@ mod tests {
         buf.reserve_exact(2); // grow
         buf.shrink_to(1); // shrink
         drop(buf); // dealloc
-        assert_eq!(take_alloc_tallies(), ThreadAllocTallyMap { values: [item_tally; 4] });
+        assert_eq!(
+            take_alloc_tallies(),
+            ThreadAllocTallyMap { values: [item_tally; 4] }
+        );
     }
 }

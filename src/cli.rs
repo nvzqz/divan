@@ -1,4 +1,7 @@
-use clap::{builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command, ValueEnum};
+use clap::{
+    builder::PossibleValue, value_parser, Arg, ArgAction, ColorChoice, Command,
+    ValueEnum,
+};
 
 use crate::{
     config::{ParsedSeconds, SortingAttr},
@@ -36,7 +39,8 @@ pub(crate) fn command() -> Command {
     //
     // TODO: Add CI test to ensure this doesn't break.
     if util::is_cargo_nextest() {
-        cmd = cmd.arg(option("format").value_parser(["terse"]).requires("list"));
+        cmd =
+            cmd.arg(option("format").value_parser(["terse"]).requires("list"));
     }
 
     cmd

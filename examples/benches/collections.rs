@@ -129,7 +129,10 @@ fn from_iter<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
     args = LENS,
 )]
 fn drop<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
-    bencher.counter(len).with_inputs(|| collect_nums::<T>(len)).bench_values(std::mem::drop);
+    bencher
+        .counter(len)
+        .with_inputs(|| collect_nums::<T>(len))
+        .bench_values(std::mem::drop);
 }
 
 #[divan::bench(
@@ -145,7 +148,10 @@ fn drop<T: FromIterator<i32>>(bencher: Bencher, len: usize) {
     max_time = 1,
 )]
 fn clear<T: FromIterator<i32> + Clear>(bencher: Bencher, len: usize) {
-    bencher.counter(len).with_inputs(|| collect_nums::<T>(len)).bench_refs(T::clear);
+    bencher
+        .counter(len)
+        .with_inputs(|| collect_nums::<T>(len))
+        .bench_refs(T::clear);
 }
 
 #[divan::bench(
@@ -156,6 +162,12 @@ fn clear<T: FromIterator<i32> + Clear>(bencher: Bencher, len: usize) {
     ],
     args = LENS,
 )]
-fn pop_front<T: FromIterator<i32> + PopFront<i32>>(bencher: Bencher, len: usize) {
-    bencher.counter(len).with_inputs(|| collect_nums::<T>(len)).bench_refs(T::pop_front);
+fn pop_front<T: FromIterator<i32> + PopFront<i32>>(
+    bencher: Bencher,
+    len: usize,
+) {
+    bencher
+        .counter(len)
+        .with_inputs(|| collect_nums::<T>(len))
+        .bench_refs(T::pop_front);
 }

@@ -299,7 +299,10 @@ mod tests {
 
         #[test]
         fn of_iter() {
-            assert_eq!(BytesCount::of_iter::<i32, _>([1, 2, 3]), BytesCount::of_slice(&[1, 2, 3]));
+            assert_eq!(
+                BytesCount::of_iter::<i32, _>([1, 2, 3]),
+                BytesCount::of_slice(&[1, 2, 3])
+            );
         }
     }
 }

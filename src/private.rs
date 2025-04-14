@@ -6,8 +6,9 @@ use std::{
 pub use crate::{
     benchmark::{BenchArgs, BenchOptions},
     entry::{
-        BenchEntry, BenchEntryRunner, EntryConst, EntryList, EntryLocation, EntryMeta, EntryType,
-        GenericBenchEntry, GroupEntry, BENCH_ENTRIES, GROUP_ENTRIES,
+        BenchEntry, BenchEntryRunner, EntryConst, EntryList, EntryLocation,
+        EntryMeta, EntryType, GenericBenchEntry, GroupEntry, BENCH_ENTRIES,
+        GROUP_ENTRIES,
     },
     time::IntoDuration,
 };
@@ -152,7 +153,8 @@ where
 {
     #[inline]
     fn into_threads(self) -> Cow<'static, [usize]> {
-        let mut options: Vec<usize> = self.into_iter().map(|i| *i.borrow()).collect();
+        let mut options: Vec<usize> =
+            self.into_iter().map(|i| *i.borrow()).collect();
         options.sort_unstable();
         options.dedup();
         Cow::Owned(options)
@@ -194,7 +196,10 @@ mod tests {
     fn into_threads() {
         macro_rules! test {
             ($value:expr, $expected:expr) => {
-                assert_eq!(IntoThreads::into_threads($value).as_ref(), $expected);
+                assert_eq!(
+                    IntoThreads::into_threads($value).as_ref(),
+                    $expected
+                );
             };
         }
 

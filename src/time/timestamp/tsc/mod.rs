@@ -29,8 +29,13 @@ impl TscTimestamp {
         #[cfg(miri)]
         return Err(TscUnavailable::Unimplemented);
 
-        #[cfg(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"))]
-        return NonZeroU64::new(arch::frequency()?).ok_or(TscUnavailable::ZeroFrequency);
+        #[cfg(any(
+            target_arch = "aarch64",
+            target_arch = "x86",
+            target_arch = "x86_64"
+        ))]
+        return NonZeroU64::new(arch::frequency()?)
+            .ok_or(TscUnavailable::ZeroFrequency);
 
         Err(TscUnavailable::Unimplemented)
     }
@@ -65,7 +70,11 @@ impl TscTimestamp {
         Self { value }
     }
 
-    pub fn duration_since(self, earlier: Self, frequency: NonZeroU64) -> FineDuration {
+    pub fn duration_since(
+        self,
+        earlier: Self,
+        frequency: NonZeroU64,
+    ) -> FineDuration {
         const PICOS: u128 = 1_000_000_000_000;
 
         let Some(diff) = self.value.checked_sub(earlier.value) else {

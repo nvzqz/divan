@@ -86,7 +86,10 @@ pub struct EntryType {
 impl EntryType {
     /// Creates an instance for the given type.
     pub const fn new<T: Any>() -> Self {
-        Self { get_type_name: std::any::type_name::<T>, get_type_id: TypeId::of::<T> }
+        Self {
+            get_type_name: std::any::type_name::<T>,
+            get_type_id: TypeId::of::<T>,
+        }
     }
 
     pub(crate) fn raw_name(&self) -> &'static str {
@@ -134,7 +137,10 @@ impl EntryConst {
     where
         T: PartialOrd + ToString + Send + Sync,
     {
-        unsafe fn partial_cmp<T: PartialOrd>(a: *const (), b: *const ()) -> Option<Ordering> {
+        unsafe fn partial_cmp<T: PartialOrd>(
+            a: *const (),
+            b: *const (),
+        ) -> Option<Ordering> {
             T::partial_cmp(&*a.cast(), &*b.cast())
         }
 
@@ -162,7 +168,9 @@ impl EntryConst {
         // `partial_cmp` function pointers will never differ.
         #[allow(unpredictable_function_pointer_comparisons)]
         if self.partial_cmp == other.partial_cmp {
-            if let Some(ordering) = unsafe { (self.partial_cmp)(self.value, other.value) } {
+            if let Some(ordering) =
+                unsafe { (self.partial_cmp)(self.value, other.value) }
+            {
                 if !ordering.is_eq() {
                     return ordering;
                 }

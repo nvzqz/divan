@@ -31,7 +31,10 @@ pub(crate) struct TreePainter {
 }
 
 impl TreePainter {
-    pub fn new(max_name_span: usize, column_widths: [usize; TreeColumn::COUNT]) -> Self {
+    pub fn new(
+        max_name_span: usize,
+        column_widths: [usize; TreeColumn::COUNT],
+    ) -> Self {
         Self {
             max_name_span,
             column_widths,
@@ -80,7 +83,8 @@ impl TreePainter {
 
         // Write column spacers.
         if has_columns && !is_top_level {
-            TreeColumnData([""; TreeColumn::COUNT]).write(buf, &mut self.column_widths);
+            TreeColumnData([""; TreeColumn::COUNT])
+                .write(buf, &mut self.column_widths);
         }
 
         println!("{buf}");
@@ -88,7 +92,11 @@ impl TreePainter {
         self.depth += 1;
 
         if !is_top_level {
-            self.current_prefix.push_str(if !is_last { "│  " } else { "   " });
+            self.current_prefix.push_str(if !is_last {
+                "│  "
+            } else {
+                "   "
+            });
         }
     }
 
@@ -125,7 +133,8 @@ impl TreePainter {
         right_pad_buffer(buf, &mut self.max_name_span);
 
         if has_columns {
-            TreeColumnData::from_first("(ignored)").write(buf, &mut self.column_widths);
+            TreeColumnData::from_first("(ignored)")
+                .write(buf, &mut self.column_widths);
         } else {
             buf.push_str("(ignored)");
         }
@@ -165,7 +174,12 @@ impl TreePainter {
     }
 
     /// Exit the current leaf node, emitting statistics.
-    pub fn finish_leaf(&mut self, is_last: bool, stats: &Stats, bytes_format: BytesFormat) {
+    pub fn finish_leaf(
+        &mut self,
+        is_last: bool,
+        stats: &Stats,
+        bytes_format: BytesFormat,
+    ) {
         let prep_buffer = |buf: &mut String, max_span: &mut usize| {
             buf.clear();
             buf.push_str(&self.current_prefix);
@@ -186,7 +200,9 @@ impl TreePainter {
             None
         } else {
             Some(TreeColumn::ALL.map(|column| {
-                let Some(&max_alloc_count) = column.get_stat(&stats.max_alloc.count) else {
+                let Some(&max_alloc_count) =
+                    column.get_stat(&stats.max_alloc.count)
+                else {
                     return String::new();
                 };
 
@@ -199,12 +215,17 @@ impl TreePainter {
             None
         } else {
             Some(TreeColumn::ALL.map(|column| {
-                let Some(&max_alloc_size) = column.get_stat(&stats.max_alloc.size) else {
+                let Some(&max_alloc_size) =
+                    column.get_stat(&stats.max_alloc.size)
+                else {
                     return String::new();
                 };
 
                 let prefix = if column.is_first() { "  " } else { "" };
-                format!("{prefix}{}", util::fmt::format_bytes(max_alloc_size, 4, bytes_format))
+                format!(
+                    "{prefix}{}",
+                    util::fmt::format_bytes(max_alloc_size, 4, bytes_format)
+                )
             }))
         };
 
@@ -230,14 +251,24 @@ impl TreePainter {
             Some(AllocTally {
                 count: column_tallies.map(|tally| {
                     if let Some((prefix, tally)) = tally {
-                        format!("{prefix}{}", util::fmt::format_f64(tally.count, 4))
+                        format!(
+                            "{prefix}{}",
+                            util::fmt::format_f64(tally.count, 4)
+                        )
                     } else {
                         String::new()
                     }
                 }),
                 size: column_tallies.map(|tally| {
                     if let Some((prefix, tally)) = tally {
-                        format!("{prefix}{}", util::fmt::format_bytes(tally.size, 4, bytes_format))
+                        format!(
+                            "{prefix}{}",
+                            util::fmt::format_bytes(
+                                tally.size,
+                                4,
+                                bytes_format
+                            )
+                        )
                     } else {
                         String::new()
                     }
@@ -275,9 +306,13 @@ impl TreePainter {
                 update_width(&counter[column as usize]);
             }
 
-            let serialized_max_alloc_counts = serialized_max_alloc_counts.iter().flatten();
-            let serialized_max_alloc_sizes = serialized_max_alloc_sizes.iter().flatten();
-            for s in serialized_max_alloc_counts.chain(serialized_max_alloc_sizes) {
+            let serialized_max_alloc_counts =
+                serialized_max_alloc_counts.iter().flatten();
+            let serialized_max_alloc_sizes =
+                serialized_max_alloc_sizes.iter().flatten();
+            for s in
+                serialized_max_alloc_counts.chain(serialized_max_alloc_sizes)
+            {
                 update_width(s);
             }
 
@@ -311,7 +346,8 @@ impl TreePainter {
         // Write counter stats.
         let counter_stats = serialized_counters.map(TreeColumnData);
         for counter_kind in KnownCounterKind::ALL {
-            let counter_stats = counter_stats[counter_kind as usize].as_ref::<str>();
+            let counter_stats =
+                counter_stats[counter_kind as usize].as_ref::<str>();
 
             // Skip empty rows.
             if counter_stats.0.iter().all(|s| s.is_empty()) {
@@ -325,42 +361,54 @@ impl TreePainter {
         }
 
         // Write max allocated bytes.
-        if serialized_max_alloc_counts.is_some() || serialized_max_alloc_sizes.is_some() {
+        if serialized_max_alloc_counts.is_some()
+            || serialized_max_alloc_sizes.is_some()
+        {
             prep_buffer(buf, &mut self.max_name_span);
 
-            TreeColumnData::from_first("max alloc:").write(buf, &mut self.column_widths);
+            TreeColumnData::from_first("max alloc:")
+                .write(buf, &mut self.column_widths);
             println!("{buf}");
 
-            for serialized in
-                [serialized_max_alloc_counts.as_ref(), serialized_max_alloc_sizes.as_ref()]
-                    .into_iter()
-                    .flatten()
+            for serialized in [
+                serialized_max_alloc_counts.as_ref(),
+                serialized_max_alloc_sizes.as_ref(),
+            ]
+            .into_iter()
+            .flatten()
             {
                 prep_buffer(buf, &mut self.max_name_span);
 
-                TreeColumnData::from_fn(|column| serialized[column as usize].as_str())
-                    .write(buf, &mut self.column_widths);
+                TreeColumnData::from_fn(|column| {
+                    serialized[column as usize].as_str()
+                })
+                .write(buf, &mut self.column_widths);
 
                 println!("{buf}");
             }
         }
 
         // Write allocation tallies.
-        for op in [AllocOp::Alloc, AllocOp::Dealloc, AllocOp::Grow, AllocOp::Shrink] {
+        for op in
+            [AllocOp::Alloc, AllocOp::Dealloc, AllocOp::Grow, AllocOp::Shrink]
+        {
             let Some(tallies) = &serialized_alloc_tallies[op as usize] else {
                 continue;
             };
 
             prep_buffer(buf, &mut self.max_name_span);
 
-            TreeColumnData::from_first(op.prefix()).write(buf, &mut self.column_widths);
+            TreeColumnData::from_first(op.prefix())
+                .write(buf, &mut self.column_widths);
             println!("{buf}");
 
             for value in tallies.as_array() {
                 prep_buffer(buf, &mut self.max_name_span);
 
-                TreeColumnData::from_fn(|column| value[column as usize].as_str())
-                    .write(buf, &mut self.column_widths);
+                TreeColumnData::from_fn(|column| {
+                    value[column as usize].as_str()
+                })
+                .write(buf, &mut self.column_widths);
 
                 println!("{buf}");
             }
@@ -463,7 +511,11 @@ impl<T> TreeColumnData<T> {
 
 impl TreeColumnData<&str> {
     /// Writes the column data into the buffer.
-    fn write(&self, buf: &mut String, column_widths: &mut [usize; TreeColumn::COUNT]) {
+    fn write(
+        &self,
+        buf: &mut String,
+        column_widths: &mut [usize; TreeColumn::COUNT],
+    ) {
         for (column, value) in self.0.iter().enumerate() {
             let is_first = column == 0;
             let is_last = column == TreeColumn::COUNT - 1;
@@ -486,7 +538,9 @@ impl TreeColumnData<&str> {
 
             // Right-pad remaining width or update column width to new maximum.
             if !is_last {
-                if let Some(rem_width) = column_widths[column].checked_sub(value_width) {
+                if let Some(rem_width) =
+                    column_widths[column].checked_sub(value_width)
+                {
                     buf.extend(repeat(' ').take(rem_width));
                 } else {
                     column_widths[column] = value_width;

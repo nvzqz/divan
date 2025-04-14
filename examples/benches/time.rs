@@ -35,7 +35,11 @@ mod now {
     })]
     #[cfg(all(
         not(miri),
-        any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"),
+        any(
+            target_arch = "aarch64",
+            target_arch = "x86",
+            target_arch = "x86_64"
+        ),
     ))]
     pub fn tsc() -> u64 {
         #[cfg(target_arch = "aarch64")]
@@ -86,18 +90,22 @@ mod duration_since {
     })]
     #[cfg(all(
         not(miri),
-        any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"),
+        any(
+            target_arch = "aarch64",
+            target_arch = "x86",
+            target_arch = "x86_64"
+        ),
     ))]
     fn tsc(bencher: Bencher) {
-        bencher.with_inputs(|| [crate::now::tsc(), crate::now::tsc()]).bench_values(
-            |[start, end]| {
+        bencher
+            .with_inputs(|| [crate::now::tsc(), crate::now::tsc()])
+            .bench_values(|[start, end]| {
                 // Simply subtract because an optimized timing implementation
                 // would want to keep the value as TSC units for as long as
                 // possible before dividing by the TSC frequency.
                 //
                 // Saturating arithmetic to ensures monotonicity.
                 end.saturating_sub(start)
-            },
-        )
+            })
     }
 }

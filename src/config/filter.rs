@@ -69,7 +69,8 @@ impl FilterSet {
         // If any filter matches, return whether it was inclusive or exclusive.
         // Exclusive filters are checked before inclusive filters because they
         // have priority.
-        if let Some(index) = filters.iter().position(|f| f.is_match(entry_path)) {
+        if let Some(index) = filters.iter().position(|f| f.is_match(entry_path))
+        {
             return index >= inclusive_start;
         }
 

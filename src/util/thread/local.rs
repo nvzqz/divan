@@ -75,12 +75,15 @@ impl<T> PThreadKey<T> {
 
         // Race against other threads to initialize `shared_key`.
         if local_key == KEY_UNINIT {
-            if unsafe { libc::pthread_key_create(&mut local_key, Some(dtor::<T, D>)) } == 0 {
+            if unsafe {
+                libc::pthread_key_create(&mut local_key, Some(dtor::<T, D>))
+            } == 0
+            {
                 // Race to store our key into the global instance.
                 //
                 // On failure, delete our key and use the winner's key.
-                if let Err(their_key) =
-                    shared_key.compare_exchange(KEY_UNINIT, local_key, Relaxed, Relaxed)
+                if let Err(their_key) = shared_key
+                    .compare_exchange(KEY_UNINIT, local_key, Relaxed, Relaxed)
                 {
                     // SAFETY: No other thread is accessing this key.
                     unsafe { libc::pthread_key_delete(local_key) };
@@ -117,7 +120,11 @@ pub(crate) mod fast {
 
     /// Returns a pointer to a static thread-local variable.
     #[inline]
-    #[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
+    #[cfg(all(
+        not(miri),
+        not(feature = "dyn_thread_local"),
+        target_arch = "x86_64"
+    ))]
     pub fn get_static_thread_local<T>() -> *const T {
         unsafe {
             let result;
@@ -136,7 +143,11 @@ pub(crate) mod fast {
     ///
     /// If the slot is in use, we will corrupt the other user's memory.
     #[inline]
-    #[cfg(all(not(miri), not(feature = "dyn_thread_local"), target_arch = "x86_64"))]
+    #[cfg(all(
+        not(miri),
+        not(feature = "dyn_thread_local"),
+        target_arch = "x86_64"
+    ))]
     pub unsafe fn set_static_thread_local<T>(ptr: *const T) {
         unsafe {
             std::arch::asm!(
@@ -162,7 +173,10 @@ pub(crate) mod fast {
     ///
     /// `key` must not cause an out-of-bounds lookup.
     #[inline]
-    #[cfg(all(not(miri), any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(all(
+        not(miri),
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
     pub unsafe fn get_thread_local(key: usize) -> *mut libc::c_void {
         #[cfg(target_arch = "x86_64")]
         {

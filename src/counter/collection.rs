@@ -13,7 +13,8 @@ struct KnownCounterInfo {
 
     /// `BencherConfig::with_inputs` can only be called once, so the input type
     /// cannot change.
-    count_input: Option<Box</* unsafe */ dyn Fn(*const ()) -> MaxCountUInt + Sync>>,
+    count_input:
+        Option<Box</* unsafe */ dyn Fn(*const ()) -> MaxCountUInt + Sync>>,
 }
 
 impl CounterCollection {
@@ -23,16 +24,25 @@ impl CounterCollection {
     }
 
     #[inline]
-    fn info_mut(&mut self, counter_kind: KnownCounterKind) -> &mut KnownCounterInfo {
+    fn info_mut(
+        &mut self,
+        counter_kind: KnownCounterKind,
+    ) -> &mut KnownCounterInfo {
         &mut self.info[counter_kind as usize]
     }
 
     #[inline]
-    pub(crate) fn counts(&self, counter_kind: KnownCounterKind) -> &[MaxCountUInt] {
+    pub(crate) fn counts(
+        &self,
+        counter_kind: KnownCounterKind,
+    ) -> &[MaxCountUInt] {
         &self.info(counter_kind).counts
     }
 
-    pub(crate) fn mean_count(&self, counter_kind: KnownCounterKind) -> MaxCountUInt {
+    pub(crate) fn mean_count(
+        &self,
+        counter_kind: KnownCounterKind,
+    ) -> MaxCountUInt {
         let counts = self.counts(counter_kind);
 
         let sum: u128 = counts.iter().map(|&c| c as u128).sum();
@@ -41,7 +51,10 @@ impl CounterCollection {
     }
 
     #[inline]
-    pub(crate) fn uses_input_counts(&self, counter_kind: KnownCounterKind) -> bool {
+    pub(crate) fn uses_input_counts(
+        &self,
+        counter_kind: KnownCounterKind,
+    ) -> bool {
         self.info(counter_kind).count_input.is_some()
     }
 
@@ -126,13 +139,19 @@ impl CounterSet {
         self
     }
 
-    pub(crate) fn get(&self, counter_kind: KnownCounterKind) -> Option<MaxCountUInt> {
+    pub(crate) fn get(
+        &self,
+        counter_kind: KnownCounterKind,
+    ) -> Option<MaxCountUInt> {
         self.counts[counter_kind as usize]
     }
 
     /// Overwrites `other` with values set in `self`.
     pub(crate) fn overwrite(&self, other: &Self) -> Self {
-        Self { counts: KnownCounterKind::ALL.map(|kind| self.get(kind).or(other.get(kind))) }
+        Self {
+            counts: KnownCounterKind::ALL
+                .map(|kind| self.get(kind).or(other.get(kind))),
+        }
     }
 
     pub(crate) fn to_collection(&self) -> CounterCollection {

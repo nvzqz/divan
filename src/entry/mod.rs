@@ -57,8 +57,13 @@ pub struct GroupEntry {
 }
 
 impl GroupEntry {
-    pub(crate) fn generic_benches_iter(&self) -> impl Iterator<Item = &'static GenericBenchEntry> {
-        self.generic_benches.unwrap_or_default().iter().flat_map(|benches| benches.iter())
+    pub(crate) fn generic_benches_iter(
+        &self,
+    ) -> impl Iterator<Item = &'static GenericBenchEntry> {
+        self.generic_benches
+            .unwrap_or_default()
+            .iter()
+            .flat_map(|benches| benches.iter())
     }
 }
 

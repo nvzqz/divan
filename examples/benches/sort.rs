@@ -38,17 +38,23 @@ mod random {
 
     #[divan::bench]
     fn sort(bencher: Bencher) {
-        bencher.with_inputs(gen::rand_int_vec_generator()).bench_local_refs(|v| v.sort());
+        bencher
+            .with_inputs(gen::rand_int_vec_generator())
+            .bench_local_refs(|v| v.sort());
     }
 
     #[divan::bench]
     fn sort_unstable(bencher: Bencher) {
-        bencher.with_inputs(gen::rand_int_vec_generator()).bench_local_refs(|v| v.sort_unstable());
+        bencher
+            .with_inputs(gen::rand_int_vec_generator())
+            .bench_local_refs(|v| v.sort_unstable());
     }
 
     #[divan::bench]
     fn par_sort(bencher: Bencher) {
-        bencher.with_inputs(gen::rand_int_vec_generator()).bench_local_refs(|v| v.par_sort());
+        bencher
+            .with_inputs(gen::rand_int_vec_generator())
+            .bench_local_refs(|v| v.par_sort());
     }
 
     #[divan::bench]
@@ -64,7 +70,9 @@ mod sorted {
 
     #[divan::bench]
     fn sort(bencher: Bencher) {
-        bencher.with_inputs(gen::sorted_int_vec_generator()).bench_local_refs(|v| v.sort());
+        bencher
+            .with_inputs(gen::sorted_int_vec_generator())
+            .bench_local_refs(|v| v.sort());
     }
 
     #[divan::bench]
@@ -76,7 +84,9 @@ mod sorted {
 
     #[divan::bench]
     fn par_sort(bencher: Bencher) {
-        bencher.with_inputs(gen::sorted_int_vec_generator()).bench_local_refs(|v| v.par_sort());
+        bencher
+            .with_inputs(gen::sorted_int_vec_generator())
+            .bench_local_refs(|v| v.par_sort());
     }
 
     #[divan::bench]

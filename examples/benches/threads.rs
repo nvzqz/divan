@@ -227,7 +227,10 @@ mod thread_id {
                     match libc::pthread_key_create(&mut key, None) {
                         0 => break,
                         libc::EAGAIN => continue,
-                        error => panic!("{}", std::io::Error::from_raw_os_error(error)),
+                        error => panic!(
+                            "{}",
+                            std::io::Error::from_raw_os_error(error)
+                        ),
                     }
                 }
 
@@ -273,7 +276,10 @@ mod thread_id {
         impl Drop for Thread {
             fn drop(&mut self) {
                 unsafe {
-                    mach2::mach_port::mach_port_deallocate(mach2::traps::mach_task_self(), self.0);
+                    mach2::mach_port::mach_port_deallocate(
+                        mach2::traps::mach_task_self(),
+                        self.0,
+                    );
                 }
             }
         }
@@ -308,7 +314,9 @@ mod thread_id {
     fn GetCurrentProcessorNumberEx() -> (u16, u8) {
         unsafe {
             let mut result = std::mem::zeroed();
-            winapi::um::processthreadsapi::GetCurrentProcessorNumberEx(&mut result);
+            winapi::um::processthreadsapi::GetCurrentProcessorNumberEx(
+                &mut result,
+            );
             (result.Group, result.Number)
         }
     }
@@ -354,7 +362,10 @@ mod thread_id {
         unsafe {
             let result: usize;
 
-            #[cfg(all(target_arch = "x86_64", any(target_os = "macos", target_os = "windows")))]
+            #[cfg(all(
+                target_arch = "x86_64",
+                any(target_os = "macos", target_os = "windows")
+            ))]
             std::arch::asm!(
                 "mov {}, gs",
                 out(reg) result,
@@ -369,7 +380,10 @@ mod thread_id {
             );
 
             // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TPIDRRO-EL0--EL0-Read-Only-Software-Thread-ID-Register?lang=en
-            #[cfg(all(target_arch = "aarch64", any(target_os = "macos", target_os = "windows")))]
+            #[cfg(all(
+                target_arch = "aarch64",
+                any(target_os = "macos", target_os = "windows")
+            ))]
             std::arch::asm!(
                 "mrs {}, tpidrro_el0",
                 out(reg) result,

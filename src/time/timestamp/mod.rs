@@ -30,7 +30,9 @@ impl Timestamp {
 
     pub fn duration_since(self, earlier: Self, timer: Timer) -> FineDuration {
         match (self, earlier, timer) {
-            (Self::Os(this), Self::Os(earlier), Timer::Os) => this.duration_since(earlier).into(),
+            (Self::Os(this), Self::Os(earlier), Timer::Os) => {
+                this.duration_since(earlier).into()
+            }
             (Self::Tsc(this), Self::Tsc(earlier), Timer::Tsc { frequency }) => {
                 this.duration_since(earlier, frequency)
             }
