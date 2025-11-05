@@ -33,7 +33,7 @@ A guide is being worked on. In the meantime, see:
 
 ## Getting Started
 
-Divan `0.1.21` requires Rust `1.80.0` or later.
+Divan `0.1.21` requires Rust `1.91.0` or later.
 
 1. Add the following to your project's [`Cargo.toml`](https://doc.rust-lang.org/cargo/reference/manifest.html):
 
