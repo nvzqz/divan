@@ -34,8 +34,9 @@ impl TscTimestamp {
             target_arch = "x86",
             target_arch = "x86_64"
         ))]
-        return NonZeroU64::new(arch::frequency()?)
-            .ok_or(TscUnavailable::ZeroFrequency);
+        return arch::frequency().and_then(|v| {
+            NonZeroU64::new(v).ok_or(TscUnavailable::ZeroFrequency)
+        });
 
         Err(TscUnavailable::Unimplemented)
     }
