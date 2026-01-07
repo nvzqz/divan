@@ -155,6 +155,8 @@ pub use crate::{alloc::AllocProfiler, benchmark::Bencher, divan::Divan};
 /// ```
 ///
 /// See [`#[divan::bench]`](macro@bench) for more examples.
+///
+/// To get more options for running benchmarks, see [`Divan`] type.
 pub fn main() {
     Divan::from_args().main();
 }

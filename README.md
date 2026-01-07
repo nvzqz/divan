@@ -80,6 +80,20 @@ Divan `0.1.21` requires Rust `1.80.0` or later.
 
 See [`#[divan::bench]`][bench_attr] for info on benchmark function registration.
 
+## Checking benchmarks in CI
+
+If you want to run each benchmarked function only once (to check that they don't panic without measuring their performance), you can run the benchmark runner crate with the `--test` parameter. You can do so by running either
+
+```sh
+cargo bench -- --test
+```
+
+or
+
+```sh
+cargo test --benches
+```
+
 ## Examples
 
 Practical example benchmarks can be found in the [`examples/benches`](https://github.com/nvzqz/divan/tree/main/examples/benches)
