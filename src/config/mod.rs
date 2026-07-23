@@ -182,3 +182,14 @@ impl SortingAttr {
         Ordering::Equal
     }
 }
+
+/// The output format for benchmark results.
+#[derive(Clone, Copy, Default)]
+pub(crate) enum OutputFormat {
+    /// Tree-style output (default).
+    #[default]
+    Tree,
+
+    /// Golang benchmark compatible output.
+    Golang,
+}

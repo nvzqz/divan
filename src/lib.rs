@@ -28,6 +28,7 @@ mod compile_fail;
 mod config;
 mod divan;
 mod entry;
+mod golang_painter;
 mod stats;
 mod time;
 mod tree_painter;

@@ -9,18 +9,74 @@ use crate::{
     benchmark::BenchOptions,
     config::{
         filter::{Filter, FilterSet},
-        Action, ParsedSeconds, RunIgnored, SortingAttr,
+        Action, OutputFormat, ParsedSeconds, RunIgnored, SortingAttr,
     },
     counter::{
         BytesCount, BytesFormat, CharsCount, CyclesCount, IntoCounter,
         ItemsCount, MaxCountUInt, PrivBytesFormat,
     },
     entry::{AnyBenchEntry, BenchEntryRunner, EntryTree},
+    golang_painter::GolangPainter,
     time::{Timer, TimerKind},
     tree_painter::{TreeColumn, TreePainter},
     util::{self, thread::ThreadPool, IntoRegex},
     Bencher,
 };
+
+/// Painter abstraction for different output formats.
+enum Painter {
+    Tree(TreePainter),
+    Golang(GolangPainter),
+}
+
+impl Painter {
+    fn start_parent(&mut self, name: &str, is_last: bool) {
+        match self {
+            Painter::Tree(p) => p.start_parent(name, is_last),
+            Painter::Golang(p) => p.start_parent(name, is_last),
+        }
+    }
+
+    fn finish_parent(&mut self) {
+        match self {
+            Painter::Tree(p) => p.finish_parent(),
+            Painter::Golang(p) => p.finish_parent(),
+        }
+    }
+
+    fn ignore_leaf(&mut self, name: &str, is_last: bool) {
+        match self {
+            Painter::Tree(p) => p.ignore_leaf(name, is_last),
+            Painter::Golang(p) => p.ignore_leaf(name, is_last),
+        }
+    }
+
+    fn start_leaf(&mut self, name: &str, is_last: bool) {
+        match self {
+            Painter::Tree(p) => p.start_leaf(name, is_last),
+            Painter::Golang(p) => p.start_leaf(name, is_last),
+        }
+    }
+
+    fn finish_empty_leaf(&mut self) {
+        match self {
+            Painter::Tree(p) => p.finish_empty_leaf(),
+            Painter::Golang(p) => p.finish_empty_leaf(),
+        }
+    }
+
+    fn finish_leaf(
+        &mut self,
+        is_last: bool,
+        stats: &crate::stats::Stats,
+        bytes_format: BytesFormat,
+    ) {
+        match self {
+            Painter::Tree(p) => p.finish_leaf(is_last, stats, bytes_format),
+            Painter::Golang(p) => p.finish_leaf(is_last, stats, bytes_format),
+        }
+    }
+}
 
 /// The benchmark runner.
 #[derive(Default)]
@@ -31,6 +87,7 @@ pub struct Divan {
     sorting_attr: SortingAttr,
     color: ColorChoice,
     bytes_format: BytesFormat,
+    output_format: OutputFormat,
     filters: FilterSet,
     run_ignored: RunIgnored,
     bench_options: BenchOptions<'static>,
@@ -163,25 +220,32 @@ impl Divan {
         let shared_context =
             SharedContext { action, timer, thread_pool: ThreadPool::new() };
 
-        let column_widths = if action.is_bench() {
-            TreeColumn::ALL.map(|column| {
-                if column.is_last() {
-                    // The last column doesn't use padding.
-                    0
+        let painter = match self.output_format {
+            OutputFormat::Tree => {
+                let column_widths = if action.is_bench() {
+                    TreeColumn::ALL.map(|column| {
+                        if column.is_last() {
+                            // The last column doesn't use padding.
+                            0
+                        } else {
+                            EntryTree::common_column_width(&tree, column)
+                        }
+                    })
                 } else {
-                    EntryTree::common_column_width(&tree, column)
-                }
-            })
-        } else {
-            [0; TreeColumn::COUNT]
+                    [0; TreeColumn::COUNT]
+                };
+
+                Painter::Tree(TreePainter::new(
+                    EntryTree::max_name_span(&tree, 0),
+                    column_widths,
+                ))
+            }
+            OutputFormat::Golang => Painter::Golang(GolangPainter::new()),
         };
 
-        let tree_painter = RefCell::new(TreePainter::new(
-            EntryTree::max_name_span(&tree, 0),
-            column_widths,
-        ));
+        let painter = RefCell::new(painter);
 
-        self.run_tree(action, &tree, &shared_context, None, &tree_painter);
+        self.run_tree(action, &tree, &shared_context, None, &painter);
     }
 
     /// Emits the entries in `tree` for the purpose of `--list --format terse`.
@@ -231,7 +295,7 @@ impl Divan {
         tree: &[EntryTree],
         shared_context: &SharedContext,
         parent_options: Option<&BenchOptions>,
-        tree_painter: &RefCell<TreePainter>,
+        painter: &RefCell<Painter>,
     ) {
         for (i, child) in tree.iter().enumerate() {
             let is_last = i == tree.len() - 1;
@@ -261,21 +325,21 @@ impl Divan {
                     args.as_deref(),
                     shared_context,
                     options,
-                    tree_painter,
+                    painter,
                     is_last,
                 ),
                 EntryTree::Parent { children, .. } => {
-                    tree_painter.borrow_mut().start_parent(name, is_last);
+                    painter.borrow_mut().start_parent(name, is_last);
 
                     self.run_tree(
                         action,
                         children,
                         shared_context,
                         options,
-                        tree_painter,
+                        painter,
                     );
 
-                    tree_painter.borrow_mut().finish_parent();
+                    painter.borrow_mut().finish_parent();
                 }
             }
         }
@@ -288,7 +352,7 @@ impl Divan {
         bench_arg_names: Option<&[&&str]>,
         shared_context: &SharedContext,
         entry_options: Option<&BenchOptions>,
-        tree_painter: &RefCell<TreePainter>,
+        painter: &RefCell<Painter>,
         is_last_entry: bool,
     ) {
         use crate::benchmark::BenchContext;
@@ -306,17 +370,15 @@ impl Divan {
         };
 
         if self.should_ignore(options.ignore.unwrap_or_default()) {
-            tree_painter
-                .borrow_mut()
-                .ignore_leaf(entry_display_name, is_last_entry);
+            painter.borrow_mut().ignore_leaf(entry_display_name, is_last_entry);
             return;
         }
 
         // Paint empty leaf when simply listing.
         if action.is_list() {
-            let mut tree_painter = tree_painter.borrow_mut();
-            tree_painter.start_leaf(entry_display_name, is_last_entry);
-            tree_painter.finish_empty_leaf();
+            let mut painter = painter.borrow_mut();
+            painter.start_leaf(entry_display_name, is_last_entry);
+            painter.finish_empty_leaf();
             return;
         }
 
@@ -348,11 +410,11 @@ impl Divan {
              is_last_bench: bool,
              with_bencher: &dyn Fn(Bencher)| {
                 if has_thread_branches {
-                    tree_painter
+                    painter
                         .borrow_mut()
                         .start_parent(bench_display_name, is_last_bench);
                 } else {
-                    tree_painter
+                    painter
                         .borrow_mut()
                         .start_leaf(bench_display_name, is_last_bench);
                 }
@@ -365,7 +427,7 @@ impl Divan {
                     };
 
                     if has_thread_branches {
-                        tree_painter.borrow_mut().start_leaf(
+                        painter.borrow_mut().start_leaf(
                             &format!("t={thread_count}"),
                             is_last_thread_count,
                         );
@@ -389,18 +451,18 @@ impl Divan {
 
                     if should_compute_stats {
                         let stats = bench_context.compute_stats();
-                        tree_painter.borrow_mut().finish_leaf(
+                        painter.borrow_mut().finish_leaf(
                             is_last_thread_count,
                             &stats,
                             self.bytes_format,
                         );
                     } else {
-                        tree_painter.borrow_mut().finish_empty_leaf();
+                        painter.borrow_mut().finish_empty_leaf();
                     }
                 }
 
                 if has_thread_branches {
-                    tree_painter.borrow_mut().finish_parent();
+                    painter.borrow_mut().finish_parent();
                 }
             };
 
@@ -410,7 +472,7 @@ impl Divan {
             }
 
             BenchEntryRunner::Args(bench_runner) => {
-                tree_painter
+                painter
                     .borrow_mut()
                     .start_parent(entry_display_name, is_last_entry);
 
@@ -428,7 +490,7 @@ impl Divan {
                     });
                 }
 
-                tree_painter.borrow_mut().finish_parent();
+                painter.borrow_mut().finish_parent();
             }
         }
     }
@@ -538,6 +600,10 @@ impl Divan {
         } else if let Some(&sorting_attr) = matches.get_one("sort") {
             self.reverse_sort = false;
             self.sorting_attr = sorting_attr;
+        }
+
+        if let Some(&output_format) = matches.get_one("output-format") {
+            self.output_format = output_format;
         }
 
         if let Some(&sample_count) = matches.get_one("sample-count") {
