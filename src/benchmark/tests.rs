@@ -18,6 +18,15 @@ const SAMPLE_COUNT: u32 = 3;
 
 const SAMPLE_SIZE: u32 = 2;
 
+#[test]
+fn sample_iteration_limit() {
+    let mut mode = BenchMode::Tune { sample_size: MAX_SAMPLE_SIZE - 1 };
+
+    assert!(mode.increase_sample_size());
+    assert_eq!(mode.sample_size(), MAX_SAMPLE_SIZE);
+    assert!(!mode.increase_sample_size());
+}
+
 // Tests `SAMPLE_COUNT` by including it in the middle and having higher numbers
 // where `SAMPLE_COUNT % n != 0`.
 const THREAD_COUNTS: &[usize] = if cfg!(miri) {
