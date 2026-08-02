@@ -38,6 +38,7 @@ pub use self::{
 };
 
 pub(crate) const DEFAULT_SAMPLE_COUNT: u32 = 100;
+const MAX_SAMPLE_SIZE: u32 = 10_000;
 
 /// Enables contextual benchmarking in [`#[divan::bench]`](attr.bench.html).
 ///
@@ -526,6 +527,20 @@ impl BenchMode {
             | Self::Collect { sample_size, .. } => sample_size,
         }
     }
+
+    #[inline]
+    fn increase_sample_size(&mut self) -> bool {
+        let Self::Tune { sample_size } = self else {
+            return false;
+        };
+
+        if *sample_size >= MAX_SAMPLE_SIZE {
+            return false;
+        }
+
+        *sample_size = (*sample_size * 2).min(MAX_SAMPLE_SIZE);
+        true
+    }
 }
 
 /// `#[divan::bench]` loop context.
@@ -792,10 +807,9 @@ impl<'a> BenchContext<'a> {
                 // If within 100x timer precision, continue tuning.
                 let precision_multiple =
                     slowest_time.picos / timer_precision.picos;
-                if precision_multiple <= 100 {
-                    current_mode =
-                        BenchMode::Tune { sample_size: sample_size * 2 };
-                } else {
+                if precision_multiple > 100
+                    || !current_mode.increase_sample_size()
+                {
                     current_mode = BenchMode::Collect { sample_size };
                     rem_samples = Some(
                         self.options
