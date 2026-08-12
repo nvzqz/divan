@@ -1,6 +1,6 @@
 //! Happy little trees.
 
-use std::{io::Write, iter::repeat};
+use std::io::Write;
 
 use crate::{
     alloc::{AllocOp, AllocTally},
@@ -68,7 +68,7 @@ impl TreePainter {
             let max_span = self.max_name_span;
             let buf_len = buf.chars().count();
             let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
-            buf.extend(repeat(' ').take(pad_len));
+            buf.extend(std::iter::repeat_n(' ', pad_len));
 
             if buf_len > max_span {
                 self.max_name_span = buf_len;
@@ -157,7 +157,7 @@ impl TreePainter {
             let max_span = self.max_name_span;
             let buf_len = buf.chars().count();
             let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
-            buf.extend(repeat(' ').take(pad_len));
+            buf.extend(std::iter::repeat_n(' ', pad_len));
 
             if buf_len > max_span {
                 self.max_name_span = buf_len;
@@ -541,7 +541,7 @@ impl TreeColumnData<&str> {
                 if let Some(rem_width) =
                     column_widths[column].checked_sub(value_width)
                 {
-                    buf.extend(repeat(' ').take(rem_width));
+                    buf.extend(std::iter::repeat_n(' ', rem_width));
                 } else {
                     column_widths[column] = value_width;
                 }
@@ -563,7 +563,7 @@ impl<T> TreeColumnData<T> {
 fn right_pad_buffer(buf: &mut String, max_span: &mut usize) {
     let buf_len = buf.chars().count();
     let pad_len = TREE_COL_BUF + max_span.saturating_sub(buf_len);
-    buf.extend(repeat(' ').take(pad_len));
+    buf.extend(std::iter::repeat_n(' ', pad_len));
 
     if buf_len > *max_span {
         *max_span = buf_len;

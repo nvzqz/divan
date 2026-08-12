@@ -33,7 +33,7 @@ pub struct EntryLocation {
 
 impl EntryMeta {
     #[inline]
-    pub(crate) fn bench_options(&self) -> Option<&BenchOptions> {
+    pub(crate) fn bench_options(&self) -> Option<&BenchOptions<'_>> {
         self.bench_options.as_deref()
     }
 

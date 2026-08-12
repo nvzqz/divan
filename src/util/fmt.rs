@@ -94,7 +94,7 @@ impl fmt::Display for DisplayThroughput<'_> {
         {
             match f.align() {
                 None | Some(fmt::Alignment::Left) => {
-                    str.extend(std::iter::repeat(f.fill()).take(fill_len));
+                    str.extend(std::iter::repeat_n(f.fill(), fill_len));
                 }
                 _ => return Err(fmt::Error),
             }
