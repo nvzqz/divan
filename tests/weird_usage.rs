@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use divan::{Divan, __private::BENCH_ENTRIES};
+use divan::{__private::BENCH_ENTRIES, Divan};
 
 #[divan::bench(
     bytes_count = 0u8,
