@@ -26,9 +26,9 @@ fnv = { version = "1", optional = true }
 highway = { version = "1.1", optional = true }
 metrohash = { version = "1", optional = true }
 seahash = { version = "4.1", optional = true }
-sha1 = { version = "0.10", optional = true }
-sha2 = { version = "0.10", optional = true }
-sha3 = { version = "0.10", optional = true }
+sha1 = { version = "0.11", optional = true }
+sha2 = { version = "0.11", optional = true }
+sha3 = { version = "0.11", optional = true }
 twox-hash = { version = "1.6", optional = true }
 
 [target.'cfg(unix)'.dependencies]

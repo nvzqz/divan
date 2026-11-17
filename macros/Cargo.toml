@@ -6,7 +6,6 @@ authors = ["Nikolai Vazquez"]
 license = "MIT OR Apache-2.0"
 description = "Macros for Divan, a statistically-comfy benchmarking library."
 repository = "https://github.com/nvzqz/divan"
-homepage = "https://github.com/nvzqz/divan"
 documentation = "https://docs.rs/divan-macros"
 categories = ["development-tools::profiling"]
 keywords = ["benchmark", "criterion", "instrument", "measure", "performance"]
