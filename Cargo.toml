@@ -7,7 +7,6 @@ authors = ["Nikolai Vazquez"]
 license = "MIT OR Apache-2.0"
 description = "Statistically-comfy benchmarking library."
 repository = "https://github.com/nvzqz/divan"
-homepage = "https://github.com/nvzqz/divan"
 documentation = "https://docs.rs/divan"
 categories = ["development-tools::profiling"]
 keywords = ["benchmark", "criterion", "instrument", "measure", "performance"]
@@ -36,11 +35,15 @@ clap = { version = "4", default-features = false, features = ["std", "env"] }
 condtype = "1.3"
 regex = { package = "regex-lite", version = "0.1", default-features = false, features = ["std", "string"] }
 
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = { workspace = true }
+
+[dev-dependencies]
 libc = { workspace = true }
 
 [target.'cfg(not(miri))'.dev-dependencies]
 mimalloc = "0.1"
+
 
 [workspace]
 members = ["macros", "examples", "internal_benches"]
